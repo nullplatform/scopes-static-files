@@ -23,7 +23,7 @@ RESOURCE_TAGS_JSON=$(echo "$CONTEXT" | jq \
 
 TOFU_VARIABLES={}
 
-tf_state_key="static-files/$namespace_slug/$application_slug/$scope_slug-$scope_id"
+tf_state_key="nullplatform/scopes/static-files/$namespace_slug/$application_slug/$scope_slug-$scope_id"
 
 TOFU_INIT_VARIABLES="${TOFU_INIT_VARIABLES:-} -backend-config=key=$tf_state_key"
 

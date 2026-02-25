@@ -68,7 +68,7 @@ run_build_context() {
 
   # Should contain the expected backend-config key
 
-  assert_contains "$TOFU_INIT_VARIABLES" "key=static-files/tools/automation/development-tools-$scope_id"
+  assert_contains "$TOFU_INIT_VARIABLES" "key=nullplatform/scopes/static-files/tools/automation/development-tools-$scope_id"
 }
 
 # =============================================================================
