@@ -2,7 +2,7 @@
 # =============================================================================
 # Integration test: CloudFront + Route53 Lifecycle
 #
-# Tests the full lifecycle of a static frontend deployment:
+# Tests the full lifecycle of a static files deployment:
 #   1. Create infrastructure (CloudFront distribution + Route53 record)
 #   2. Verify all resources are configured correctly
 #   3. Destroy infrastructure
@@ -72,7 +72,7 @@ setup() {
   source "${BATS_TEST_DIRNAME}/route53_assertions.bash"
 
   clear_mocks
-  load_context "frontend/deployment/tests/resources/context.json"
+  load_context "static-files/deployment/tests/resources/context.json"
   override_context "providers.cloud-providers.networking.hosted_public_zone_id" "$HOSTED_ZONE_ID"
 
   # Export environment variables
@@ -82,11 +82,11 @@ setup() {
   export TOFU_PROVIDER_BUCKET="tofu-state-bucket"
   export TOFU_LOCK_TABLE="tofu-locks"
   export AWS_REGION="us-east-1"
-  export SERVICE_PATH="$INTEGRATION_MODULE_ROOT/frontend"
+  export SERVICE_PATH="$INTEGRATION_MODULE_ROOT/static-files"
   export CUSTOM_TOFU_MODULES="$INTEGRATION_MODULE_ROOT/testing/localstack-provider"
 
   # Setup API mocks for np CLI calls
-  local mocks_dir="frontend/deployment/tests/integration/mocks/"
+  local mocks_dir="static-files/deployment/tests/integration/mocks/"
   mock_request "GET" "/category" "$mocks_dir/asset_repository/category.json"
   mock_request "GET" "/provider_specification" "$mocks_dir/asset_repository/list_provider_spec.json"
   mock_request "GET" "/provider" "$mocks_dir/asset_repository/list_provider.json"
@@ -99,7 +99,7 @@ setup() {
 # =============================================================================
 
 @test "create infrastructure deploys CloudFront and Route53 resources" {
-  run_workflow "frontend/deployment/workflows/initial.yaml"
+  run_workflow "static-files/deployment/workflows/initial.yaml"
 
   assert_cloudfront_configured \
     "$TEST_DISTRIBUTION_COMMENT" \
@@ -123,7 +123,7 @@ setup() {
     "$BATS_TEST_DIRNAME/../../scripts/disable_cloudfront.sh" "$TEST_DISTRIBUTION_COMMENT"
   fi
 
-  run_workflow "frontend/deployment/workflows/delete.yaml"
+  run_workflow "static-files/deployment/workflows/delete.yaml"
 
   assert_cloudfront_not_configured "$TEST_DISTRIBUTION_COMMENT"
   assert_route53_not_configured "$TEST_NETWORK_FULL_DOMAIN" "A" "$HOSTED_ZONE_ID"

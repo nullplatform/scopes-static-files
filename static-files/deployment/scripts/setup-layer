@@ -10,7 +10,7 @@
 #   ./setup-layer --type provider --name digitalocean
 #
 # This will create:
-#   frontend/deployment/{type}/{name}/
+#   static-files/deployment/{type}/{name}/
 #   ├── setup
 #   └── modules/
 #       ├── main.tf
@@ -637,6 +637,6 @@ echo "  3. Update modules/variables.tf with required inputs"
 echo "  4. Update modules/locals.tf with cross-layer references"
 echo "  5. Add unit tests to tests/$LAYER_TYPE/$LAYER_NAME/"
 echo ""
-echo -e "${CYAN}Tip:${NC} See frontend/README.md for the Claude prompt template"
+echo -e "${CYAN}Tip:${NC} See static-files/README.md for the Claude prompt template"
 echo "     to help implement the setup script and Terraform files."
 echo ""

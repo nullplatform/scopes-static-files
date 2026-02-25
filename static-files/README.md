@@ -1,6 +1,6 @@
-# Frontend Deployment Module
+# Static Files Deployment Module
 
-This module provides infrastructure-as-code for deploying static frontend applications across multiple cloud providers. It uses a **layered architecture** that separates concerns and enables mix-and-match combinations of providers, DNS solutions, and CDN/hosting platforms.
+This module provides infrastructure-as-code for deploying static files applications across multiple cloud providers. It uses a **layered architecture** that separates concerns and enables mix-and-match combinations of providers, DNS solutions, and CDN/hosting platforms.
 
 ## Table of Contents
 
@@ -80,7 +80,7 @@ Terraform/OpenTofu files:
 ### Directory Structure
 
 ```
-frontend/deployment/
+static-files/deployment/
 ├── provider/
 │   └── {cloud}/
 │       ├── setup              # Validation & module registration
@@ -242,7 +242,7 @@ Use the provided script to generate the folder structure:
 
 This creates:
 ```
-frontend/deployment/{type}/{name}/
+static-files/deployment/{type}/{name}/
 ├── setup                    # Boilerplate setup script
 └── modules/
     ├── main.tf              # Empty, ready for resources
@@ -384,9 +384,9 @@ We use **three types of tests** to ensure quality at different levels:
 
 Test bash setup scripts in isolation using mocked commands.
 
-**Location:** `frontend/deployment/tests/{layer_type}/{name}/setup_test.bats`
+**Location:** `static-files/deployment/tests/{layer_type}/{name}/setup_test.bats`
 
-**Run:** `make test-unit` or `make test-unit MODULE=frontend`
+**Run:** `make test-unit` or `make test-unit MODULE=static-files`
 
 **Example files:**
 - Provider: [`tests/provider/azure/setup_test.bats`](deployment/tests/provider/azure/setup_test.bats)
@@ -423,9 +423,9 @@ setup() {
 
 Test Terraform modules using `tofu test` with mock providers.
 
-**Location:** `frontend/deployment/{layer_type}/{name}/modules/{name}.tftest.hcl`
+**Location:** `static-files/deployment/{layer_type}/{name}/modules/{name}.tftest.hcl`
 
-**Run:** `make test-tofu` or `make test-tofu MODULE=frontend`
+**Run:** `make test-tofu` or `make test-tofu MODULE=static-files`
 
 **Example files:**
 - Provider: [`provider/azure/modules/provider.tftest.hcl`](deployment/provider/azure/modules/provider.tftest.hcl)
@@ -473,9 +473,9 @@ run "test_full_domain_output" {
 
 Test complete workflows with mocked external dependencies (LocalStack, Azure Mock, Smocker).
 
-**Location:** `frontend/deployment/tests/integration/test_cases/{scenario}/lifecycle_test.bats`
+**Location:** `static-files/deployment/tests/integration/test_cases/{scenario}/lifecycle_test.bats`
 
-**Run:** `make test-integration` or `make test-integration MODULE=frontend`
+**Run:** `make test-integration` or `make test-integration MODULE=static-files`
 
 **Example file:** [`tests/integration/test_cases/azure_blobcdn_azuredns/lifecycle_test.bats`](deployment/tests/integration/test_cases/azure_blobcdn_azuredns/lifecycle_test.bats)
 
@@ -505,7 +505,7 @@ teardown_file() {
 
 setup() {
   source "${PROJECT_ROOT}/testing/integration_helpers.sh"
-  load_context "frontend/deployment/tests/resources/context.json"
+  load_context "static-files/deployment/tests/resources/context.json"
 
   # Configure layer selection
   export NETWORK_LAYER="azure_dns"
@@ -517,14 +517,14 @@ setup() {
 }
 
 @test "create infrastructure deploys resources" {
-  run_workflow "frontend/deployment/workflows/initial.yaml"
+  run_workflow "static-files/deployment/workflows/initial.yaml"
 
   assert_azure_cdn_configured "$TEST_DISTRIBUTION_APP_NAME" ...
   assert_azure_dns_configured "$TEST_NETWORK_DOMAIN" ...
 }
 
 @test "destroy infrastructure removes resources" {
-  run_workflow "frontend/deployment/workflows/delete.yaml"
+  run_workflow "static-files/deployment/workflows/delete.yaml"
 
   assert_azure_cdn_not_configured ...
   assert_azure_dns_not_configured ...
@@ -543,9 +543,9 @@ make test-tofu              # OpenTofu module tests
 make test-integration       # Full workflow integration tests
 
 # Run tests for specific module
-make test-unit MODULE=frontend
-make test-tofu MODULE=frontend
-make test-integration MODULE=frontend
+make test-unit MODULE=static-files
+make test-tofu MODULE=static-files
+make test-integration MODULE=static-files
 
 # Run with verbose output (integration only)
 make test-integration VERBOSE=1
@@ -596,11 +596,11 @@ export DISTRIBUTION_LAYER=cloudfront # or: blob-cdn, amplify, firebase, etc.
 When asking an AI assistant to help implement a new layer, just paste this prompt:
 
 ````
-I need to implement a new layer in the frontend deployment module.
+I need to implement a new layer in the static-files deployment module.
 
 **IMPORTANT:** Before starting:
 
-1. Read `frontend/README.md` to understand:
+1. Read `static-files/README.md` to understand:
    - The layer system architecture and how layers interact
    - Variable naming conventions (layer prefixes)
    - Cross-layer communication via locals
@@ -625,25 +625,25 @@ I need to implement a new layer in the frontend deployment module.
 **Reference Files by Layer Type:**
 
 For PROVIDER layers, reference:
-- Setup script: `frontend/deployment/provider/azure/setup`
-- Terraform module: `frontend/deployment/provider/azure/modules/`
-- Unit test (BATS): `frontend/deployment/tests/provider/azure/setup_test.bats`
-- Tofu test: `frontend/deployment/provider/azure/modules/provider.tftest.hcl`
+- Setup script: `static-files/deployment/provider/azure/setup`
+- Terraform module: `static-files/deployment/provider/azure/modules/`
+- Unit test (BATS): `static-files/deployment/tests/provider/azure/setup_test.bats`
+- Tofu test: `static-files/deployment/provider/azure/modules/provider.tftest.hcl`
 
 For NETWORK layers, reference:
-- Setup script: `frontend/deployment/network/azure_dns/setup`
-- Terraform module: `frontend/deployment/network/azure_dns/modules/`
-- Unit test (BATS): `frontend/deployment/tests/network/azure_dns/setup_test.bats`
-- Tofu test: `frontend/deployment/network/azure_dns/modules/azure_dns.tftest.hcl`
+- Setup script: `static-files/deployment/network/azure_dns/setup`
+- Terraform module: `static-files/deployment/network/azure_dns/modules/`
+- Unit test (BATS): `static-files/deployment/tests/network/azure_dns/setup_test.bats`
+- Tofu test: `static-files/deployment/network/azure_dns/modules/azure_dns.tftest.hcl`
 
 For DISTRIBUTION layers, reference:
-- Setup script: `frontend/deployment/distribution/blob-cdn/setup`
-- Terraform module: `frontend/deployment/distribution/blob-cdn/modules/`
-- Unit test (BATS): `frontend/deployment/tests/distribution/blob-cdn/setup_test.bats`
-- Tofu test: `frontend/deployment/distribution/blob-cdn/modules/blob-cdn.tftest.hcl`
+- Setup script: `static-files/deployment/distribution/blob-cdn/setup`
+- Terraform module: `static-files/deployment/distribution/blob-cdn/modules/`
+- Unit test (BATS): `static-files/deployment/tests/distribution/blob-cdn/setup_test.bats`
+- Tofu test: `static-files/deployment/distribution/blob-cdn/modules/blob-cdn.tftest.hcl`
 
 For INTEGRATION tests, reference:
-- `frontend/deployment/tests/integration/test_cases/azure_blobcdn_azuredns/lifecycle_test.bats`
+- `static-files/deployment/tests/integration/test_cases/azure_blobcdn_azuredns/lifecycle_test.bats`
 ````
 
 ---

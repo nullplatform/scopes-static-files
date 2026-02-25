@@ -2,7 +2,7 @@
 # =============================================================================
 # Integration test: Azure BlobCDN + Azure DNS Lifecycle
 #
-# Tests the full lifecycle of a static frontend deployment on Azure:
+# Tests the full lifecycle of a static files deployment on Azure:
 #   1. Create infrastructure (CDN endpoint + DNS CNAME record)
 #   2. Verify all resources are configured correctly
 #   3. Destroy infrastructure
@@ -75,13 +75,13 @@ setup() {
   source "${BATS_TEST_DIRNAME}/dns_assertions.bash"
 
   clear_mocks
-  load_context "frontend/deployment/tests/resources/context_azure.json"
+  load_context "static-files/deployment/tests/resources/context_azure.json"
 
   # Export environment variables
   export NETWORK_LAYER="azure_dns"
   export DISTRIBUTION_LAYER="blob-cdn"
   export TOFU_PROVIDER="azure"
-  export SERVICE_PATH="$INTEGRATION_MODULE_ROOT/frontend"
+  export SERVICE_PATH="$INTEGRATION_MODULE_ROOT/static-files"
   export CUSTOM_TOFU_MODULES="$INTEGRATION_MODULE_ROOT/testing/azure-mock-provider"
 
   # Azure provider required environment variables
@@ -92,7 +92,7 @@ setup() {
   export TOFU_PROVIDER_CONTAINER="tfstate"
 
   # Setup API mocks for np CLI calls
-  local mocks_dir="frontend/deployment/tests/integration/mocks/"
+  local mocks_dir="static-files/deployment/tests/integration/mocks/"
   mock_request "GET" "/category" "$mocks_dir/asset_repository/category.json"
   mock_request "GET" "/provider_specification" "$mocks_dir/asset_repository/list_provider_spec.json"
   mock_request "GET" "/provider" "$mocks_dir/azure_asset_repository/list_provider.json"
@@ -120,7 +120,7 @@ setup() {
 # =============================================================================
 
 @test "create infrastructure deploys Azure CDN and DNS resources" {
-  run_workflow "frontend/deployment/workflows/initial.yaml"
+  run_workflow "static-files/deployment/workflows/initial.yaml"
 
   assert_azure_cdn_configured \
     "$TEST_DISTRIBUTION_APP_NAME" \
@@ -140,7 +140,7 @@ setup() {
 # =============================================================================
 
 @test "destroy infrastructure removes Azure CDN and DNS resources" {
-  run_workflow "frontend/deployment/workflows/delete.yaml"
+  run_workflow "static-files/deployment/workflows/delete.yaml"
 
   assert_azure_cdn_not_configured \
     "$TEST_DISTRIBUTION_APP_NAME" \

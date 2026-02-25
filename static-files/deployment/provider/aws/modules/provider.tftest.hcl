@@ -15,7 +15,7 @@ variables {
 
   provider_resource_tags_json = {
     Environment = "test"
-    Project     = "frontend"
+    Project     = "static-files"
     ManagedBy   = "terraform"
   }
 }
