@@ -1,5 +1,10 @@
 #!/bin/bash
 
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../scripts/get_config_value"
+
 echo "🔍 Validating Azure CDN distribution configuration..."
 
 application_slug=$(echo "$CONTEXT" | jq -r .application.slug)
@@ -15,8 +20,7 @@ echo "   📡 Fetching assets-repository provider..."
 
 nrn=$(echo "$CONTEXT" | jq -r .scope.nrn)
 
-asset_repository=$(np provider list --nrn "$nrn" --categories assets-repository --format json 2>&1)
-np_exit_code=$?
+asset_repository=$(np provider list --nrn "$nrn" --categories assets-repository --format json 2>&1) && np_exit_code=0 || np_exit_code=$?
 
 echo $asset_repository | jq .
 

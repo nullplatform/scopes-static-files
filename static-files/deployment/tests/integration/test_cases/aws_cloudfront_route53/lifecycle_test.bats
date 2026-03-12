@@ -74,6 +74,9 @@ setup() {
   clear_mocks
   load_context "static-files/deployment/tests/resources/context.json"
   override_context "providers.cloud-providers.networking.hosted_public_zone_id" "$HOSTED_ZONE_ID"
+  override_context 'providers.scope-configurations.network.aws_hosted_public_zone_id' "$HOSTED_ZONE_ID"
+  override_context 'providers.scope-configurations.provider.aws_state_bucket' "tofu-state-bucket"
+  override_context 'providers.scope-configurations.provider.aws_state_lock_table' "tofu-locks"
 
   # Export environment variables
   export NETWORK_LAYER="route53"

@@ -1,47 +1,72 @@
 #!/bin/bash
 
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../scripts/get_config_value"
+
 echo "🔍 Validating AWS provider configuration..."
+echo ""
 
 missing_vars=()
 
-function validate_env_var() {
-  local variable_name=$1
-  local variable_value="${!variable_name}"
-
-  if [ -z "$variable_value" ]; then
-    echo "   ❌ $variable_name is missing"
-    missing_vars+=("$variable_name")
-  else
-    echo "   ✅ $variable_name=$variable_value"
-  fi
-}
-
-validate_env_var AWS_REGION
-validate_env_var TOFU_PROVIDER_BUCKET
-validate_env_var TOFU_LOCK_TABLE
-
-if [ ${#missing_vars[@]} -gt 0 ]; then
-  echo ""
-  echo "  🔧 How to fix:"
-  echo "    Set the missing variable(s) in the nullplatform agent Helm installation:"
-  for var in "${missing_vars[@]}"; do
-    echo "      • $var"
-  done
-  echo ""
-  exit 1
+AWS_REGION=$(get_config_value \
+	--provider '.providers["scope-configurations"].provider.aws_region' \
+	--env AWS_REGION)
+if [ -z "$AWS_REGION" ]; then
+	echo "   ❌ aws_region is missing"
+	missing_vars+=("aws_region")
+else
+	echo "   ✅ aws_region=$AWS_REGION"
 fi
 
+TOFU_PROVIDER_BUCKET=$(get_config_value \
+	--provider '.providers["scope-configurations"].provider.aws_state_bucket' \
+	--env TOFU_PROVIDER_BUCKET)
+if [ -z "$TOFU_PROVIDER_BUCKET" ]; then
+	echo "   ❌ aws_state_bucket is missing"
+	missing_vars+=("aws_state_bucket")
+else
+	echo "   ✅ aws_state_bucket=$TOFU_PROVIDER_BUCKET"
+fi
+
+TOFU_LOCK_TABLE=$(get_config_value \
+	--provider '.providers["scope-configurations"].provider.aws_state_lock_table' \
+	--env TOFU_LOCK_TABLE)
+if [ -z "$TOFU_LOCK_TABLE" ]; then
+	echo "   ❌ aws_state_lock_table is missing"
+	missing_vars+=("aws_state_lock_table")
+else
+	echo "   ✅ aws_state_lock_table=$TOFU_LOCK_TABLE"
+fi
+
+if [ ${#missing_vars[@]} -gt 0 ]; then
+	echo ""
+	echo "  💡 Possible causes:"
+	echo "    • The scope-configurations provider is missing these fields"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    Set the missing field(s) in the scope-configurations provider:"
+	for var in "${missing_vars[@]}"; do
+		echo "      • provider.$var"
+	done
+	echo "    Or set the equivalent environment variable in the agent Helm installation"
+	echo ""
+	exit 1
+fi
+
+echo ""
 echo "✨ AWS provider configured successfully"
 echo ""
 
 RESOURCE_TAGS_JSON=${RESOURCE_TAGS_JSON:-"{}"}
 
 TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
-  --arg aws_region "$AWS_REGION" \
-  --arg tf_state_bucket "$TOFU_PROVIDER_BUCKET" \
-  --argjson resource_tags_json "$RESOURCE_TAGS_JSON" \
-  --arg tf_lock_table "$TOFU_LOCK_TABLE" \
-  '. + {aws_provider: {region: $aws_region, state_bucket: $tf_state_bucket, lock_table: $tf_lock_table}, provider_resource_tags_json: $resource_tags_json}')
+	--arg aws_region "$AWS_REGION" \
+	--arg tf_state_bucket "$TOFU_PROVIDER_BUCKET" \
+	--argjson resource_tags_json "$RESOURCE_TAGS_JSON" \
+	--arg tf_lock_table "$TOFU_LOCK_TABLE" \
+	'. + {aws_provider: {region: $aws_region, state_bucket: $tf_state_bucket, lock_table: $tf_lock_table}, provider_resource_tags_json: $resource_tags_json}')
 
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=bucket=$TOFU_PROVIDER_BUCKET"
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=region=$AWS_REGION"

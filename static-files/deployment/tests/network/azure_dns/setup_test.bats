@@ -26,11 +26,17 @@ setup() {
   # Add mock az and np to PATH (must be first)
   export PATH="$AZURE_MOCKS_DIR:$NP_MOCKS_DIR:$PATH"
 
-  # Load context with public_dns_zone_name and public_dns_zone_resource_group_name
+  # Load context with dns zone config via scope-configurations provider
   export CONTEXT='{
     "application": {"slug": "automation"},
     "scope": {"slug": "development-tools", "id": "7"},
     "providers": {
+      "scope-configurations": {
+        "network": {
+          "azure_dns_zone_name": "example.com",
+          "azure_dns_zone_resource_group": "my-resource-group"
+        }
+      },
       "cloud-providers": {
         "networking": {
           "public_dns_zone_resource_group_name": "my-resource-group",
@@ -64,13 +70,15 @@ run_azure_dns_setup() {
 # =============================================================================
 # Test: Required environment variables
 # =============================================================================
-@test "Should fail when public_dns_zone_name is not present in context" {
+@test "Should fail when dns_zone_name is not present in context" {
   export CONTEXT='{
     "application": {"slug": "automation"},
     "scope": {"slug": "development-tools"},
     "providers": {
+      "scope-configurations": {
+        "network": {}
+      },
       "cloud-providers": {
-        "public_dns_zone_resource_group_name": "my-resource-group",
         "networking": {}
       }
     }
@@ -79,18 +87,21 @@ run_azure_dns_setup() {
   run source "$SCRIPT_PATH"
 
   assert_equal "$status" "1"
-  assert_contains "$output" "   ❌ public_dns_zone_name is not set in context"
-
-  assert_contains "$output" "  🔧 How to fix:"
-  assert_contains "$output" "    • Ensure there is an Azure cloud-provider configured at the correct NRN hierarchy level"
-  assert_contains "$output" "    • Set the 'public_dns_zone_name' field with the Azure DNS zone name"
+  assert_contains "$output" "❌ dns_zone_name is not configured"
+  assert_contains "$output" "🔧 How to fix:"
+  assert_contains "$output" "scope-configurations provider"
 }
 
-@test "Should fail when public_dns_zone_resource_group_name is not present in context" {
+@test "Should fail when dns_zone_resource_group is not present in context" {
   export CONTEXT='{
     "application": {"slug": "automation"},
     "scope": {"slug": "development-tools"},
     "providers": {
+      "scope-configurations": {
+        "network": {
+          "azure_dns_zone_name": "example.com"
+        }
+      },
       "cloud-providers": {
         "networking": {
           "public_dns_zone_name": "example.com"
@@ -102,10 +113,9 @@ run_azure_dns_setup() {
   run source "$SCRIPT_PATH"
 
   assert_equal "$status" "1"
-  assert_contains "$output" "   ❌ public_dns_zone_resource_group_name is not set in context"
-
-  assert_contains "$output" "  🔧 How to fix:"
-  assert_contains "$output" "    • Ensure the Azure cloud-provider has 'public_dns_zone_resource_group_name' configured"
+  assert_contains "$output" "❌ dns_zone_resource_group is not configured"
+  assert_contains "$output" "🔧 How to fix:"
+  assert_contains "$output" "scope-configurations provider"
 }
 
 # =============================================================================

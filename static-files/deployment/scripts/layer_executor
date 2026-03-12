@@ -1,0 +1,67 @@
+#!/bin/bash
+# =============================================================================
+# Layer Executor
+#
+# Resolves and executes the correct setup script for a given layer type.
+# Called from workflows after build_context has exported the layer variables.
+#
+# Configuration (via workflow step configuration):
+#   LAYER_TYPE - The layer directory (provider, network, distribution)
+#   LAYER_VAR  - The environment variable holding the implementation name
+#
+# Example workflow step:
+#   - name: setup_provider_layer
+#     type: script
+#     file: "$SERVICE_PATH/deployment/scripts/layer_executor"
+#     configuration:
+#       LAYER_TYPE: provider
+#       LAYER_VAR: TOFU_PROVIDER
+#
+# If TOFU_PROVIDER=aws, executes: deployment/provider/aws/setup
+# =============================================================================
+
+set -euo pipefail
+
+if [ -z "${LAYER_TYPE:-}" ]; then
+	echo "   ❌ LAYER_TYPE is not set" >&2
+	echo "  🔧 How to fix: add LAYER_TYPE to the workflow step configuration" >&2
+	exit 1
+fi
+
+if [ -z "${LAYER_VAR:-}" ]; then
+	echo "   ❌ LAYER_VAR is not set" >&2
+	echo "  🔧 How to fix: add LAYER_VAR to the workflow step configuration" >&2
+	exit 1
+fi
+
+layer_value="${!LAYER_VAR:-}"
+
+if [ -z "$layer_value" ]; then
+	echo "   ❌ $LAYER_VAR is not set" >&2
+	echo ""
+	echo "  💡 Possible causes:"
+	echo "    • build_context did not resolve the $LAYER_TYPE layer"
+	echo "    • The scope-configurations provider is missing the $LAYER_TYPE configuration"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    • Ensure the scope-configurations provider has the $LAYER_TYPE layer configured"
+	echo ""
+	exit 1
+fi
+
+setup_script="$SERVICE_PATH/deployment/${LAYER_TYPE}/${layer_value}/setup"
+
+if [ ! -f "$setup_script" ]; then
+	echo "   ❌ Unknown $LAYER_TYPE implementation: '$layer_value'" >&2
+	echo ""
+	echo "  💡 Possible causes:"
+	echo "    • '$layer_value' is not a supported $LAYER_TYPE"
+	echo "    • The setup script does not exist at: $setup_script"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    • Check the available ${LAYER_TYPE} implementations in deployment/${LAYER_TYPE}/"
+	echo ""
+	exit 1
+fi
+
+source "$setup_script"

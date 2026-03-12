@@ -26,11 +26,16 @@ setup() {
   # Add mock aws and np to PATH (must be first)
   export PATH="$AWS_MOCKS_DIR:$NP_MOCKS_DIR:$PATH"
 
-  # Load context with hosted_public_zone_id
+  # Load context with hosted_public_zone_id via scope-configurations provider
   export CONTEXT='{
     "application": {"slug": "automation"},
     "scope": {"slug": "development-tools", "id": "7"},
     "providers": {
+      "scope-configurations": {
+        "network": {
+          "aws_hosted_public_zone_id": "Z1234567890ABC"
+        }
+      },
       "cloud-providers": {
         "networking": {
           "hosted_public_zone_id": "Z1234567890ABC"
@@ -75,6 +80,9 @@ run_route53_setup() {
     "application": {"slug": "automation"},
     "scope": {"slug": "development-tools"},
     "providers": {
+      "scope-configurations": {
+        "network": {}
+      },
       "cloud-providers": {
         "networking": {}
       }
@@ -84,11 +92,9 @@ run_route53_setup() {
   run source "$SCRIPT_PATH"
 
   assert_equal "$status" "1"
-  assert_contains "$output" "   ❌ hosted_public_zone_id is not set in context"
-
-  assert_contains "$output" "  🔧 How to fix:"
-  assert_contains "$output" "    1. Ensure there is an AWS cloud-provider configured at the correct NRN hierarchy level"
-  assert_contains "$output" "    2. Set the 'hosted_public_zone_id' field with the Route 53 hosted zone ID"
+  assert_contains "$output" "❌ hosted_public_zone_id is not configured"
+  assert_contains "$output" "🔧 How to fix:"
+  assert_contains "$output" "scope-configurations provider"
 }
 
 # =============================================================================

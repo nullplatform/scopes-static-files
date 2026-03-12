@@ -135,6 +135,21 @@
         "hosted_public_zone_id": "public-zone-id",
         "hosted_zone_id": "private-zone-id"
       }
+    },
+    "scope-configurations": {
+      "cloud_provider": "aws",
+      "provider": {
+        "aws_region": "us-east-1",
+        "aws_state_bucket": "my-org-tofu-state",
+        "aws_state_lock_table": "my-org-tofu-locks"
+      },
+      "distribution": {
+        "aws_distribution": "cloudfront"
+      },
+      "network": {
+        "aws_network": "route53",
+        "aws_hosted_public_zone_id": "Z1234567890ABC"
+      }
     }
   },
   "release": {
