@@ -20,7 +20,6 @@ setup() {
 
   export AWS_REGION="us-east-1"
   export TOFU_PROVIDER_BUCKET="my-terraform-state-bucket"
-  export TOFU_LOCK_TABLE="terraform-locks"
 
   # Base tofu variables
   export TOFU_VARIABLES='{
@@ -67,34 +66,19 @@ run_aws_setup() {
   assert_contains "$output" "      • TOFU_PROVIDER_BUCKET"
 }
 
-@test "Should fail when TOFU_LOCK_TABLE is not set" {
-  unset TOFU_LOCK_TABLE
-
-  run source "$SCRIPT_PATH"
-
-  assert_equal "$status" "1"
-  assert_contains "$output" "   ❌ TOFU_LOCK_TABLE is missing"
-  assert_contains "$output" "  🔧 How to fix:"
-  assert_contains "$output" "    Set the missing variable(s) in the nullplatform agent Helm installation:"
-  assert_contains "$output" "      • TOFU_LOCK_TABLE"
-}
-
 @test "Should report all the variables that are not set" {
   unset AWS_REGION
   unset TOFU_PROVIDER_BUCKET
-  unset TOFU_LOCK_TABLE
 
   run source "$SCRIPT_PATH"
 
   assert_equal "$status" "1"
   assert_contains "$output" "   ❌ AWS_REGION is missing"
   assert_contains "$output" "   ❌ TOFU_PROVIDER_BUCKET is missing"
-  assert_contains "$output" "   ❌ TOFU_LOCK_TABLE is missing"
   assert_contains "$output" "  🔧 How to fix:"
   assert_contains "$output" "    Set the missing variable(s) in the nullplatform agent Helm installation:"
   assert_contains "$output" "      • AWS_REGION"
   assert_contains "$output" "      • TOFU_PROVIDER_BUCKET"
-  assert_contains "$output" "      • TOFU_LOCK_TABLE"
 }
 
 # =============================================================================
@@ -109,8 +93,7 @@ run_aws_setup() {
   "scope_id": "7",
   "aws_provider": {
     "region": "us-east-1",
-    "state_bucket": "my-terraform-state-bucket",
-    "lock_table": "terraform-locks"
+    "state_bucket": "my-terraform-state-bucket"
   },
   "provider_resource_tags_json": {}
 }'
@@ -129,8 +112,7 @@ run_aws_setup() {
   "scope_id": "7",
   "aws_provider": {
     "region": "us-east-1",
-    "state_bucket": "my-terraform-state-bucket",
-    "lock_table": "terraform-locks"
+    "state_bucket": "my-terraform-state-bucket"
   },
   "provider_resource_tags_json": {"Environment": "production", "Team": "platform"}
 }'
@@ -153,18 +135,12 @@ run_aws_setup() {
   assert_contains "$TOFU_INIT_VARIABLES" "-backend-config=region=us-east-1"
 }
 
-@test "Should add Dynamo table configuration to TOFU_INIT_VARIABLES" {
-  run_aws_setup
-
-  assert_contains "$TOFU_INIT_VARIABLES" "-backend-config=dynamodb_table=terraform-locks"
-}
-
 @test "Should append to TOFU_INIT_VARIABLES when it previous settings are present" {
   export TOFU_INIT_VARIABLES="-var=existing=value"
 
   run_aws_setup
 
-  assert_equal "$TOFU_INIT_VARIABLES" "-var=existing=value -backend-config=bucket=my-terraform-state-bucket -backend-config=region=us-east-1 -backend-config=dynamodb_table=terraform-locks"
+  assert_equal "$TOFU_INIT_VARIABLES" "-var=existing=value -backend-config=bucket=my-terraform-state-bucket -backend-config=region=us-east-1"
 }
 
 # =============================================================================

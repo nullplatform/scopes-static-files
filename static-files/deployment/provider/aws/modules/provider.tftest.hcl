@@ -10,7 +10,6 @@ variables {
   aws_provider = {
     region       = "us-east-1"
     state_bucket = "my-terraform-state"
-    lock_table   = "terraform-locks"
   }
 
   provider_resource_tags_json = {
@@ -36,10 +35,6 @@ run "provider_configuration_is_valid" {
     error_message = "State bucket should be my-terraform-state"
   }
 
-  assert {
-    condition     = var.aws_provider.lock_table == "terraform-locks"
-    error_message = "Lock table should be terraform-locks"
-  }
 }
 
 # =============================================================================
@@ -69,7 +64,6 @@ run "aws_provider_requires_region" {
     aws_provider = {
       region       = ""
       state_bucket = "bucket"
-      lock_table   = "table"
     }
   }
 

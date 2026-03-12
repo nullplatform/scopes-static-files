@@ -18,7 +18,6 @@ function validate_env_var() {
 
 validate_env_var AWS_REGION
 validate_env_var TOFU_PROVIDER_BUCKET
-validate_env_var TOFU_LOCK_TABLE
 
 if [ ${#missing_vars[@]} -gt 0 ]; then
   echo ""
@@ -40,12 +39,10 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
   --arg aws_region "$AWS_REGION" \
   --arg tf_state_bucket "$TOFU_PROVIDER_BUCKET" \
   --argjson resource_tags_json "$RESOURCE_TAGS_JSON" \
-  --arg tf_lock_table "$TOFU_LOCK_TABLE" \
-  '. + {aws_provider: {region: $aws_region, state_bucket: $tf_state_bucket, lock_table: $tf_lock_table}, provider_resource_tags_json: $resource_tags_json}')
+  '. + {aws_provider: {region: $aws_region, state_bucket: $tf_state_bucket}, provider_resource_tags_json: $resource_tags_json}')
 
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=bucket=$TOFU_PROVIDER_BUCKET"
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=region=$AWS_REGION"
-TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=dynamodb_table=$TOFU_LOCK_TABLE"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 module_name="${script_dir}/modules"

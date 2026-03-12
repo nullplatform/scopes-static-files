@@ -40,11 +40,6 @@ setup_file() {
   echo "Creating test prerequisites..."
   aws_local s3api create-bucket --bucket assets-bucket >/dev/null 2>&1 || true
   aws_local s3api create-bucket --bucket tofu-state-bucket >/dev/null 2>&1 || true
-  aws_local dynamodb create-table \
-    --table-name tofu-locks \
-    --attribute-definitions AttributeName=LockID,AttributeType=S \
-    --key-schema AttributeName=LockID,KeyType=HASH \
-    --billing-mode PAY_PER_REQUEST >/dev/null 2>&1 || true
   aws_local route53 create-hosted-zone \
     --name "$TEST_NETWORK_DOMAIN" \
     --caller-reference "test-$(date +%s)" >/dev/null 2>&1 || true
@@ -80,7 +75,6 @@ setup() {
   export DISTRIBUTION_LAYER="cloudfront"
   export TOFU_PROVIDER="aws"
   export TOFU_PROVIDER_BUCKET="tofu-state-bucket"
-  export TOFU_LOCK_TABLE="tofu-locks"
   export AWS_REGION="us-east-1"
   export SERVICE_PATH="$INTEGRATION_MODULE_ROOT/static-files"
   export CUSTOM_TOFU_MODULES="$INTEGRATION_MODULE_ROOT/testing/localstack-provider"
