@@ -1,0 +1,39 @@
+#!/bin/bash
+# Mock az CLI for testing Azure Static Web Apps setup
+#
+# Responds based on AZ_MOCK_SCENARIO env var:
+#   - download-batch-success (default): creates index.html in --destination dir, exits 0
+#   - download-batch-failure: outputs error message to stderr, exits 1
+
+scenario="${AZ_MOCK_SCENARIO:-download-batch-success}"
+
+# Parse --destination flag from arguments
+destination=""
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+		--destination)
+			destination="$2"
+			shift 2
+			;;
+		*)
+			shift
+			;;
+	esac
+done
+
+case "$scenario" in
+	download-batch-success)
+		if [ -n "$destination" ]; then
+			mkdir -p "$destination"
+			echo "<html><body>Hello</body></html>" > "$destination/index.html"
+		fi
+		exit 0
+		;;
+	download-batch-failure)
+		echo "ERROR: Failed to download blobs from container. The specified container does not exist." >&2
+		exit 1
+		;;
+	*)
+		exit 0
+		;;
+esac

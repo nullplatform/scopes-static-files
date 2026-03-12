@@ -1,0 +1,146 @@
+#!/bin/bash
+
+echo "🔍 Validating Azure Static Web Apps distribution configuration..."
+
+application_slug=$(echo "$CONTEXT" | jq -r .application.slug)
+scope_slug=$(echo "$CONTEXT" | jq -r .scope.slug)
+scope_id=$(echo "$CONTEXT" | jq -r .scope.id)
+asset_url=$(echo "$CONTEXT" | jq -r .asset.url)
+
+distribution_app_name="$application_slug-$scope_slug-$scope_id"
+echo "   ✅ app_name=$distribution_app_name"
+
+echo ""
+echo "   📦 Validating asset URL..."
+
+if [ -z "$asset_url" ] || [ "$asset_url" = "null" ]; then
+  echo ""
+  echo "   ❌ No asset URL found in context"
+  echo ""
+  echo "  💡 Possible causes:"
+  echo "    • The build step did not produce an artifact"
+  echo "    • The asset URL was not set in the deployment context"
+  echo ""
+  echo "  🔧 How to fix:"
+  echo "    1. Ensure the build step uploads the artifact and sets the asset URL in the context"
+  echo ""
+  exit 1
+fi
+
+echo "   ✅ asset_url=$asset_url"
+
+# If ARTIFACT_DIR is already set (e.g., by integration tests), skip download
+if [ -n "${ARTIFACT_DIR:-}" ] && [ -d "$ARTIFACT_DIR" ]; then
+  echo "   ✅ Using pre-existing artifact directory: $ARTIFACT_DIR"
+else
+  echo ""
+  echo "   📡 Downloading artifact from Azure Blob Storage..."
+
+  # Parse the asset_url to extract storage account, container, and blob prefix
+  # Expected format: https://<account>.blob.core.windows.net/<container>/<path>
+  if [[ "$asset_url" == https://*.blob.core.windows.net/* ]]; then
+    # Extract storage account from hostname
+    storage_account=$(echo "$asset_url" | sed -n 's|https://\([^.]*\)\.blob\.core\.windows\.net/.*|\1|p')
+
+    # Extract container (first path segment after host)
+    container=$(echo "$asset_url" | sed -n 's|https://[^/]*/\([^/]*\)/.*|\1|p')
+
+    # Extract blob prefix (everything after container)
+    blob_prefix=$(echo "$asset_url" | sed -n 's|https://[^/]*/[^/]*/\(.*\)|\1|p')
+
+    echo "   ✅ storage_account=$storage_account"
+    echo "   ✅ container=$container"
+    echo "   ✅ blob_prefix=$blob_prefix"
+  else
+    echo ""
+    echo "   ❌ Asset URL is not in the expected Azure Blob Storage format"
+    echo ""
+    echo "  📋 Expected format: https://<account>.blob.core.windows.net/<container>/<path>"
+    echo "  📋 Received: $asset_url"
+    echo ""
+    exit 1
+  fi
+
+  # Create temp directory for artifact download
+  ARTIFACT_DIR=$(mktemp -d /tmp/swa-artifact-XXXXXX)
+
+  echo "   📂 Downloading to $ARTIFACT_DIR..."
+
+  download_output=$(az storage blob download-batch \
+    --destination "$ARTIFACT_DIR" \
+    --source "$container" \
+    --pattern "${blob_prefix}/*" \
+    --account-name "$storage_account" \
+    --auth-mode login \
+    --no-progress \
+    --output none 2>&1)
+  download_exit_code=$?
+
+  if [ $download_exit_code -ne 0 ]; then
+    echo ""
+    echo "   ❌ Failed to download artifact from Azure Blob Storage"
+    echo ""
+    echo "  📋 Error details:"
+    echo "$download_output" | sed 's/^/    /'
+    echo ""
+    echo "  💡 Possible causes:"
+    echo "    • The storage account '$storage_account' does not exist or is not accessible"
+    echo "    • The container '$container' does not exist"
+    echo "    • The blob prefix '$blob_prefix' does not match any files"
+    echo "    • The Azure CLI is not authenticated (run 'az login')"
+    echo ""
+    echo "  🔧 How to fix:"
+    echo "    1. Verify the asset URL is correct and the blob exists"
+    echo "    2. Ensure the Azure CLI is authenticated with sufficient permissions"
+    echo ""
+    rm -rf "$ARTIFACT_DIR"
+    exit 1
+  fi
+
+  # Move files from nested prefix path to root of ARTIFACT_DIR
+  if [ -n "$blob_prefix" ] && [ -d "$ARTIFACT_DIR/$blob_prefix" ]; then
+    mv "$ARTIFACT_DIR/$blob_prefix"/* "$ARTIFACT_DIR/" 2>/dev/null
+    rm -rf "$ARTIFACT_DIR/${blob_prefix%%/*}"
+  fi
+
+  echo "   ✅ Artifact downloaded successfully"
+fi
+
+# DevOps configuration from environment variables
+distribution_sku_tier="${SWA_SKU_TIER:-Free}"
+distribution_location="${SWA_LOCATION:-eastus2}"
+
+echo "   ✅ sku_tier=$distribution_sku_tier"
+echo "   ✅ location=$distribution_location"
+
+RESOURCE_TAGS_JSON=${RESOURCE_TAGS_JSON:-"{}"}
+
+TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
+  --arg app_name "$distribution_app_name" \
+  --arg sku_tier "$distribution_sku_tier" \
+  --arg location "$distribution_location" \
+  --arg artifact_url "$asset_url" \
+  --arg artifact_dir "$ARTIFACT_DIR" \
+  --argjson resource_tags_json "$RESOURCE_TAGS_JSON" \
+  '. + {
+    distribution_app_name: $app_name,
+    distribution_sku_tier: $sku_tier,
+    distribution_location: $location,
+    distribution_artifact_url: $artifact_url,
+    distribution_artifact_dir: $artifact_dir,
+    distribution_resource_tags_json: $resource_tags_json
+  }')
+
+echo ""
+echo "✨ Azure Static Web Apps distribution configured successfully"
+echo ""
+
+# Add module to composition list
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+module_name="${script_dir}/modules"
+
+if [[ -n $MODULES_TO_USE ]]; then
+  MODULES_TO_USE="$MODULES_TO_USE,$module_name"
+else
+  MODULES_TO_USE="$module_name"
+fi

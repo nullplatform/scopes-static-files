@@ -1,0 +1,157 @@
+#!/bin/bash
+set -euo pipefail
+
+# ==============================================================================
+# deploy_content - Deploy static content to Azure Static Web App
+#
+# This script is called by a Terraform null_resource local-exec provisioner.
+# It packages the artifact directory into a zip file and deploys it to an
+# Azure Static Web App using the SWA zip deployment API.
+#
+# Required environment variables:
+#   SWA_DEPLOYMENT_TOKEN - Azure Static Web App deployment token
+#   ARTIFACT_DIR         - Path to the directory containing static content
+# ==============================================================================
+
+echo "🔍 Validating deployment configuration..."
+
+# Validate required environment variables
+if [ -z "${SWA_DEPLOYMENT_TOKEN:-}" ]; then
+  echo ""
+  echo "   ❌ Missing required environment variable: SWA_DEPLOYMENT_TOKEN"
+  echo ""
+  echo "   💡 Possible causes:"
+  echo "     • The Static Web App deployment token was not set in the Terraform configuration"
+  echo "     • The token was not exported before running this script"
+  echo ""
+  echo "   📝 Actions:"
+  echo "     1. Ensure SWA_DEPLOYMENT_TOKEN is set in the null_resource environment block"
+  echo "     2. Verify the token is a valid Azure Static Web App deployment token"
+  echo ""
+  exit 1
+fi
+
+if [ -z "${ARTIFACT_DIR:-}" ]; then
+  echo ""
+  echo "   ❌ Missing required environment variable: ARTIFACT_DIR"
+  echo ""
+  echo "   💡 Possible causes:"
+  echo "     • The artifact directory path was not set in the Terraform configuration"
+  echo ""
+  echo "   📝 Actions:"
+  echo "     1. Ensure ARTIFACT_DIR is set to the path containing your static content"
+  echo ""
+  exit 1
+fi
+
+echo "   ✅ SWA_DEPLOYMENT_TOKEN is set"
+echo "   ✅ ARTIFACT_DIR=$ARTIFACT_DIR"
+
+# Validate artifact directory exists
+if [ ! -d "$ARTIFACT_DIR" ]; then
+  echo ""
+  echo "   ❌ Artifact directory does not exist: $ARTIFACT_DIR"
+  echo ""
+  echo "   💡 Possible causes:"
+  echo "     • The build step did not produce output in the expected directory"
+  echo "     • The ARTIFACT_DIR path is incorrect"
+  echo ""
+  echo "   📝 Actions:"
+  echo "     1. Verify the build output directory matches the ARTIFACT_DIR value"
+  echo "     2. Ensure the build step completed successfully before deployment"
+  echo ""
+  exit 1
+fi
+
+echo "   ✅ Artifact directory exists"
+
+# Create a temporary zip file from the artifact directory
+zip_file=$(mktemp /tmp/swa-deploy-XXXXXX.zip)
+
+# Clean up the zip file on exit
+trap "rm -f '$zip_file'" EXIT
+
+echo ""
+echo "   📝 Creating zip archive from $ARTIFACT_DIR..."
+
+(cd "$ARTIFACT_DIR" && zip -r "$zip_file" . -x '.*') > /dev/null 2>&1
+
+if [ ! -s "$zip_file" ]; then
+  echo ""
+  echo "   ❌ Failed to create zip archive or archive is empty"
+  echo ""
+  echo "   💡 Possible causes:"
+  echo "     • The artifact directory is empty"
+  echo "     • The zip command is not available"
+  echo ""
+  exit 1
+fi
+
+zip_size=$(wc -c < "$zip_file" | tr -d ' ')
+echo "   ✅ Zip archive created (${zip_size} bytes)"
+
+# Deploy to Azure Static Web App
+echo ""
+echo "   📡 Uploading to Azure Static Web App..."
+
+http_response=$(curl -s -w "\n%{http_code}" \
+  -X POST \
+  -H "Authorization: Bearer $SWA_DEPLOYMENT_TOKEN" \
+  -H "Content-Type: application/zip" \
+  --data-binary "@$zip_file" \
+  "https://content.azurestaticapps.net/api/zipdeploy" \
+  2>&1)
+
+http_body=$(echo "$http_response" | sed '$d')
+http_code=$(echo "$http_response" | tail -n 1)
+
+# Check HTTP response code
+if [[ "$http_code" =~ ^2[0-9]{2}$ ]]; then
+  echo ""
+  echo "✨ Static content deployed successfully to Azure Static Web App"
+  echo ""
+  exit 0
+fi
+
+# Handle error responses
+echo ""
+echo "   ❌ Deployment failed with HTTP status: $http_code"
+echo ""
+
+case "$http_code" in
+  401|403)
+    echo "   💡 Possible causes:"
+    echo "     • The SWA_DEPLOYMENT_TOKEN is invalid or expired"
+    echo "     • The token does not have permission to deploy to this Static Web App"
+    echo ""
+    echo "   📝 Actions:"
+    echo "     1. Regenerate the deployment token from the Azure Portal"
+    echo "     2. Update the token in your Terraform configuration"
+    ;;
+  409)
+    echo "   💡 Possible causes:"
+    echo "     • A concurrent deployment is already in progress for this Static Web App"
+    echo ""
+    echo "   📝 Actions:"
+    echo "     1. Wait for the current deployment to complete and retry"
+    echo "     2. Check the Azure Portal for ongoing deployments"
+    ;;
+  *)
+    echo "   💡 Possible causes:"
+    echo "     • The Azure Static Web Apps service may be experiencing issues"
+    echo "     • The zip file may be too large or malformed"
+    echo ""
+    echo "   📝 Actions:"
+    echo "     1. Check the Azure status page for service health"
+    echo "     2. Verify the artifact directory contents are valid"
+    ;;
+esac
+
+if [ -n "$http_body" ]; then
+  echo ""
+  echo "   📋 Error details:"
+  echo "$http_body" | sed 's/^/     /'
+fi
+
+echo ""
+exit 1
