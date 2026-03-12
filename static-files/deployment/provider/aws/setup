@@ -43,6 +43,7 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
 
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=bucket=$TOFU_PROVIDER_BUCKET"
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=region=$AWS_REGION"
+TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=use_lockfile=true"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 module_name="${script_dir}/modules"
