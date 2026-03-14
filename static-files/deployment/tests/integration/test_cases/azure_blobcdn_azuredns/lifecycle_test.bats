@@ -93,10 +93,6 @@ setup() {
 
   # Setup API mocks for np CLI calls
   local mocks_dir="static-files/deployment/tests/integration/mocks/"
-  mock_request "GET" "/category" "$mocks_dir/asset_repository/category.json"
-  mock_request "GET" "/provider_specification" "$mocks_dir/asset_repository/list_provider_spec.json"
-  mock_request "GET" "/provider" "$mocks_dir/azure_asset_repository/list_provider.json"
-  mock_request "GET" "/provider/azure-blob-asset-repository-id" "$mocks_dir/azure_asset_repository/get_provider.json"
   mock_request "PATCH" "/scope/7" "$mocks_dir/scope/patch.json"
 
   # Ensure tfstate container exists in azure-mock for Terraform backend

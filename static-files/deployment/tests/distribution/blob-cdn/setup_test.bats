@@ -17,19 +17,15 @@ setup() {
   PROJECT_ROOT="$(cd "$PROJECT_DIR/../.." && pwd)"
   SCRIPT_PATH="$PROJECT_DIR/distribution/blob-cdn/setup"
   RESOURCES_DIR="$PROJECT_DIR/tests/resources"
-  MOCKS_DIR="$RESOURCES_DIR/np_mocks"
 
   # Load shared test utilities
   source "$PROJECT_ROOT/testing/assertions.sh"
-
-  # Add mock np to PATH (must be first)
-  export PATH="$MOCKS_DIR:$PATH"
 
   # Load context with Azure-specific asset URL
   export CONTEXT='{
     "application": {"slug": "automation"},
     "scope": {"slug": "development-tools", "id": "7", "nrn": "organization=1:account=2:namespace=3:application=4:scope=7"},
-    "asset": {"url": "https://mystaticstorage.blob.core.windows.net/$web/tools/automation/v1.0.0"}
+    "asset": {"url": "https://mystaticstorage.blob.core.windows.net/assets/tools/automation/v1.0.0"}
   }'
 
   # Initialize TOFU_VARIABLES with required fields
@@ -50,88 +46,46 @@ run_blob_cdn_setup() {
 }
 
 # =============================================================================
-# Test: Auth error case
+# Test: Storage account extraction from asset URL
 # =============================================================================
-@test "Should handle permission denied error fetching the asset-repository-provider" {
-  set_np_mock "$MOCKS_DIR/asset_repository/auth_error.json" 1
+@test "Should extract storage account from asset URL" {
+  run_blob_cdn_setup
 
-  run source "$SCRIPT_PATH"
-
-  assert_equal "$status" "1"
-  assert_contains "$output" "   ❌ Failed to fetch assets-repository provider"
-  assert_contains "$output" "  🔒 Error: Permission denied"
-  assert_contains "$output" "  💡 Possible causes:"
-  assert_contains "$output" "    • The nullplatform API Key doesn't have 'Ops' permissions at nrn: organization=1:account=2:namespace=3:application=4:scope=7"
-
-  assert_contains "$output" "  🔧 How to fix:"
-  assert_contains "$output" "    1. Ensure the API Key has 'Ops' permissions at the correct NRN hierarchy level"
+  local storage_account=$(echo "$TOFU_VARIABLES" | jq -r '.distribution_storage_account')
+  assert_equal "$storage_account" "mystaticstorage"
 }
 
 # =============================================================================
-# Test: Unknown error case
+# Test: Container extraction from asset URL
 # =============================================================================
-@test "Should handle unknown error fetching the asset-repository-provider" {
-  set_np_mock "$MOCKS_DIR/asset_repository/unknown_error.json" 1
+@test "Should extract container name from asset URL" {
+  run_blob_cdn_setup
 
-  run source "$SCRIPT_PATH"
-
-  assert_equal "$status" "1"
-  assert_contains "$output" "   ❌ Failed to fetch assets-repository provider"
-  assert_contains "$output" "  📋 Error details:"
-  assert_contains "$output" "Unknown error fetching provider"
+  local container=$(echo "$TOFU_VARIABLES" | jq -r '.distribution_container_name')
+  assert_equal "$container" "assets"
 }
 
-# =============================================================================
-# Test: Empty results case
-# =============================================================================
-@test "Should fail if no asset-repository found" {
-  set_np_mock "$MOCKS_DIR/asset_repository/no_data.json"
+@test "Should default container to \$web when URL has no container path" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.asset.url = "https://mystaticstorage.blob.core.windows.net/"')
 
-  run source "$SCRIPT_PATH"
+  run_blob_cdn_setup
 
-  assert_equal "$status" "1"
-  assert_contains "$output" "   ❌ No assets-repository provider of type Azure Blob Storage at nrn: organization=1:account=2:namespace=3:application=4:scope=7"
-
-  assert_contains "$output" "  🔧 How to fix:"
-  assert_contains "$output" "    1. Ensure there is an asset-repository provider of type Azure Blob Storage configured at the correct NRN hierarchy level"
-}
-
-# =============================================================================
-# Test: No providers found case
-# =============================================================================
-@test "Should fail when no asset provider is of type Azure Blob Storage" {
-  set_np_mock "$MOCKS_DIR/asset_repository_azure/no_storage_account_data.json"
-
-  run source "$SCRIPT_PATH"
-
-  assert_equal "$status" "1"
-  assert_contains "$output" "   ❌ No assets-repository provider of type Azure Blob Storage at nrn: organization=1:account=2:namespace=3:application=4:scope=7"
-  assert_contains "$output" "  🤔 Found 1 asset-repository provider(s), but none are configured for Azure Blob Storage."
-
-  assert_contains "$output" "  📋 Verify the existing providers with the nullplatform CLI:"
-  assert_contains "$output" "    • np provider read --id d397e46b-89b8-419d-ac14-2b483ace511c --format json"
-
-  assert_contains "$output" "  🔧 How to fix:"
-  assert_contains "$output" "    1. Ensure there is an asset-repository provider of type Azure Blob Storage configured at the correct NRN hierarchy level"
+  local container=$(echo "$TOFU_VARIABLES" | jq -r '.distribution_container_name')
+  assert_equal "$container" '$web'
 }
 
 # =============================================================================
 # Test: Blob prefix extraction from asset URL
 # =============================================================================
 @test "Should extract blob_prefix from asset.url with https format" {
-  set_np_mock "$MOCKS_DIR/asset_repository_azure/success.json"
-
   run_blob_cdn_setup
 
   local blob_prefix=$(echo "$TOFU_VARIABLES" | jq -r '.distribution_blob_prefix')
   assert_equal "$blob_prefix" "/tools/automation/v1.0.0"
 }
 
-@test "Should use root prefix when asset.url has no path" {
-  set_np_mock "$MOCKS_DIR/asset_repository_azure/success.json"
-
-  # Override asset.url in context with no path
-  export CONTEXT=$(echo "$CONTEXT" | jq '.asset.url = "other://bucket"')
+@test "Should use root prefix when asset URL has no path after container" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.asset.url = "https://mystaticstorage.blob.core.windows.net/assets"')
 
   run_blob_cdn_setup
 
@@ -140,11 +94,22 @@ run_blob_cdn_setup() {
 }
 
 # =============================================================================
+# Test: Invalid asset URL
+# =============================================================================
+@test "Should fail when asset URL is not Azure Blob Storage format" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.asset.url = "s3://bucket/path"')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "❌ Could not extract storage account from asset URL"
+  assert_contains "$output" "🔧 How to fix:"
+}
+
+# =============================================================================
 # Test: TOFU_VARIABLES - verifies the entire JSON structure
 # =============================================================================
 @test "Should add distribution variables to TOFU_VARIABLES" {
-  set_np_mock "$MOCKS_DIR/asset_repository_azure/success.json"
-
   run_blob_cdn_setup
 
   local expected='{
@@ -152,7 +117,7 @@ run_blob_cdn_setup() {
   "scope_slug": "development-tools",
   "scope_id": "7",
   "distribution_storage_account": "mystaticstorage",
-  "distribution_container_name": "$web",
+  "distribution_container_name": "assets",
   "distribution_app_name": "automation-development-tools-7",
   "distribution_blob_prefix": "/tools/automation/v1.0.0",
   "distribution_resource_tags_json": {}
@@ -162,7 +127,6 @@ run_blob_cdn_setup() {
 }
 
 @test "Should add distribution_resource_tags_json to TOFU_VARIABLES" {
-  set_np_mock "$MOCKS_DIR/asset_repository_azure/success.json"
   export RESOURCE_TAGS_JSON='{"Environment": "production", "Team": "platform"}'
 
   run_blob_cdn_setup
@@ -172,7 +136,7 @@ run_blob_cdn_setup() {
   "scope_slug": "development-tools",
   "scope_id": "7",
   "distribution_storage_account": "mystaticstorage",
-  "distribution_container_name": "$web",
+  "distribution_container_name": "assets",
   "distribution_app_name": "automation-development-tools-7",
   "distribution_blob_prefix": "/tools/automation/v1.0.0",
   "distribution_resource_tags_json": {"Environment": "production", "Team": "platform"}
@@ -185,15 +149,12 @@ run_blob_cdn_setup() {
 # Test: MODULES_TO_USE
 # =============================================================================
 @test "Should register the provider in the MODULES_TO_USE variable when it's empty" {
-  set_np_mock "$MOCKS_DIR/asset_repository_azure/success.json"
-
   run_blob_cdn_setup
 
   assert_equal "$MODULES_TO_USE" "$PROJECT_DIR/distribution/blob-cdn/modules"
 }
 
 @test "Should append the provider in the MODULES_TO_USE variable when it's not empty" {
-  set_np_mock "$MOCKS_DIR/asset_repository_azure/success.json"
   export MODULES_TO_USE="existing/module"
 
   run_blob_cdn_setup
