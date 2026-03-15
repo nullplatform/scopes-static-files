@@ -13,7 +13,7 @@ cd "$CURRENT_DIR"
 if command -v mise &>/dev/null; then
 	if ! mise which tofu &>/dev/null; then
 		echo "OpenTofu not found in mise. Installing globally..."
-		mise use --global opentofu
+		mise use --global --yes opentofu
 	fi
 	TOFU_CMD="mise exec -- tofu"
 else
