@@ -40,5 +40,9 @@ module "scope_definition_agent_association" {
   scope_specification_id   = module.scope_definition.service_specification_id
   scope_specification_slug = module.scope_definition.service_specification_slug
   tags_selectors           = var.tags
-  service_path = "${local.scope_definition.git_repo}/static-files"
+
+  repository_notification_channel        = "https://${var.github_token}@raw.githubusercontent.com/${local.scope_definition.git_repo}/refs/heads"
+  repository_notification_channel_branch = local.scope_definition.git_ref
+  service_path                           = local.scope_definition.git_scope_path
+  repo_path                              = "/root/.np/${local.scope_definition.git_repo}"
 }
