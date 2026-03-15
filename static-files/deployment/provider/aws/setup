@@ -30,16 +30,6 @@ else
 	echo "   ✅ aws_state_bucket=$TOFU_PROVIDER_BUCKET"
 fi
 
-TOFU_LOCK_TABLE=$(get_config_value \
-	--provider '.providers["scope-configurations"].provider.aws_state_lock_table' \
-	--env TOFU_LOCK_TABLE)
-if [ -z "$TOFU_LOCK_TABLE" ]; then
-	echo "   ❌ aws_state_lock_table is missing"
-	missing_vars+=("aws_state_lock_table")
-else
-	echo "   ✅ aws_state_lock_table=$TOFU_LOCK_TABLE"
-fi
-
 if [ ${#missing_vars[@]} -gt 0 ]; then
 	echo ""
 	echo "  💡 Possible causes:"
@@ -65,12 +55,11 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
 	--arg aws_region "$AWS_REGION" \
 	--arg tf_state_bucket "$TOFU_PROVIDER_BUCKET" \
 	--argjson resource_tags_json "$RESOURCE_TAGS_JSON" \
-	--arg tf_lock_table "$TOFU_LOCK_TABLE" \
-	'. + {aws_provider: {region: $aws_region, state_bucket: $tf_state_bucket, lock_table: $tf_lock_table}, provider_resource_tags_json: $resource_tags_json}')
+	'. + {aws_provider: {region: $aws_region, state_bucket: $tf_state_bucket}, provider_resource_tags_json: $resource_tags_json}')
 
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=bucket=$TOFU_PROVIDER_BUCKET"
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=region=$AWS_REGION"
-TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=dynamodb_table=$TOFU_LOCK_TABLE"
+TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=use_lockfile=true"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 module_name="${script_dir}/modules"

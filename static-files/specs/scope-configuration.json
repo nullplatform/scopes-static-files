@@ -3,7 +3,7 @@
   "description": "Configuration for static files scopes (SPAs, static websites, front-end bundles)",
   "category": "scope-configurations",
   "visible_to": [
-    "{{ env.Getenv "NRN" }}"
+    "organization=1255165411"
   ],
   "allow_dimensions": true,
   "schema": {
@@ -43,9 +43,9 @@
         "oneOf": [
           { "const": "aws", "title": "Amazon Web Services" },
           { "const": "azure", "title": "Microsoft Azure" }
-        ]
+        ],
+        "default": "aws"
       },
-
       "provider": {
         "type": "object",
         "title": "Provider Configuration",

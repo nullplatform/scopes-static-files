@@ -146,7 +146,6 @@ variable "aws_provider" {
   type = object({
     region       = string
     state_bucket = string
-    lock_table   = string
   })
 }
 
@@ -480,7 +479,7 @@ Test complete workflows with mocked external dependencies (LocalStack, Azure Moc
 **Example file:** [`tests/integration/test_cases/azure_blobcdn_azuredns/lifecycle_test.bats`](deployment/tests/integration/test_cases/azure_blobcdn_azuredns/lifecycle_test.bats)
 
 **What's mocked:**
-- **LocalStack**: AWS services (S3, Route53, STS, IAM, DynamoDB, ACM)
+- **LocalStack**: AWS services (S3, Route53, STS, IAM, ACM)
 - **Moto**: CloudFront (not in LocalStack free tier)
 - **Azure Mock**: Azure ARM APIs (CDN, DNS, Storage) + Blob Storage
 - **Smocker**: nullplatform API
@@ -562,7 +561,6 @@ make test-integration VERBOSE=1
 export TOFU_PROVIDER=aws
 export AWS_REGION=us-east-1
 export TOFU_PROVIDER_BUCKET=my-state-bucket
-export TOFU_LOCK_TABLE=my-lock-table
 ```
 
 #### Azure

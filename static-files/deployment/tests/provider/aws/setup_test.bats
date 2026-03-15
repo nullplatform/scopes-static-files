@@ -21,7 +21,6 @@ setup() {
 	# Env var fallbacks (no CONTEXT in unit tests)
 	export AWS_REGION="us-east-1"
 	export TOFU_PROVIDER_BUCKET="my-terraform-state-bucket"
-	export TOFU_LOCK_TABLE="terraform-locks"
 
 	# Base tofu variables
 	export TOFU_VARIABLES='{
@@ -66,32 +65,18 @@ run_aws_setup() {
 	assert_contains "$output" "provider.aws_state_bucket"
 }
 
-@test "Should fail when aws_state_lock_table is not available" {
-	unset TOFU_LOCK_TABLE
-
-	run source "$SCRIPT_PATH"
-
-	assert_equal "$status" "1"
-	assert_contains "$output" "❌ aws_state_lock_table is missing"
-	assert_contains "$output" "🔧 How to fix:"
-	assert_contains "$output" "provider.aws_state_lock_table"
-}
-
 @test "Should report all the variables that are not set" {
 	unset AWS_REGION
 	unset TOFU_PROVIDER_BUCKET
-	unset TOFU_LOCK_TABLE
 
 	run source "$SCRIPT_PATH"
 
 	assert_equal "$status" "1"
 	assert_contains "$output" "❌ aws_region is missing"
 	assert_contains "$output" "❌ aws_state_bucket is missing"
-	assert_contains "$output" "❌ aws_state_lock_table is missing"
 	assert_contains "$output" "🔧 How to fix:"
 	assert_contains "$output" "provider.aws_region"
 	assert_contains "$output" "provider.aws_state_bucket"
-	assert_contains "$output" "provider.aws_state_lock_table"
 }
 
 # =============================================================================
@@ -100,15 +85,13 @@ run_aws_setup() {
 @test "Should resolve values from scope-configurations provider in CONTEXT" {
 	unset AWS_REGION
 	unset TOFU_PROVIDER_BUCKET
-	unset TOFU_LOCK_TABLE
 
 	export CONTEXT='{
 	"providers": {
 		"scope-configurations": {
 		"provider": {
 			"aws_region": "eu-west-1",
-			"aws_state_bucket": "provider-bucket",
-			"aws_state_lock_table": "provider-locks"
+			"aws_state_bucket": "provider-bucket"
 		}
 		}
 	}
@@ -118,25 +101,21 @@ run_aws_setup() {
 
 	local actual_region=$(echo "$TOFU_VARIABLES" | jq -r '.aws_provider.region')
 	local actual_bucket=$(echo "$TOFU_VARIABLES" | jq -r '.aws_provider.state_bucket')
-	local actual_lock=$(echo "$TOFU_VARIABLES" | jq -r '.aws_provider.lock_table')
 
 	assert_equal "$actual_region" "eu-west-1"
 	assert_equal "$actual_bucket" "provider-bucket"
-	assert_equal "$actual_lock" "provider-locks"
 }
 
 @test "Should prefer provider values over env vars" {
 	export AWS_REGION="us-east-1"
 	export TOFU_PROVIDER_BUCKET="env-bucket"
-	export TOFU_LOCK_TABLE="env-locks"
 
 	export CONTEXT='{
 	"providers": {
 		"scope-configurations": {
 		"provider": {
 			"aws_region": "eu-west-1",
-			"aws_state_bucket": "provider-bucket",
-			"aws_state_lock_table": "provider-locks"
+			"aws_state_bucket": "provider-bucket"
 		}
 		}
 	}
@@ -163,8 +142,7 @@ run_aws_setup() {
 	"scope_id": "7",
 	"aws_provider": {
 	"region": "us-east-1",
-	"state_bucket": "my-terraform-state-bucket",
-	"lock_table": "terraform-locks"
+	"state_bucket": "my-terraform-state-bucket"
 	},
 	"provider_resource_tags_json": {}
 	}'
@@ -183,8 +161,7 @@ run_aws_setup() {
 	"scope_id": "7",
 	"aws_provider": {
 	"region": "us-east-1",
-	"state_bucket": "my-terraform-state-bucket",
-	"lock_table": "terraform-locks"
+	"state_bucket": "my-terraform-state-bucket"
 	},
 	"provider_resource_tags_json": {"Environment": "production", "Team": "platform"}
 	}'
@@ -207,10 +184,10 @@ run_aws_setup() {
 	assert_contains "$TOFU_INIT_VARIABLES" "-backend-config=region=us-east-1"
 }
 
-@test "Should add Dynamo table configuration to TOFU_INIT_VARIABLES" {
+@test "Should add S3 native lock configuration to TOFU_INIT_VARIABLES" {
 	run_aws_setup
 
-	assert_contains "$TOFU_INIT_VARIABLES" "-backend-config=dynamodb_table=terraform-locks"
+	assert_contains "$TOFU_INIT_VARIABLES" "-backend-config=use_lockfile=true"
 }
 
 @test "Should append to TOFU_INIT_VARIABLES when it previous settings are present" {
@@ -218,7 +195,7 @@ run_aws_setup() {
 
 	run_aws_setup
 
-	assert_equal "$TOFU_INIT_VARIABLES" "-var=existing=value -backend-config=bucket=my-terraform-state-bucket -backend-config=region=us-east-1 -backend-config=dynamodb_table=terraform-locks"
+	assert_equal "$TOFU_INIT_VARIABLES" "-var=existing=value -backend-config=bucket=my-terraform-state-bucket -backend-config=region=us-east-1 -backend-config=use_lockfile=true"
 }
 
 # =============================================================================

@@ -140,8 +140,7 @@
       "cloud_provider": "aws",
       "provider": {
         "aws_region": "us-east-1",
-        "aws_state_bucket": "my-org-tofu-state",
-        "aws_state_lock_table": "my-org-tofu-locks"
+        "aws_state_bucket": "my-org-tofu-state"
       },
       "distribution": {
         "aws_distribution": "cloudfront"
