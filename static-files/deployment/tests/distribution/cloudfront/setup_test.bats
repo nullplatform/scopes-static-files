@@ -51,6 +51,15 @@ run_cloudfront_setup() {
   assert_equal "$bucket" "my-asset-bucket"
 }
 
+@test "Should extract bucket name from s3:// URL with .s3.amazonaws.com suffix" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.asset.url = "s3://my-asset-bucket.s3.amazonaws.com/tools/automation/v1.0.0"')
+
+  run_cloudfront_setup
+
+  local bucket=$(echo "$TOFU_VARIABLES" | jq -r '.distribution_bucket_name')
+  assert_equal "$bucket" "my-asset-bucket"
+}
+
 @test "Should extract bucket name from https:// asset URL" {
   export CONTEXT=$(echo "$CONTEXT" | jq '.asset.url = "https://my-cdn-bucket.s3.amazonaws.com/tools/automation/v1.0.0"')
 

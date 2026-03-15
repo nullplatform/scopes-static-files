@@ -17,13 +17,15 @@ echo "   ✅ app_name=$distribution_app_name"
 
 # Extract bucket name and path prefix from asset_url
 # Supports both s3:// and https:// formats
+distribution_bucket_name=""
+distribution_s3_prefix=""
 if [[ "$asset_url" == s3://* ]]; then
-  # s3://bucket-name/path/to/assets → bucket=bucket-name, prefix=/path/to/assets
   url_without_scheme="${asset_url#s3://}"
-  distribution_bucket_name="${url_without_scheme%%/*}"
+  # Strip .s3.amazonaws.com suffix if present (e.g., s3://bucket.s3.amazonaws.com/path)
+  host_part="${url_without_scheme%%/*}"
+  distribution_bucket_name="${host_part%.s3.amazonaws.com}"
   distribution_s3_prefix="/${url_without_scheme#*/}"
-else
-  # https://bucket.s3.amazonaws.com/path/to/assets → bucket=bucket, prefix=/path/to/assets
+elif [[ "$asset_url" == https://* ]]; then
   url_without_scheme="${asset_url#https://}"
   distribution_bucket_name="${url_without_scheme%%.*}"
   distribution_s3_prefix="/${url_without_scheme#*/}"
