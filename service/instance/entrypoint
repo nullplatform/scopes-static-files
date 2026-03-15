@@ -1,0 +1,31 @@
+#!/bin/bash
+
+if ! command -v jq &> /dev/null; then
+    exit 1
+fi
+
+if [ "$1" ]; then
+    NP_ACTION_CONTEXT="$1"
+elif [ -n "$NP_ACTION_CONTEXT" ]; then
+    # Use the environment variable
+    :
+else
+    # Read from stdin
+    read -r NP_ACTION_CONTEXT
+fi
+
+WORKFLOW_PATH="$SERVICE_PATH/instance/workflows/list.yaml"
+
+CMD="np service workflow exec --no-output --workflow $WORKFLOW_PATH"
+
+IFS=',' read -ra OVERRIDE_PATHS <<< "$OVERRIDES_PATH"
+for path in "${OVERRIDE_PATHS[@]}"; do
+  # Trim whitespace
+  path=$(echo "$path" | xargs)
+  OVERRIDE_WORKFLOW_PATH="$path/instance/workflows/$ACTION_TO_EXECUTE.yaml"
+  if [[ -f "$OVERRIDE_WORKFLOW_PATH" ]]; then
+    CMD="$CMD --overrides $OVERRIDE_WORKFLOW_PATH"
+  fi
+done
+
+eval "$CMD"

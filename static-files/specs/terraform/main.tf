@@ -40,4 +40,5 @@ module "scope_definition_agent_association" {
   scope_specification_id   = module.scope_definition.service_specification_id
   scope_specification_slug = module.scope_definition.service_specification_slug
   tags_selectors           = var.tags
+  service_path = "${local.scope_definition.git_repo}/static-files"
 }
