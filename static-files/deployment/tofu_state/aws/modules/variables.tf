@@ -3,7 +3,6 @@ variable "aws_provider" {
   type = object({
     region       = string
     state_bucket = string
-    lock_table   = string
   })
 }
 

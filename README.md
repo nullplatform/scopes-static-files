@@ -4,6 +4,7 @@ This module provides infrastructure-as-code for deploying static files applicati
 
 ## Table of Contents
 
+- [Installation](#installation)
 - [Architecture Overview](#architecture-overview)
 - [Layer System](#layer-system)
 - [Variable Naming Conventions](#variable-naming-conventions)
@@ -12,6 +13,51 @@ This module provides infrastructure-as-code for deploying static files applicati
 - [Setup Script Patterns](#setup-script-patterns)
 - [Testing](#testing)
 - [Quick Reference](#quick-reference)
+
+---
+
+## Installation
+
+Register the scope definition in nullplatform using the Terraform module in `static-files/specs/terraform/`.
+
+### Prerequisites
+
+- [OpenTofu](https://opentofu.org/) or Terraform installed
+- A nullplatform API key
+- A GitHub personal access token with read access to this repo
+
+### Steps
+
+1. Copy the example tfvars file and fill in your values:
+
+```bash
+cd static-files/specs/terraform
+cp terraform.tfvars.example terraform.tfvars
+```
+
+2. Edit `terraform.tfvars` with your credentials and tags:
+
+```hcl
+nrn          = "organization=<YOUR_ORG_ID>"
+np_api_key   = "<YOUR_NULLPLATFORM_API_KEY>"
+github_token = "<YOUR_GITHUB_TOKEN>"
+
+tags = {
+  "environment" = "<YOUR_ENVIRONMENT>"
+}
+```
+
+The scope definition values (repo, actions, name) are hardcoded as locals in `main.tf` — no need to configure them.
+
+3. Run:
+
+```bash
+tofu init
+tofu plan
+tofu apply
+```
+
+This registers the scope type, service specification, notification channel, and all action specs in your nullplatform organization.
 
 ---
 
@@ -146,7 +192,6 @@ variable "aws_provider" {
   type = object({
     region       = string
     state_bucket = string
-    lock_table   = string
   })
 }
 
@@ -487,7 +532,7 @@ Test complete workflows with mocked external dependencies (LocalStack, Azure Moc
 **Example file:** [`tests/integration/test_cases/azure_blobcdn_azuredns/lifecycle_test.bats`](deployment/tests/integration/test_cases/azure_blobcdn_azuredns/lifecycle_test.bats)
 
 **What's mocked:**
-- **LocalStack**: AWS services (S3, Route53, STS, IAM, DynamoDB, ACM)
+- **LocalStack**: AWS services (S3, Route53, STS, IAM, ACM)
 - **Moto**: CloudFront (not in LocalStack free tier)
 - **Azure Mock**: Azure ARM APIs (CDN, DNS, Storage) + Blob Storage
 - **Smocker**: nullplatform API
@@ -569,7 +614,6 @@ make test-integration VERBOSE=1
 export TOFU_PROVIDER=aws
 export AWS_REGION=us-east-1
 export TOFU_PROVIDER_BUCKET=my-state-bucket
-export TOFU_LOCK_TABLE=my-lock-table
 ```
 
 #### Azure

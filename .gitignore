@@ -143,6 +143,9 @@ static-files/deployment/tests/integration/volume/
 # Terraform/OpenTofu
 .terraform/
 .terraform.lock.hcl
+static-files/specs/terraform/terraform.tfvars
+static-files/specs/terraform/terraform.tfstate
+static-files/specs/terraform/terraform.tfstate*
 
 # Generated test certificates
 testing/docker/certs/

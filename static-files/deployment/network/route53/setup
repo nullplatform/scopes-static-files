@@ -1,18 +1,29 @@
 #!/bin/bash
 
-echo "🔍 Validating Route53 network configuration..."
+set -euo pipefail
 
-hosted_zone_id=$(echo "$CONTEXT" | jq -r '.providers["cloud-providers"].networking.hosted_public_zone_id // empty')
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../scripts/get_config_value"
+
+echo "🔍 Validating Route53 network configuration..."
+echo ""
+
+hosted_zone_id=$(get_config_value \
+	--provider '.providers["scope-configurations"].network.aws_hosted_public_zone_id' \
+	--provider '.providers["cloud-providers"].networking.hosted_public_zone_id')
 
 if [ -z "$hosted_zone_id" ]; then
-  echo ""
-  echo "   ❌ hosted_public_zone_id is not set in context"
-  echo ""
-  echo "  🔧 How to fix:"
-  echo "    1. Ensure there is an AWS cloud-provider configured at the correct NRN hierarchy level"
-  echo "    2. Set the 'hosted_public_zone_id' field with the Route 53 hosted zone ID"
-  echo ""
-  exit 1
+	echo "   ❌ hosted_public_zone_id is not configured"
+	echo ""
+	echo "  💡 Possible causes:"
+	echo "    • The scope-configurations provider is missing 'network.aws_hosted_public_zone_id'"
+	echo "    • No cloud-providers provider with 'networking.hosted_public_zone_id' at this NRN level"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    • Set 'network.aws_hosted_public_zone_id' in the scope-configurations provider"
+	echo "    • Or set 'networking.hosted_public_zone_id' in the cloud-providers provider"
+	echo ""
+	exit 1
 fi
 echo "   ✅ hosted_zone_id=$hosted_zone_id"
 
@@ -23,8 +34,7 @@ scope_id=$(echo "$CONTEXT" | jq -r .scope.id)
 echo ""
 echo "   📡 Fetching domain from Route 53 hosted zone..."
 
-aws_output=$(aws route53 get-hosted-zone --id "$hosted_zone_id" 2>&1)
-aws_exit_code=$?
+aws_output=$(aws route53 get-hosted-zone --id "$hosted_zone_id" 2>&1) && aws_exit_code=0 || aws_exit_code=$?
 
 if [ $aws_exit_code -ne 0 ]; then
   echo ""
@@ -123,8 +133,7 @@ scope_domain="$network_subdomain.$network_domain"
 echo ""
 echo "   📝 Setting scope domain to '$scope_domain'..."
 
-np_output=$(np scope patch --id "$scope_id" --body "{\"domain\":\"$scope_domain\"}" --format json 2>&1)
-np_exit_code=$?
+np_output=$(np scope patch --id "$scope_id" --body "{\"domain\":\"$scope_domain\"}" --format json 2>&1) && np_exit_code=0 || np_exit_code=$?
 
 if [ $np_exit_code -ne 0 ]; then
   echo ""

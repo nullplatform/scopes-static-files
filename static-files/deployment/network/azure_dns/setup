@@ -1,43 +1,60 @@
 #!/bin/bash
 
-echo "🔍 Validating Azure DNS network configuration..."
+set -euo pipefail
 
-public_dns_zone_name=$(echo "$CONTEXT" | jq -r '.providers["cloud-providers"].networking.public_dns_zone_name // empty')
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../scripts/get_config_value"
+
+echo "🔍 Validating Azure DNS network configuration..."
+echo ""
+
+public_dns_zone_name=$(get_config_value \
+	--provider '.providers["scope-configurations"].network.azure_dns_zone_name' \
+	--provider '.providers["cloud-providers"].networking.public_dns_zone_name')
 
 if [ -z "$public_dns_zone_name" ]; then
-  echo ""
-  echo "   ❌ public_dns_zone_name is not set in context"
-  echo ""
-  echo "  🔧 How to fix:"
-  echo "    • Ensure there is an Azure cloud-provider configured at the correct NRN hierarchy level"
-  echo "    • Set the 'public_dns_zone_name' field with the Azure DNS zone name"
-  echo ""
-  exit 1
+	echo "   ❌ dns_zone_name is not configured"
+	echo ""
+	echo "  💡 Possible causes:"
+	echo "    • The scope-configurations provider is missing 'network.azure_dns_zone_name'"
+	echo "    • No cloud-providers provider with 'networking.public_dns_zone_name' at this NRN level"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    • Set 'network.azure_dns_zone_name' in the scope-configurations provider"
+	echo "    • Or set 'networking.public_dns_zone_name' in the cloud-providers provider"
+	echo ""
+	exit 1
 fi
-echo "   ✅ public_dns_zone_name=$public_dns_zone_name"
+echo "   ✅ dns_zone_name=$public_dns_zone_name"
 
 application_slug=$(echo "$CONTEXT" | jq -r .application.slug)
 scope_slug=$(echo "$CONTEXT" | jq -r .scope.slug)
 scope_id=$(echo "$CONTEXT" | jq -r .scope.id)
-public_dns_zone_resource_group_name=$(echo "$CONTEXT" | jq -r '.providers["cloud-providers"].networking.public_dns_zone_resource_group_name // empty')
+
+public_dns_zone_resource_group_name=$(get_config_value \
+	--provider '.providers["scope-configurations"].network.azure_dns_zone_resource_group' \
+	--provider '.providers["cloud-providers"].networking.public_dns_zone_resource_group_name')
 
 if [ -z "$public_dns_zone_resource_group_name" ]; then
-  echo ""
-  echo "   ❌ public_dns_zone_resource_group_name is not set in context"
-  echo ""
-  echo "  🔧 How to fix:"
-  echo "    • Ensure the Azure cloud-provider has 'public_dns_zone_resource_group_name' configured"
-  echo ""
-  exit 1
+	echo "   ❌ dns_zone_resource_group is not configured"
+	echo ""
+	echo "  💡 Possible causes:"
+	echo "    • The scope-configurations provider is missing 'network.azure_dns_zone_resource_group'"
+	echo "    • No cloud-providers provider with 'networking.public_dns_zone_resource_group_name' at this NRN level"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    • Set 'network.azure_dns_zone_resource_group' in the scope-configurations provider"
+	echo "    • Or set 'networking.public_dns_zone_resource_group_name' in the cloud-providers provider"
+	echo ""
+	exit 1
 fi
-echo "   ✅ public_dns_zone_resource_group_name=$public_dns_zone_resource_group_name"
+echo "   ✅ dns_zone_resource_group=$public_dns_zone_resource_group_name"
 
 echo ""
 echo "   📡 Verifying Azure DNS zone..."
 
 stderr_file=$(mktemp)
-az_output=$(az network dns zone show --name "$public_dns_zone_name" --resource-group "$public_dns_zone_resource_group_name" 2>"$stderr_file")
-az_exit_code=$?
+az_output=$(az network dns zone show --name "$public_dns_zone_name" --resource-group "$public_dns_zone_resource_group_name" 2>"$stderr_file") && az_exit_code=0 || az_exit_code=$?
 az_stderr=$(cat "$stderr_file")
 rm -f "$stderr_file"
 
@@ -131,8 +148,7 @@ scope_domain="$network_subdomain.$network_domain"
 echo ""
 echo "   📝 Setting scope domain to '$scope_domain'..."
 
-np_output=$(np scope patch --id "$scope_id" --body "{\"domain\":\"$scope_domain\"}" --format json 2>&1)
-np_exit_code=$?
+np_output=$(np scope patch --id "$scope_id" --body "{\"domain\":\"$scope_domain\"}" --format json 2>&1) && np_exit_code=0 || np_exit_code=$?
 
 if [ $np_exit_code -ne 0 ]; then
   echo ""

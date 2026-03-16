@@ -1,49 +1,83 @@
 #!/bin/bash
 
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../scripts/get_config_value"
+
 echo "🔍 Validating Azure provider configuration..."
+echo ""
 
 missing_vars=()
 
-function validate_env_var() {
-  local variable_name=$1
-  local variable_value="${!variable_name}"
-
-  if [ -z "$variable_value" ]; then
-    echo "   ❌ $variable_name is missing"
-    missing_vars+=("$variable_name")
-  else
-    echo "   ✅ $variable_name=$variable_value"
-  fi
-}
-
-validate_env_var AZURE_SUBSCRIPTION_ID
-validate_env_var AZURE_RESOURCE_GROUP
-validate_env_var TOFU_PROVIDER_STORAGE_ACCOUNT
-validate_env_var TOFU_PROVIDER_CONTAINER
-
-if [ ${#missing_vars[@]} -gt 0 ]; then
-  echo ""
-  echo "  🔧 How to fix:"
-  echo "    Set the missing variable(s) in the nullplatform agent Helm installation:"
-  for var in "${missing_vars[@]}"; do
-    echo "      • $var"
-  done
-  echo ""
-  exit 1
+AZURE_SUBSCRIPTION_ID=$(get_config_value \
+	--provider '.providers["scope-configurations"].provider.azure_subscription_id' \
+	--env AZURE_SUBSCRIPTION_ID)
+if [ -z "$AZURE_SUBSCRIPTION_ID" ]; then
+	echo "   ❌ azure_subscription_id is missing"
+	missing_vars+=("azure_subscription_id")
+else
+	echo "   ✅ azure_subscription_id=$AZURE_SUBSCRIPTION_ID"
 fi
 
+AZURE_RESOURCE_GROUP=$(get_config_value \
+	--provider '.providers["scope-configurations"].provider.azure_resource_group' \
+	--env AZURE_RESOURCE_GROUP)
+if [ -z "$AZURE_RESOURCE_GROUP" ]; then
+	echo "   ❌ azure_resource_group is missing"
+	missing_vars+=("azure_resource_group")
+else
+	echo "   ✅ azure_resource_group=$AZURE_RESOURCE_GROUP"
+fi
+
+TOFU_PROVIDER_STORAGE_ACCOUNT=$(get_config_value \
+	--provider '.providers["scope-configurations"].provider.azure_state_storage_account' \
+	--env TOFU_PROVIDER_STORAGE_ACCOUNT)
+if [ -z "$TOFU_PROVIDER_STORAGE_ACCOUNT" ]; then
+	echo "   ❌ azure_state_storage_account is missing"
+	missing_vars+=("azure_state_storage_account")
+else
+	echo "   ✅ azure_state_storage_account=$TOFU_PROVIDER_STORAGE_ACCOUNT"
+fi
+
+TOFU_PROVIDER_CONTAINER=$(get_config_value \
+	--provider '.providers["scope-configurations"].provider.azure_state_container' \
+	--env TOFU_PROVIDER_CONTAINER)
+if [ -z "$TOFU_PROVIDER_CONTAINER" ]; then
+	echo "   ❌ azure_state_container is missing"
+	missing_vars+=("azure_state_container")
+else
+	echo "   ✅ azure_state_container=$TOFU_PROVIDER_CONTAINER"
+fi
+
+if [ ${#missing_vars[@]} -gt 0 ]; then
+	echo ""
+	echo "  💡 Possible causes:"
+	echo "    • The scope-configurations provider is missing these fields"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    Set the missing field(s) in the scope-configurations provider:"
+	for var in "${missing_vars[@]}"; do
+		echo "      • provider.$var"
+	done
+	echo "    Or set the equivalent environment variable in the agent Helm installation"
+	echo ""
+	exit 1
+fi
+
+echo ""
 echo "✨ Azure provider configured successfully"
 echo ""
 
 RESOURCE_TAGS_JSON=${RESOURCE_TAGS_JSON:-"{}"}
 
 TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
-  --arg subscription_id "$AZURE_SUBSCRIPTION_ID" \
-  --arg resource_group "$AZURE_RESOURCE_GROUP" \
-  --arg storage_account "$TOFU_PROVIDER_STORAGE_ACCOUNT" \
-  --arg container "$TOFU_PROVIDER_CONTAINER" \
-  --argjson resource_tags_json "$RESOURCE_TAGS_JSON" \
-  '. + {azure_provider: {subscription_id: $subscription_id, resource_group: $resource_group, storage_account: $storage_account, container: $container}, provider_resource_tags_json: $resource_tags_json}')
+	--arg subscription_id "$AZURE_SUBSCRIPTION_ID" \
+	--arg resource_group "$AZURE_RESOURCE_GROUP" \
+	--arg storage_account "$TOFU_PROVIDER_STORAGE_ACCOUNT" \
+	--arg container "$TOFU_PROVIDER_CONTAINER" \
+	--argjson resource_tags_json "$RESOURCE_TAGS_JSON" \
+	'. + {azure_provider: {subscription_id: $subscription_id, resource_group: $resource_group, storage_account: $storage_account, container: $container}, provider_resource_tags_json: $resource_tags_json}')
 
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=storage_account_name=$TOFU_PROVIDER_STORAGE_ACCOUNT"
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=container_name=$TOFU_PROVIDER_CONTAINER"

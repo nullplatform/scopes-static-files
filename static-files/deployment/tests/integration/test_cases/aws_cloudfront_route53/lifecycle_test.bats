@@ -15,7 +15,7 @@
 # Expected values derived from context.json and terraform variables
 
 # CloudFront variables (distribution/cloudfront/modules/variables.tf)
-TEST_DISTRIBUTION_BUCKET="assets-bucket"                                    # distribution_bucket_name
+TEST_DISTRIBUTION_BUCKET="my-asset-bucket"                                   # distribution_bucket_name (from context.json asset.url)
 TEST_DISTRIBUTION_S3_PREFIX="/tools/automation/v1.0.0"                      # distribution_s3_prefix
 TEST_DISTRIBUTION_APP_NAME="automation-development-tools-7"                 # distribution_app_name
 TEST_DISTRIBUTION_COMMENT="Distribution for automation-development-tools-7" # derived from app_name
@@ -38,13 +38,8 @@ setup_file() {
 
   # Create AWS prerequisites
   echo "Creating test prerequisites..."
-  aws_local s3api create-bucket --bucket assets-bucket >/dev/null 2>&1 || true
+  aws_local s3api create-bucket --bucket my-asset-bucket >/dev/null 2>&1 || true
   aws_local s3api create-bucket --bucket tofu-state-bucket >/dev/null 2>&1 || true
-  aws_local dynamodb create-table \
-    --table-name tofu-locks \
-    --attribute-definitions AttributeName=LockID,AttributeType=S \
-    --key-schema AttributeName=LockID,KeyType=HASH \
-    --billing-mode PAY_PER_REQUEST >/dev/null 2>&1 || true
   aws_local route53 create-hosted-zone \
     --name "$TEST_NETWORK_DOMAIN" \
     --caller-reference "test-$(date +%s)" >/dev/null 2>&1 || true
@@ -74,23 +69,20 @@ setup() {
   clear_mocks
   load_context "static-files/deployment/tests/resources/context.json"
   override_context "providers.cloud-providers.networking.hosted_public_zone_id" "$HOSTED_ZONE_ID"
+  override_context 'providers.scope-configurations.network.aws_hosted_public_zone_id' "$HOSTED_ZONE_ID"
+  override_context 'providers.scope-configurations.provider.aws_state_bucket' "tofu-state-bucket"
 
   # Export environment variables
   export NETWORK_LAYER="route53"
   export DISTRIBUTION_LAYER="cloudfront"
   export TOFU_PROVIDER="aws"
   export TOFU_PROVIDER_BUCKET="tofu-state-bucket"
-  export TOFU_LOCK_TABLE="tofu-locks"
   export AWS_REGION="us-east-1"
   export SERVICE_PATH="$INTEGRATION_MODULE_ROOT/static-files"
   export CUSTOM_TOFU_MODULES="$INTEGRATION_MODULE_ROOT/testing/localstack-provider"
 
   # Setup API mocks for np CLI calls
   local mocks_dir="static-files/deployment/tests/integration/mocks/"
-  mock_request "GET" "/category" "$mocks_dir/asset_repository/category.json"
-  mock_request "GET" "/provider_specification" "$mocks_dir/asset_repository/list_provider_spec.json"
-  mock_request "GET" "/provider" "$mocks_dir/asset_repository/list_provider.json"
-  mock_request "GET" "/provider/s3-asset-repository-id" "$mocks_dir/asset_repository/get_provider.json"
   mock_request "PATCH" "/scope/7" "$mocks_dir/scope/patch.json"
 }
 

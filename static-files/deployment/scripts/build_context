@@ -1,5 +1,10 @@
 #!/bin/bash
 
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/get_config_value"
+
 application_slug=$(echo "$CONTEXT" | jq -r .application.slug)
 scope_slug=$(echo "$CONTEXT" | jq -r .scope.slug)
 namespace_slug=$(echo "$CONTEXT" | jq -r .namespace.slug)
@@ -7,19 +12,70 @@ scope_id=$(echo "$CONTEXT" | jq -r .scope.id)
 application_version="$(echo "$CONTEXT" | jq -r .release.semver)"
 env_vars_json=$(echo "$CONTEXT" | jq '(.parameters.results // []) | map({(.variable): .values[0].value}) | add // {}')
 
+# =============================================================================
+# Resolve layer routing from scope-configuration provider
+# Priority: provider > env var > (fail)
+# =============================================================================
+TOFU_PROVIDER=$(get_config_value \
+	--provider '.providers["scope-configurations"].cloud_provider' \
+	--env TOFU_PROVIDER)
+
+if [ -z "$TOFU_PROVIDER" ]; then
+	echo "   ❌ cloud_provider is not configured"
+	echo ""
+	echo "  💡 Possible causes:"
+	echo "    • No scope-configurations provider is attached at this NRN level"
+	echo "    • The 'cloud_provider' field is not set in the provider"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    • Configure a scope-configurations provider with 'cloud_provider' set to 'aws' or 'azure'"
+	echo "    • Or set the TOFU_PROVIDER environment variable"
+	exit 1
+fi
+
+NETWORK_LAYER=$(get_config_value \
+	--provider ".providers[\"scope-configurations\"].network.${TOFU_PROVIDER}_network" \
+	--env NETWORK_LAYER)
+
+if [ -z "$NETWORK_LAYER" ]; then
+	echo "   ❌ network layer is not configured for provider '$TOFU_PROVIDER'"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    • Set 'network.${TOFU_PROVIDER}_network' in the scope-configurations provider"
+	echo "    • Or set the NETWORK_LAYER environment variable"
+	exit 1
+fi
+
+DISTRIBUTION_LAYER=$(get_config_value \
+	--provider ".providers[\"scope-configurations\"].distribution.${TOFU_PROVIDER}_distribution" \
+	--env DISTRIBUTION_LAYER)
+
+if [ -z "$DISTRIBUTION_LAYER" ]; then
+	echo "   ❌ distribution layer is not configured for provider '$TOFU_PROVIDER'"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    • Set 'distribution.${TOFU_PROVIDER}_distribution' in the scope-configurations provider"
+	echo "    • Or set the DISTRIBUTION_LAYER environment variable"
+	exit 1
+fi
+
+echo "   ✅ cloud_provider=$TOFU_PROVIDER"
+echo "   ✅ network_layer=$NETWORK_LAYER"
+echo "   ✅ distribution_layer=$DISTRIBUTION_LAYER"
+
 RESOURCE_TAGS_JSON=$(echo "$CONTEXT" | jq \
-     '{
-     nullplatform: "true",
-     account: .account.slug,
-     account_id: .account.id,
-     namespace: .namespace.slug,
-     namespace_id: .namespace.id,
-     application: .application.slug,
-     application_id: .application.id,
-     scope: .scope.slug,
-     scope_id: .scope.id,
-     deployment_id: .deployment.id
-     }')
+	'{
+	nullplatform: "true",
+	account: .account.slug,
+	account_id: .account.id,
+	namespace: .namespace.slug,
+	namespace_id: .namespace.id,
+	application: .application.slug,
+	application_id: .application.id,
+	scope: .scope.slug,
+	scope_id: .scope.id,
+	deployment_id: .deployment.id
+	}')
 
 TOFU_VARIABLES={}
 
@@ -29,7 +85,7 @@ TOFU_INIT_VARIABLES="${TOFU_INIT_VARIABLES:-} -backend-config=key=$tf_state_key"
 
 TOFU_MODULE_DIR="$SERVICE_PATH/output/$scope_id"
 if [ -n "${NP_OUTPUT_DIR:-}" ]; then
-    TOFU_MODULE_DIR="$NP_OUTPUT_DIR/output/$scope_id"
+	TOFU_MODULE_DIR="$NP_OUTPUT_DIR/output/$scope_id"
 fi
 
 mkdir -p "$TOFU_MODULE_DIR"
@@ -37,13 +93,12 @@ mkdir -p "$TOFU_MODULE_DIR"
 # =============================================================================
 # Modules to compose (comma-separated list)
 # Initialized from CUSTOM_MODULES, extended by setup scripts
-# Available modules:
-#   - state/aws         : AWS S3 backend for terraform state
-#   - network/route_53  : AWS Route53 DNS configuration
-#   - hosting/amplify   : AWS Amplify hosting (coming soon)
 # =============================================================================
 MODULES_TO_USE="${CUSTOM_TOFU_MODULES:-}"
 
+export TOFU_PROVIDER
+export NETWORK_LAYER
+export DISTRIBUTION_LAYER
 export TOFU_VARIABLES
 export TOFU_INIT_VARIABLES
 export TOFU_MODULE_DIR

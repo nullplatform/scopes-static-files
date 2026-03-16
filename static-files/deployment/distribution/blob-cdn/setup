@@ -1,5 +1,10 @@
 #!/bin/bash
 
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../scripts/get_config_value"
+
 echo "🔍 Validating Azure CDN distribution configuration..."
 
 application_slug=$(echo "$CONTEXT" | jq -r .application.slug)
@@ -10,89 +15,47 @@ asset_url=$(echo "$CONTEXT" | jq -r .asset.url)
 distribution_app_name="$application_slug-$scope_slug-$scope_id"
 echo "   ✅ app_name=$distribution_app_name"
 
-echo ""
-echo "   📡 Fetching assets-repository provider..."
-
-nrn=$(echo "$CONTEXT" | jq -r .scope.nrn)
-
-asset_repository=$(np provider list --nrn "$nrn" --categories assets-repository --format json 2>&1)
-np_exit_code=$?
-
-echo $asset_repository | jq .
-
-if [ $np_exit_code -ne 0 ]; then
-  echo ""
-  echo "   ❌ Failed to fetch assets-repository provider"
-  echo ""
-
-  if echo "$asset_repository" | grep -q "unauthorized\|forbidden\|401\|403"; then
-    echo "  🔒 Error: Permission denied"
-    echo ""
-    echo "  💡 Possible causes:"
-    echo "    • The nullplatform API Key doesn't have 'Ops' permissions at nrn: $nrn"
-    echo ""
-    echo "  🔧 How to fix:"
-    echo "    1. Ensure the API Key has 'Ops' permissions at the correct NRN hierarchy level"
-
+# Extract storage account, container, and blob prefix from asset_url
+# Format: https://storageaccount.blob.core.windows.net/container/path/to/assets
+if [[ "$asset_url" == https://*.blob.core.windows.net/* ]]; then
+  url_without_scheme="${asset_url#https://}"
+  distribution_storage_account="${url_without_scheme%%.*}"
+  url_path="${url_without_scheme#*/}"
+  distribution_container_name="${url_path%%/*}"
+  remaining_path="${url_path#*/}"
+  if [ "$remaining_path" = "$url_path" ]; then
+    distribution_blob_prefix="/"
   else
-    echo "  📋 Error details:"
-    echo "$asset_repository" | sed 's/^/    /'
+    distribution_blob_prefix="/${remaining_path}"
   fi
-
+else
   echo ""
-  exit 1
-fi
-
-# Look for Azure Blob Storage provider (storage_account and container)
-distribution_storage_account=$(echo "$asset_repository" | jq -r '
-  [.results[] | select(.attributes.storage_account.name != null)] | first | .attributes.storage_account.name // empty
-')
-
-distribution_container_name=$(echo "$asset_repository" | jq -r '
-  [.results[] | select(.attributes.container.name != null)] | first | .attributes.container.name // empty
-')
-
-if [ -z "$distribution_storage_account" ] || [ "$distribution_storage_account" = "null" ]; then
+  echo "   ❌ Could not extract storage account from asset URL: $asset_url"
   echo ""
-  echo "   ❌ No assets-repository provider of type Azure Blob Storage at nrn: $nrn"
+  echo "  💡 Possible causes:"
+  echo "    • The asset URL format is not recognized"
   echo ""
-
-  provider_count=$(echo "$asset_repository" | jq '.results | length')
-
-  if [ "$provider_count" -gt 0 ]; then
-    echo "  🤔 Found $provider_count asset-repository provider(s), but none are configured for Azure Blob Storage."
-    echo ""
-    echo "  📋 Verify the existing providers with the nullplatform CLI:"
-    echo "$asset_repository" | jq -r '.results[] | "    • np provider read --id \(.id) --format json"' 2>/dev/null
-    echo ""
-  fi
-
   echo "  🔧 How to fix:"
-  echo "    1. Ensure there is an asset-repository provider of type Azure Blob Storage configured at the correct NRN hierarchy level"
+  echo "    • Ensure the asset URL uses 'https://account.blob.core.windows.net/container/path' format"
   echo ""
   exit 1
 fi
 
-echo "   ✅ storage_account=$distribution_storage_account"
-echo "   ✅ container=${distribution_container_name:-"\$web"}"
+if [ -z "$distribution_storage_account" ]; then
+  echo ""
+  echo "   ❌ Could not extract storage account name from asset URL: $asset_url"
+  echo ""
+  echo "  🔧 How to fix:"
+  echo "    • Ensure the asset URL uses 'https://account.blob.core.windows.net/container/path' format"
+  echo ""
+  exit 1
+fi
 
-# Set default container to $web if not specified (Azure static website container)
+# Default container to $web if empty (Azure static website container)
 distribution_container_name=${distribution_container_name:-"\$web"}
 
-# Blob path prefix for multi-scope storage support
-# Extract path from asset_url (supports https:// format)
-# Removes protocol and storage account/container prefix, keeps the path with leading slash
-if [[ "$asset_url" == https://* ]]; then
-  # Extract path after the container name
-  distribution_blob_prefix="/${asset_url#https://*/*/}"
-else
-  distribution_blob_prefix="/"
-fi
-
-# Normalize empty prefix to just "/"
-if [ "$distribution_blob_prefix" = "/" ] || [ -z "$distribution_blob_prefix" ]; then
-  distribution_blob_prefix="/"
-fi
+echo "   ✅ storage_account=$distribution_storage_account"
+echo "   ✅ container=$distribution_container_name"
 
 echo "   ✅ blob_prefix=${distribution_blob_prefix:-"(root)"}"
 
