@@ -20,6 +20,11 @@ mock_provider "aws" {
       user_id    = "123456789012"
     }
   }
+}
+
+# ACM certificates for CloudFront must be in us-east-1
+mock_provider "aws" {
+  alias = "us_east_1"
 
   mock_data "aws_acm_certificate" {
     defaults = {
