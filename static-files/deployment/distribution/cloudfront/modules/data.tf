@@ -10,7 +10,7 @@ data "aws_caller_identity" "current" {}
 data "aws_acm_certificate" "custom_domain" {
   count = local.distribution_acm_certificate_domain != "" ? 1 : 0
 
-  provider    = aws
+  provider    = aws.us_east_1
   domain      = local.distribution_acm_certificate_domain
   statuses    = ["ISSUED", "PENDING_VALIDATION"]
   most_recent = true
