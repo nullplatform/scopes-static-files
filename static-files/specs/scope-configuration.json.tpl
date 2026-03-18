@@ -43,7 +43,8 @@
         "oneOf": [
           { "const": "aws", "title": "Amazon Web Services" },
           { "const": "azure", "title": "Microsoft Azure" }
-        ]
+        ],
+        "default": "aws"
       },
 
       "provider": {
