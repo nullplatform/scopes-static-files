@@ -392,19 +392,19 @@ run "bucket_policy_resource_scope" {
 }
 
 # =============================================================================
-# Test: S3 bucket policy has distribution condition
+# Test: S3 bucket policy uses account-level condition (not distribution-specific)
 # =============================================================================
-run "bucket_policy_has_distribution_condition" {
+run "bucket_policy_has_account_condition" {
   command = plan
 
   assert {
-    condition     = can(jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Condition.StringEquals["AWS:SourceArn"])
-    error_message = "Bucket policy should have AWS:SourceArn condition"
+    condition     = can(jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Condition.StringEquals["AWS:SourceAccount"])
+    error_message = "Bucket policy should have AWS:SourceAccount condition"
   }
 
   assert {
-    condition     = startswith(jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Condition.StringEquals["AWS:SourceArn"], "arn:aws:cloudfront::123456789012:distribution/")
-    error_message = "Bucket policy condition should reference the CloudFront distribution ARN with account 123456789012"
+    condition     = jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Condition.StringEquals["AWS:SourceAccount"] == "123456789012"
+    error_message = "Bucket policy condition should reference the AWS account ID"
   }
 }
 

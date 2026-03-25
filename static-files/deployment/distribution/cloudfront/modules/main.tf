@@ -22,7 +22,7 @@ resource "aws_s3_bucket_policy" "static" {
         Resource = "${data.aws_s3_bucket.static.arn}/*"
         Condition = {
           StringEquals = {
-            "AWS:SourceArn" = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${aws_cloudfront_distribution.static.id}"
+            "AWS:SourceAccount" = data.aws_caller_identity.current.account_id
           }
         }
       }
