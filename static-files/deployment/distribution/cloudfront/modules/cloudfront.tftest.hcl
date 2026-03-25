@@ -341,72 +341,10 @@ run "website_url_with_network_domain" {
 }
 
 # =============================================================================
-# Test: S3 bucket policy is created for CloudFront OAC
+# Note: S3 bucket policy is now managed by manage_bucket_policy script
+# instead of Terraform, to support multiple distributions sharing a bucket.
+# See deployment/scripts/manage_bucket_policy for details.
 # =============================================================================
-run "creates_s3_bucket_policy" {
-  command = plan
-
-  assert {
-    condition     = aws_s3_bucket_policy.static.bucket == "my-static-bucket"
-    error_message = "Bucket policy should be attached to 'my-static-bucket'"
-  }
-}
-
-# =============================================================================
-# Test: S3 bucket policy allows CloudFront service principal
-# =============================================================================
-run "bucket_policy_allows_cloudfront" {
-  command = plan
-
-  assert {
-    condition     = can(jsondecode(aws_s3_bucket_policy.static.policy))
-    error_message = "Bucket policy should be valid JSON"
-  }
-
-  assert {
-    condition     = jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Principal.Service == "cloudfront.amazonaws.com"
-    error_message = "Bucket policy should allow cloudfront.amazonaws.com service principal"
-  }
-
-  assert {
-    condition     = jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Action == "s3:GetObject"
-    error_message = "Bucket policy should allow s3:GetObject action"
-  }
-
-  assert {
-    condition     = jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Effect == "Allow"
-    error_message = "Bucket policy should have Allow effect"
-  }
-}
-
-# =============================================================================
-# Test: S3 bucket policy resource scope
-# =============================================================================
-run "bucket_policy_resource_scope" {
-  command = plan
-
-  assert {
-    condition     = jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Resource == "arn:aws:s3:::my-static-bucket/*"
-    error_message = "Bucket policy resource should be 'arn:aws:s3:::my-static-bucket/*'"
-  }
-}
-
-# =============================================================================
-# Test: S3 bucket policy has distribution condition
-# =============================================================================
-run "bucket_policy_has_distribution_condition" {
-  command = plan
-
-  assert {
-    condition     = can(jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Condition.StringEquals["AWS:SourceArn"])
-    error_message = "Bucket policy should have AWS:SourceArn condition"
-  }
-
-  assert {
-    condition     = startswith(jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Condition.StringEquals["AWS:SourceArn"], "arn:aws:cloudfront::123456789012:distribution/")
-    error_message = "Bucket policy condition should reference the CloudFront distribution ARN with account 123456789012"
-  }
-}
 
 # =============================================================================
 # Test: ACM certificate domain derivation
