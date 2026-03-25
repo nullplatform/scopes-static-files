@@ -40,6 +40,3 @@ steps:
   - name: tofu
     type: script
     file: "$SERVICE_PATH/deployment/scripts/do_tofu"
-  - name: manage_bucket_policy
-    type: script
-    file: "$SERVICE_PATH/deployment/scripts/manage_bucket_policy"

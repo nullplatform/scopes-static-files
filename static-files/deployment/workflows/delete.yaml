@@ -1,45 +1,4 @@
-provider_categories:
-  - cloud-providers
-  - scope-configurations
+include:
+  - "$SERVICE_PATH/deployment/workflows/initial.yaml"
 configuration:
   TOFU_ACTION: "destroy"
-steps:
-  - name: build_context
-    type: script
-    file: "$SERVICE_PATH/deployment/scripts/build_context"
-    output:
-      - name: TOFU_VARIABLES
-        type: environment
-      - name: TOFU_PROVIDER
-        type: environment
-      - name: NETWORK_LAYER
-        type: environment
-      - name: DISTRIBUTION_LAYER
-        type: environment
-  - name: setup_provider_layer
-    type: script
-    file: "$SERVICE_PATH/deployment/scripts/layer_executor"
-    configuration:
-      LAYER_TYPE: provider
-      LAYER_VAR: TOFU_PROVIDER
-  - name: setup_network_layer
-    type: script
-    file: "$SERVICE_PATH/deployment/scripts/layer_executor"
-    configuration:
-      LAYER_TYPE: network
-      LAYER_VAR: NETWORK_LAYER
-  - name: setup_distribution_layer
-    type: script
-    file: "$SERVICE_PATH/deployment/scripts/layer_executor"
-    configuration:
-      LAYER_TYPE: distribution
-      LAYER_VAR: DISTRIBUTION_LAYER
-  - name: build_modules
-    type: script
-    file: "$SERVICE_PATH/deployment/scripts/compose_modules"
-  - name: manage_bucket_policy
-    type: script
-    file: "$SERVICE_PATH/deployment/scripts/manage_bucket_policy"
-  - name: tofu
-    type: script
-    file: "$SERVICE_PATH/deployment/scripts/do_tofu"
