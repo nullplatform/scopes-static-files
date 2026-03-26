@@ -30,6 +30,9 @@ module "scope_definition" {
   scope_description = local.scope_definition.description
 
   action_spec_names = local.scope_definition.actions
+
+  organization_nrn          = var.organization_nrn
+  create_scope_configuration = true
 }
 
 module "scope_definition_agent_association" {
@@ -45,4 +48,15 @@ module "scope_definition_agent_association" {
   repository_notification_channel_branch = local.scope_definition.git_ref
   service_path                           = local.scope_definition.git_scope_path
   repo_path                              = "/root/.np/${local.scope_definition.git_repo}"
+}
+
+resource "nullplatform_provider_config" "static_files_configuration" {
+  nrn = var.nrn
+
+  type       = module.scope_definition.provider_specification_id
+  dimensions = {}
+
+  attributes = jsonencode({
+    region = "us-east-1"
+  })
 }
