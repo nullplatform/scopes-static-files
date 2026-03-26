@@ -15,11 +15,6 @@ variable "github_token" {
   sensitive   = true
 }
 
-variable "organization_nrn" {
-  description = "Organization NRN used to replace the NRN placeholder in scope-configuration.json.tpl"
-  type        = string
-}
-
 variable "tags" {
   description = "Map of tags used to select and filter channels and agents"
   type        = map(string)

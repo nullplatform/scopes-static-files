@@ -1,8 +1,8 @@
 locals {
   scope_definition = {
-    git_repo       = "nullplatform/scopes-static-files"
-    git_ref        = "main"
-    git_scope_path = "static-files"
+    repository_service_spec       = "nullplatform/scopes-static-files"
+    repository_service_spec_branch        = "main"
+    service_path = "static-files"
     name           = "Static Files"
     description    = "Allows you to deploy static files applications"
     actions = [
@@ -18,20 +18,18 @@ locals {
 }
 
 module "scope_definition" {
-  source = "git::https://github.com/nullplatform/main-terraform-modules.git//modules/nullplatform/scope-definition?ref=main"
+  source = "git::https://github.com/nullplatform/tofu-modules.git//nullplatform/scope_definition?ref=feature/remove-org-nrn"
 
   nrn        = var.nrn
   np_api_key = var.np_api_key
 
-  github_repo_url   = "https://${var.github_token}@github.com/${local.scope_definition.git_repo}"
-  github_ref        = local.scope_definition.git_ref
-  github_scope_path = local.scope_definition.git_scope_path
-  scope_name        = local.scope_definition.name
-  scope_description = local.scope_definition.description
+  repository_service_spec   = "https://${var.github_token}@github.com/${local.scope_definition.repository_service_spec}"
+  repository_service_spec_branch        = local.scope_definition.repository_service_spec_branch
+  service_path = local.scope_definition.service_path
+  service_spec_name = local.scope_definition.name
+  service_spec_description = local.scope_definition.description
 
   action_spec_names = local.scope_definition.actions
-
-  organization_nrn          = var.organization_nrn
   create_scope_configuration = true
 }
 
