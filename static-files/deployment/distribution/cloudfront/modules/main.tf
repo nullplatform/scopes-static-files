@@ -6,30 +6,6 @@ resource "aws_cloudfront_origin_access_control" "static" {
   signing_protocol                  = "sigv4"
 }
 
-resource "aws_s3_bucket_policy" "static" {
-  bucket = data.aws_s3_bucket.static.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid       = "AllowCloudFrontServicePrincipalReadOnly"
-        Effect    = "Allow"
-        Principal = {
-          Service = "cloudfront.amazonaws.com"
-        }
-        Action   = "s3:GetObject"
-        Resource = "${data.aws_s3_bucket.static.arn}/*"
-        Condition = {
-          StringEquals = {
-            "AWS:SourceAccount" = data.aws_caller_identity.current.account_id
-          }
-        }
-      }
-    ]
-  })
-}
-
 resource "aws_cloudfront_distribution" "static" {
   enabled             = true
   is_ipv6_enabled     = true
@@ -43,7 +19,7 @@ resource "aws_cloudfront_distribution" "static" {
     origin_id                = local.distribution_origin_id
     origin_access_control_id = aws_cloudfront_origin_access_control.static.id
 
-    origin_path              = local.distribution_origin_path
+    origin_path = local.distribution_origin_path
   }
 
   default_cache_behavior {

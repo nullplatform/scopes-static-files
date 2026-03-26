@@ -12,14 +12,6 @@ mock_provider "aws" {
       bucket_regional_domain_name = "my-static-bucket.s3.us-east-1.amazonaws.com"
     }
   }
-
-  mock_data "aws_caller_identity" {
-    defaults = {
-      account_id = "123456789012"
-      arn        = "arn:aws:iam::123456789012:root"
-      user_id    = "123456789012"
-    }
-  }
 }
 
 # ACM certificates for CloudFront must be in us-east-1
@@ -337,74 +329,6 @@ run "website_url_with_network_domain" {
   assert {
     condition     = output.distribution_website_url == "https://cdn.example.com"
     error_message = "distribution_website_url should be 'https://cdn.example.com'"
-  }
-}
-
-# =============================================================================
-# Test: S3 bucket policy is created for CloudFront OAC
-# =============================================================================
-run "creates_s3_bucket_policy" {
-  command = plan
-
-  assert {
-    condition     = aws_s3_bucket_policy.static.bucket == "my-static-bucket"
-    error_message = "Bucket policy should be attached to 'my-static-bucket'"
-  }
-}
-
-# =============================================================================
-# Test: S3 bucket policy allows CloudFront service principal
-# =============================================================================
-run "bucket_policy_allows_cloudfront" {
-  command = plan
-
-  assert {
-    condition     = can(jsondecode(aws_s3_bucket_policy.static.policy))
-    error_message = "Bucket policy should be valid JSON"
-  }
-
-  assert {
-    condition     = jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Principal.Service == "cloudfront.amazonaws.com"
-    error_message = "Bucket policy should allow cloudfront.amazonaws.com service principal"
-  }
-
-  assert {
-    condition     = jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Action == "s3:GetObject"
-    error_message = "Bucket policy should allow s3:GetObject action"
-  }
-
-  assert {
-    condition     = jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Effect == "Allow"
-    error_message = "Bucket policy should have Allow effect"
-  }
-}
-
-# =============================================================================
-# Test: S3 bucket policy resource scope
-# =============================================================================
-run "bucket_policy_resource_scope" {
-  command = plan
-
-  assert {
-    condition     = jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Resource == "arn:aws:s3:::my-static-bucket/*"
-    error_message = "Bucket policy resource should be 'arn:aws:s3:::my-static-bucket/*'"
-  }
-}
-
-# =============================================================================
-# Test: S3 bucket policy uses account-level condition (not distribution-specific)
-# =============================================================================
-run "bucket_policy_has_account_condition" {
-  command = plan
-
-  assert {
-    condition     = can(jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Condition.StringEquals["AWS:SourceAccount"])
-    error_message = "Bucket policy should have AWS:SourceAccount condition"
-  }
-
-  assert {
-    condition     = jsondecode(aws_s3_bucket_policy.static.policy).Statement[0].Condition.StringEquals["AWS:SourceAccount"] == "123456789012"
-    error_message = "Bucket policy condition should reference the AWS account ID"
   }
 }
 
