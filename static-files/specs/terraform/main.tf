@@ -1,10 +1,10 @@
 locals {
   scope_definition = {
-    repository_service_spec       = "nullplatform/scopes-static-files"
-    repository_service_spec_branch        = "main"
-    service_path = "static-files"
-    name           = "Static Files"
-    description    = "Allows you to deploy static files applications"
+    repository_service_spec        = "nullplatform/scopes-static-files"
+    repository_service_spec_branch = "main"
+    service_path                   = "static-files"
+    name                           = "Static Files"
+    description                    = "Allows you to deploy static files applications"
     actions = [
       "create-scope",
       "delete-scope",
@@ -15,6 +15,8 @@ locals {
       "delete-deployment",
     ]
   }
+
+  repository_base_url = "https://${var.github_token}@raw.githubusercontent.com/${local.scope_definition.repository_service_spec}/refs/heads"
 }
 
 module "scope_definition" {
@@ -23,13 +25,17 @@ module "scope_definition" {
   nrn        = var.nrn
   np_api_key = var.np_api_key
 
-  repository_service_spec   = "https://${var.github_token}@github.com/${local.scope_definition.repository_service_spec}"
-  repository_service_spec_branch        = local.scope_definition.repository_service_spec_branch
-  service_path = local.scope_definition.service_path
-  service_spec_name = local.scope_definition.name
-  service_spec_description = local.scope_definition.description
+  repository_service_spec            = local.repository_base_url
+  repository_service_spec_branch     = local.scope_definition.repository_service_spec_branch
+  repository_scope_template          = local.repository_base_url
+  repository_scope_template_branch   = local.scope_definition.repository_service_spec_branch
+  repository_action_templates        = local.repository_base_url
+  repository_action_templates_branch = local.scope_definition.repository_service_spec_branch
+  service_path                       = local.scope_definition.service_path
+  service_spec_name                  = local.scope_definition.name
+  service_spec_description           = local.scope_definition.description
 
-  action_spec_names = local.scope_definition.actions
+  action_spec_names          = local.scope_definition.actions
   create_scope_configuration = true
 }
 
@@ -39,13 +45,13 @@ module "scope_definition_agent_association" {
   api_key                  = var.np_api_key
   nrn                      = var.nrn
   scope_specification_id   = module.scope_definition.service_specification_id
-  scope_specification_slug = module.scope_definition.service_specification_slug
+  scope_specification_slug = module.scope_definition.service_slug
   tags_selectors           = var.tags
 
-  repository_notification_channel        = "https://${var.github_token}@raw.githubusercontent.com/${local.scope_definition.git_repo}/refs/heads"
-  repository_notification_channel_branch = local.scope_definition.git_ref
-  service_path                           = local.scope_definition.git_scope_path
-  repo_path                              = "/root/.np/${local.scope_definition.git_repo}"
+  repository_notification_channel        = "https://${var.github_token}@raw.githubusercontent.com/${local.scope_definition.repository_service_spec}/refs/heads"
+  repository_notification_channel_branch = local.scope_definition.repository_service_spec_branch
+  service_path                           = local.scope_definition.service_path
+  repo_path                              = "/root/.np/${local.scope_definition.repository_service_spec}"
 }
 
 resource "nullplatform_provider_config" "static_files_configuration" {
