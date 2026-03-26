@@ -141,6 +141,28 @@ teardown() {
   assert_contains "$action_call" "destroy"
 }
 
+@test "Should exclude bucket policy on destroy" {
+  export TOFU_ACTION="destroy"
+
+  run bash "$SCRIPT_PATH"
+
+  assert_equal "$status" "0"
+
+  local action_call=$(grep -v "init" "$TOFU_MOCK_LOG" | head -1)
+  assert_contains "$action_call" "-exclude=aws_s3_bucket_policy.static"
+}
+
+@test "Should not exclude bucket policy on apply" {
+  export TOFU_ACTION="apply"
+
+  run bash "$SCRIPT_PATH"
+
+  assert_equal "$status" "0"
+
+  local action_call=$(grep -v "init" "$TOFU_MOCK_LOG" | head -1)
+  [[ "$action_call" != *"-exclude"* ]]
+}
+
 @test "Should call tofu with TOFU_ACTION=plan" {
   export TOFU_ACTION="plan"
 

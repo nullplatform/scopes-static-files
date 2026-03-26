@@ -22,4 +22,13 @@ fi
 
 # TOFU_INIT_VARIABLES intentionally unquoted: contains multiple -backend-config flags
 $TOFU_CMD -chdir="$TOFU_MODULE_DIR" init -input=false $TOFU_INIT_VARIABLES
-$TOFU_CMD -chdir="$TOFU_MODULE_DIR" "$TOFU_ACTION" -auto-approve -var-file="$TOFU_VAR_FILE"
+
+# On destroy, exclude the bucket policy so it is not deleted.
+# Multiple CloudFront distributions share the same S3 bucket, and the policy
+# must persist for the remaining distributions to keep working.
+TOFU_EXCLUDE=""
+if [[ "$TOFU_ACTION" == "destroy" ]]; then
+  TOFU_EXCLUDE="-exclude=aws_s3_bucket_policy.static"
+fi
+
+$TOFU_CMD -chdir="$TOFU_MODULE_DIR" "$TOFU_ACTION" -auto-approve -var-file="$TOFU_VAR_FILE" $TOFU_EXCLUDE
