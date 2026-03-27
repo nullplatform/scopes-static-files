@@ -40,6 +40,12 @@ setup_file() {
   echo "Creating test prerequisites..."
   aws_local s3api create-bucket --bucket my-asset-bucket >/dev/null 2>&1 || true
   aws_local s3api create-bucket --bucket tofu-state-bucket >/dev/null 2>&1 || true
+
+  # Attach bucket policy so the CloudFront setup validation passes
+  LOCALSTACK_ACCOUNT_ID=$(aws_local sts get-caller-identity --query Account --output text 2>/dev/null || echo "000000000000")
+  aws_local s3api put-bucket-policy \
+    --bucket my-asset-bucket \
+    --policy "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"AllowCloudFrontServicePrincipalReadOnly\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"cloudfront.amazonaws.com\"},\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::my-asset-bucket/*\",\"Condition\":{\"StringEquals\":{\"AWS:SourceAccount\":\"$LOCALSTACK_ACCOUNT_ID\"}}}]}" >/dev/null 2>&1 || true
   aws_local route53 create-hosted-zone \
     --name "$TEST_NETWORK_DOMAIN" \
     --caller-reference "test-$(date +%s)" >/dev/null 2>&1 || true

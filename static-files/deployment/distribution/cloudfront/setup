@@ -48,6 +48,73 @@ echo "   ✅ bucket_name=$distribution_bucket_name"
 
 echo "   ✅ s3_prefix=${distribution_s3_prefix:-"(root)"}"
 
+# Validate that the S3 bucket policy allows CloudFront access for this account
+echo ""
+echo "🔍 Validating S3 bucket policy for CloudFront access..."
+
+current_account_id=$(aws sts get-caller-identity --query Account --output text 2>/dev/null || true)
+if [ -z "$current_account_id" ]; then
+  echo ""
+  echo "   ❌ Could not retrieve current AWS account ID"
+  echo ""
+  echo "  💡 Possible causes:"
+  echo "    • AWS credentials are not configured or lack sts:GetCallerIdentity permission"
+  echo ""
+  exit 1
+fi
+echo "   ✅ aws_account_id=$current_account_id"
+
+bucket_policy_json=$(aws s3api get-bucket-policy --bucket "$distribution_bucket_name" --query Policy --output text 2>/dev/null || true)
+if [ -z "$bucket_policy_json" ]; then
+  echo ""
+  echo "   ❌ No bucket policy found on S3 bucket: $distribution_bucket_name"
+  echo ""
+  echo "  💡 Possible causes:"
+  echo "    • The bucket policy has not been created yet"
+  echo "    • The bucket policy was removed when a CloudFront distribution was deleted"
+  echo ""
+  echo "  🔧 How to fix:"
+  echo "    • Apply the bucket module that manages the S3 bucket policy for CloudFront OAC access"
+  echo "    • The policy must allow cloudfront.amazonaws.com with s3:GetObject and AWS:SourceAccount condition"
+  echo ""
+  exit 1
+fi
+
+policy_valid=$(echo "$bucket_policy_json" | jq --arg account "$current_account_id" '
+  [ .Statement[] |
+    select(
+      .Effect == "Allow" and
+      (.Principal.Service? == "cloudfront.amazonaws.com" or .Principal? == "cloudfront.amazonaws.com") and
+      (.Action == "s3:GetObject" or ((.Action | arrays) | contains(["s3:GetObject"]))) and
+      (
+        .Condition.StringEquals["AWS:SourceAccount"]? == $account or
+        (.Condition.StringEquals["AWS:SourceAccount"]? | arrays | contains([$account]))
+      )
+    )
+  ] | length > 0
+' 2>/dev/null || echo "false")
+
+if [ "$policy_valid" != "true" ]; then
+  echo ""
+  echo "   ❌ Bucket policy on '$distribution_bucket_name' does not allow CloudFront access for account $current_account_id"
+  echo ""
+  echo "  💡 Possible causes:"
+  echo "    • The policy is missing a statement for cloudfront.amazonaws.com"
+  echo "    • The AWS:SourceAccount condition does not match account $current_account_id"
+  echo "    • The policy does not grant s3:GetObject"
+  echo ""
+  echo "  🔧 How to fix:"
+  echo "    • Ensure the bucket module applies a policy with:"
+  echo "      - Principal: { Service: cloudfront.amazonaws.com }"
+  echo "      - Action: s3:GetObject"
+  echo "      - Condition: { StringEquals: { AWS:SourceAccount: $current_account_id } }"
+  echo ""
+  exit 1
+fi
+
+echo "   ✅ bucket_policy=allows CloudFront access for account $current_account_id"
+echo ""
+
 RESOURCE_TAGS_JSON=${RESOURCE_TAGS_JSON:-"{}"}
 
 TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
