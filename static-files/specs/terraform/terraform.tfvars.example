@@ -1,6 +1,6 @@
-nrn          = ""
-np_api_key   = ""
-github_token = ""
+nrn              = ""
+np_api_key       = ""
+github_token     = ""
 
 tags = {
   "environment" = ""
