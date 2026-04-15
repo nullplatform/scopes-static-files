@@ -6,7 +6,8 @@ This module provides infrastructure-as-code for deploying static files applicati
 
 - [Architecture Overview](#architecture-overview)
 - [Registering and Using the Scope](#registering-and-using-the-scope)
-  - [Pre-requisites (AWS)](#pre-requisites-aws)
+  - [Pre-requisites](#pre-requisites)
+    - [AWS](#aws)
   - [Registration (Terraform)](#registration-terraform)
   - [Agent IAM permissions](#agent-iam-permissions)
   - [State management](#state-management)
@@ -68,11 +69,23 @@ This section targets operators who want to **register this scope on a
 nullplatform account** and deploy SPAs with it. For extending the scope with
 new layer implementations, see the sections below.
 
-### Pre-requisites (AWS)
+> **Scope of the operator guide below.** The scope itself supports multiple
+> cloud providers (see the `cloud_provider` selector in
+> [`specs/scope-configuration.json.tpl`](specs/scope-configuration.json.tpl)
+> and the parallel `aws_*` / `azure_*` fields in its schema). The pre-requisites,
+> Terraform example, and IAM guidance in the sections below are currently
+> **AWS-only** — they were written from a concrete AWS installation. If you
+> install on Azure (or GCP, once supported) and want to contribute the
+> equivalent sections, they are welcome.
 
-The scope does **not** create these — they must already exist in the target AWS
-account before the first `start-initial` succeeds. The scope will fail loudly
-on the first deployment if any is missing.
+### Pre-requisites
+
+The scope **validates** these resources at deployment time but does **not**
+create them — they must already exist in the target cloud account before the
+first `start-initial` succeeds. The scope will fail loudly on the first
+deployment if any is missing.
+
+#### AWS
 
 1. **An S3 bucket for per-scope OpenTofu state** (`aws_state_bucket`). One
    entry per scope is written here during the deployment workflow.
@@ -117,12 +130,20 @@ on the first deployment if any is missing.
 
 ### Registration (Terraform)
 
-A working example lives in [`specs/terraform/`](specs/terraform/). Copy it
-into your own infrastructure repository and fill in
-`terraform.tfvars.example`.
+The reference Terraform for registering the scope lives under
+[`specs/terraform/`](specs/terraform/), organized by cloud. Today only the
+AWS example is complete:
+
+- [`specs/terraform/aws/`](specs/terraform/aws/) — working AWS example
+  (S3 + CloudFront + Route 53 + ACM). See
+  [`specs/terraform/README.md`](specs/terraform/README.md) for the layout
+  and for guidance on contributing the Azure / GCP equivalents.
+
+Copy the AWS example into your own infrastructure repository and fill in
+`terraform.tfvars.example`:
 
 ```bash
-cp -r static-files/specs/terraform /path/to/your/infra/scopes/static-files
+cp -r static-files/specs/terraform/aws /path/to/your/infra/scopes/static-files
 cd /path/to/your/infra/scopes/static-files
 cp terraform.tfvars.example terraform.tfvars
 $EDITOR terraform.tfvars
@@ -150,10 +171,15 @@ ready to host scopes.
 
 The nullplatform agent needs the permissions below to run the full lifecycle
 (`start-initial`, `start-blue-green`, `finalize-blue-green`,
-`rollback-deployment`, `delete-deployment`, `delete-scope`).
+`rollback-deployment`, `delete-deployment`, `delete-scope`). The permissions
+and policy file below are **AWS-only**; the Azure equivalent would be a set
+of Azure RBAC role assignments (Storage Blob Data Contributor on the state
+and asset storage accounts, DNS Zone Contributor on the DNS zone, CDN
+Profile / Endpoint Contributor on the CDN profile) — not yet documented
+here.
 
-A ready-to-use policy JSON is at
-[`docs/agent-iam-policy-example.json`](docs/agent-iam-policy-example.json).
+A ready-to-use policy JSON for AWS is at
+[`docs/agent-iam-policy-aws-example.json`](docs/agent-iam-policy-aws-example.json).
 Attach it to the agent's IAM role (IRSA on EKS) and scope the `Resource`
 fields to your specific buckets / zones once you are past the first
 successful deployment.
@@ -202,8 +228,10 @@ Error: error fetching specification ID for slug <UUID>:
        no specification found for slug: <UUID>
 ```
 
-The example in [`specs/terraform/main.tf`](specs/terraform/main.tf) uses
-`provider_specification_slug` — stick to it.
+The AWS example in
+[`specs/terraform/aws/main.tf`](specs/terraform/aws/main.tf) uses
+`provider_specification_slug` — stick to it. The same applies to any
+future Azure / GCP examples.
 
 #### `scope_type.description` has a 60-character cap
 
@@ -226,7 +254,8 @@ at `start-initial`, so an incomplete config only surfaces when you try to
 create the first scope and the deployment rolls back with
 `"network layer is not configured for provider 'aws'"` or similar.
 
-The example in [`specs/terraform/main.tf`](specs/terraform/main.tf) includes
+The AWS example in
+[`specs/terraform/aws/main.tf`](specs/terraform/aws/main.tf) includes
 all three layers (`provider`, `network`, `distribution`); do not prune them.
 
 ---
