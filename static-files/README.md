@@ -153,19 +153,20 @@ The nullplatform agent needs the permissions below to run the full lifecycle
 `rollback-deployment`, `delete-deployment`, `delete-scope`).
 
 A ready-to-use policy JSON is at
-[`docs/agent-iam-policy-example.json`](../docs/agent-iam-policy-example.json).
+[`docs/agent-iam-policy-example.json`](docs/agent-iam-policy-example.json).
 Attach it to the agent's IAM role (IRSA on EKS) and scope the `Resource`
 fields to your specific buckets / zones once you are past the first
 successful deployment.
 
-| Service | Actions | Notes |
-|---|---|---|
-| **S3** | Create/Delete bucket, Get/Put bucket-level config (policy, tagging, versioning, PAB, encryption, lifecycle, CORS, website, logging), List bucket, object-level Get/Put/Delete | Used both for the state bucket and for the per-scope asset bucket. |
-| **CloudFront** | `cloudfront:*` | Distribution lifecycle + invalidations. |
-| **Route 53** | `GetHostedZone`, `ListHostedZones`, `ListHostedZonesByName`, `ChangeResourceRecordSets`, `ListResourceRecordSets` on `hostedzone/*` | Creating/updating/deleting DNS records. |
-| **Route 53** | `GetChange` on `change/*` | **Easy to miss.** The AWS provider polls this while waiting for DNS propagation; without it, `start-initial` fails with `AccessDenied` *after* successfully creating the record. |
-| **ACM** | `DescribeCertificate`, `GetCertificate`, `ListCertificates`, `ListTagsForCertificate` | Certificate lookup for the CloudFront distribution. `GetCertificate` is required in addition to `DescribeCertificate` — the provider calls both. |
-| **STS** | `GetCallerIdentity` | Used by the agent to report the target account in workflow logs. |
+| Service | Actions | Resource | Notes |
+|---|---|---|---|
+| **S3** | Create/Delete bucket, Get/Put bucket-level config (policy, tagging, versioning, PAB, encryption, lifecycle, CORS, website, logging), List bucket, object-level Get/Put/Delete | `*` (scope down post-install) | Used both for the state bucket and for the per-scope asset bucket. |
+| **CloudFront** | `cloudfront:*` | `*` | Distribution lifecycle + invalidations. |
+| **Route 53** | `GetHostedZone`, `ChangeResourceRecordSets`, `ListResourceRecordSets` | `hostedzone/*` | Record-level operations. |
+| **Route 53** | `ListHostedZones`, `ListHostedZonesByName` | `*` | **Must be `*`** — these two actions don't support resource-level permissions, so scoping them to `hostedzone/*` silently denies them and the provider fails on its first list call. |
+| **Route 53** | `GetChange` | `change/*` | **Easy to miss.** The AWS provider polls this while waiting for DNS propagation; without it, `start-initial` fails with `AccessDenied` *after* successfully creating the record. |
+| **ACM** | `DescribeCertificate`, `GetCertificate`, `ListCertificates`, `ListTagsForCertificate` | `*` | Certificate lookup for the CloudFront distribution. `GetCertificate` is required in addition to `DescribeCertificate` — the provider calls both. |
+| **STS** | `GetCallerIdentity` | `*` | Used by the agent to report the target account in workflow logs. |
 
 ### State management
 
