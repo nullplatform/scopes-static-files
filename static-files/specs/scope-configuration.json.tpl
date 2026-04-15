@@ -214,7 +214,7 @@
                     }
                   },
                   "type": "Label",
-                  "text": "> **ℹ️ Agent Credentials (IRSA)**\n\nThe nullplatform agent must run with an IAM role attached to its Kubernetes service account (IRSA). The role needs permissions for:\n\n- **S3** — state backend read/write, asset bucket policy management, and state locking\n- **Route 53** — DNS record management (GetHostedZone, ChangeResourceRecordSets)\n- **CloudFront** — distribution lifecycle and cache invalidation\n- **ACM** — certificate lookup (ListCertificates, DescribeCertificate)\n- **STS** — caller identity (GetCallerIdentity)\n\nConfigure this in your agent Helm installation via the serviceAccount annotations.",
+                  "text": "> **ℹ️ Agent Credentials (IRSA)**\n\nThe nullplatform agent must run with an IAM role attached to its Kubernetes service account (IRSA). The role needs permissions for:\n\n- **S3** — state backend read/write, asset bucket policy management, and state locking\n- **Route 53** — DNS record management (GetHostedZone, ChangeResourceRecordSets) and **GetChange on `arn:aws:route53:::change/*`** (required for propagation polling — without it, deployments fail *after* creating the record)\n- **CloudFront** — distribution lifecycle and cache invalidation\n- **ACM** — certificate lookup (ListCertificates, DescribeCertificate, **GetCertificate**)\n- **STS** — caller identity (GetCallerIdentity)\n\nSee `static-files/docs/agent-iam-policy-example.json` in the scope repo for a ready-to-use policy. Configure this in your agent Helm installation via the serviceAccount annotations.",
                   "options": {
                     "format": "markdown"
                   }
