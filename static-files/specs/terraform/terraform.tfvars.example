@@ -1,6 +1,12 @@
-nrn              = ""
-np_api_key       = ""
-github_token     = ""
+nrn          = ""
+np_api_key   = ""
+github_token = ""
+
+# AWS provider-config attributes.
+# See README section "Pre-requisites (AWS)" for what must exist before apply.
+aws_region                = "us-east-1"
+aws_state_bucket          = ""
+aws_hosted_public_zone_id = ""
 
 tags = {
   "environment" = ""
