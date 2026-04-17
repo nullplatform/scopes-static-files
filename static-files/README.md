@@ -180,9 +180,15 @@ here.
 
 A ready-to-use policy JSON for AWS is at
 [`docs/agent-iam-policy-aws-example.json`](docs/agent-iam-policy-aws-example.json).
-Attach it to the agent's IAM role (IRSA on EKS) and scope the `Resource`
-fields to your specific buckets / zones once you are past the first
-successful deployment.
+Attach it to the agent's IAM role (IRSA on EKS) after replacing the
+placeholders with your actual values:
+
+| Placeholder | Source | Example |
+|---|---|---|
+| `YOUR_STATE_BUCKET` | S3 bucket for per-scope OpenTofu state (created in your infra layer) | `my-cluster-sf-tfstate-a1b2c3d4` |
+| `YOUR_ASSETS_BUCKET` | S3 bucket for frontend asset bundles (created in your infra layer) | `my-cluster-sf-assets-e5f6g7h8` |
+| `YOUR_HOSTED_ZONE_ID` | Route 53 public hosted zone ID | `Z012209428HPFIKB27ZR` |
+| `YOUR_ACCOUNT_ID` | AWS account ID | `984449730514` |
 
 | Service | Actions | Resource | Notes |
 |---|---|---|---|

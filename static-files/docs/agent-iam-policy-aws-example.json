@@ -66,6 +66,31 @@
       "Resource": "*"
     },
     {
+      "Sid": "Route53ChangePolling",
+      "Effect": "Allow",
+      "Action": [
+        "route53:GetChange"
+      ],
+      "Resource": "arn:aws:route53:::change/*"
+    },
+    {
+      "Sid": "Route53ListZones",
+      "Effect": "Allow",
+      "Action": [
+        "route53:ListHostedZones",
+        "route53:ListHostedZonesByName"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ACMCertificateRead",
+      "Effect": "Allow",
+      "Action": [
+        "acm:GetCertificate"
+      ],
+      "Resource": "arn:aws:acm:us-east-1:YOUR_ACCOUNT_ID:certificate/*"
+    },
+    {
       "Sid": "STSIdentity",
       "Effect": "Allow",
       "Action": "sts:GetCallerIdentity",
