@@ -2,89 +2,73 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "StateBucketAndAppAssets",
+      "Sid": "TofuStateBackend",
       "Effect": "Allow",
       "Action": [
-        "s3:CreateBucket",
-        "s3:DeleteBucket",
-        "s3:GetBucketLocation",
-        "s3:GetBucketPolicy",
-        "s3:GetBucketTagging",
-        "s3:GetBucketVersioning",
-        "s3:GetBucketAcl",
-        "s3:GetBucketCORS",
-        "s3:GetBucketLogging",
-        "s3:GetBucketWebsite",
-        "s3:GetBucketPublicAccessBlock",
-        "s3:GetEncryptionConfiguration",
-        "s3:GetLifecycleConfiguration",
-        "s3:ListBucket",
-        "s3:ListBucketVersions",
-        "s3:PutBucketPolicy",
-        "s3:PutBucketTagging",
-        "s3:PutBucketVersioning",
-        "s3:PutBucketAcl",
-        "s3:PutBucketCORS",
-        "s3:PutBucketLogging",
-        "s3:PutBucketWebsite",
-        "s3:PutBucketPublicAccessBlock",
-        "s3:PutEncryptionConfiguration",
-        "s3:PutLifecycleConfiguration",
-        "s3:DeleteBucketPolicy",
         "s3:GetObject",
-        "s3:GetObjectVersion",
         "s3:PutObject",
         "s3:DeleteObject",
-        "s3:DeleteObjectVersion"
+        "s3:ListBucket"
       ],
-      "Resource": "*"
+      "Resource": [
+        "arn:aws:s3:::YOUR_STATE_BUCKET",
+        "arn:aws:s3:::YOUR_STATE_BUCKET/*"
+      ]
     },
     {
-      "Sid": "CloudFrontDistribution",
-      "Effect": "Allow",
-      "Action": ["cloudfront:*"],
-      "Resource": "*"
-    },
-    {
-      "Sid": "Route53RecordManagement",
+      "Sid": "Route53Network",
       "Effect": "Allow",
       "Action": [
         "route53:GetHostedZone",
         "route53:ChangeResourceRecordSets",
         "route53:ListResourceRecordSets"
       ],
-      "Resource": "arn:aws:route53:::hostedzone/*"
+      "Resource": "arn:aws:route53:::hostedzone/YOUR_HOSTED_ZONE_ID"
     },
     {
-      "Sid": "Route53ListZones",
+      "Sid": "CloudFrontDistribution",
       "Effect": "Allow",
       "Action": [
-        "route53:ListHostedZones",
-        "route53:ListHostedZonesByName"
+        "cloudfront:CreateDistribution",
+        "cloudfront:UpdateDistribution",
+        "cloudfront:DeleteDistribution",
+        "cloudfront:GetDistribution",
+        "cloudfront:TagResource",
+        "cloudfront:UntagResource",
+        "cloudfront:ListTagsForResource",
+        "cloudfront:CreateInvalidation",
+        "cloudfront:CreateOriginAccessControl",
+        "cloudfront:GetOriginAccessControl",
+        "cloudfront:UpdateOriginAccessControl",
+        "cloudfront:DeleteOriginAccessControl"
       ],
       "Resource": "*"
     },
     {
-      "Sid": "Route53ChangePolling",
+      "Sid": "S3BucketAccess",
       "Effect": "Allow",
-      "Action": ["route53:GetChange"],
-      "Resource": "arn:aws:route53:::change/*"
+      "Action": [
+        "s3:GetBucketLocation",
+        "s3:GetBucketPolicy",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::YOUR_ASSETS_BUCKET"
     },
     {
       "Sid": "ACMCertificateLookup",
       "Effect": "Allow",
       "Action": [
-        "acm:DescribeCertificate",
-        "acm:GetCertificate",
         "acm:ListCertificates",
-        "acm:ListTagsForCertificate"
+        "acm:DescribeCertificate"
       ],
       "Resource": "*"
     },
     {
-      "Sid": "STSCallerIdentity",
+      "Sid": "STSIdentity",
       "Effect": "Allow",
-      "Action": ["sts:GetCallerIdentity"],
+      "Action": "sts:GetCallerIdentity",
       "Resource": "*"
     }
   ]
