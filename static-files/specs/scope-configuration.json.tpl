@@ -2,6 +2,7 @@
   "name": "Static Files",
   "description": "Configuration for static files scopes (SPAs, static websites, front-end bundles)",
   "category": "scope-configurations",
+  "icon": "mdi:folder-upload-outline",
   "visible_to": [
     "{{ env.Getenv "NRN" }}"
   ],
