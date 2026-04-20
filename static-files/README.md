@@ -159,7 +159,6 @@ Minimum inputs:
 |---|---|
 | `nrn` | NRN where the scope type should be registered (usually an account-level NRN) |
 | `np_api_key` | nullplatform API key with `Admin` role on the target scope |
-| `github_token` | GitHub token with read access to `nullplatform/scopes-static-files` |
 | `aws_state_bucket` | S3 bucket for OpenTofu state (see Pre-requisites 1). One bucket, shared across every `provider_configs` entry. |
 | `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each entry needs `nrn`, `aws_region`, and `aws_hosted_public_zone_id`. See [Registering multiple environments](#registering-multiple-environments) below. |
 | `tags` | Agent/channel tag selectors (must match `tags` of the agent that should pick up deployments) |

@@ -24,7 +24,6 @@ Register the scope definition in nullplatform using the Terraform module in `sta
 
 - [OpenTofu](https://opentofu.org/) or Terraform installed
 - A nullplatform API key
-- A GitHub personal access token with read access to this repo
 
 ### Steps
 
@@ -38,9 +37,8 @@ cp terraform.tfvars.example terraform.tfvars
 2. Edit `terraform.tfvars` with your credentials and tags:
 
 ```hcl
-nrn          = "organization=<YOUR_ORG_ID>"
-np_api_key   = "<YOUR_NULLPLATFORM_API_KEY>"
-github_token = "<YOUR_GITHUB_TOKEN>"
+nrn        = "organization=<YOUR_ORG_ID>"
+np_api_key = "<YOUR_NULLPLATFORM_API_KEY>"
 
 tags = {
   "environment" = "<YOUR_ENVIRONMENT>"

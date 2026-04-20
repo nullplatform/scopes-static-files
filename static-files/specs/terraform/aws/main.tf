@@ -16,7 +16,7 @@ locals {
     ]
   }
 
-  repository_base_url = "https://${var.github_token}@raw.githubusercontent.com/${local.scope_definition.repository_service_spec}/refs/heads"
+  repository_base_url = "https://raw.githubusercontent.com/${local.scope_definition.repository_service_spec}/refs/heads"
 }
 
 module "scope_definition" {
@@ -48,7 +48,7 @@ module "scope_definition_agent_association" {
   scope_specification_slug = module.scope_definition.service_slug
   tags_selectors           = var.tags
 
-  repository_notification_channel        = "https://${var.github_token}@raw.githubusercontent.com/${local.scope_definition.repository_service_spec}/refs/heads"
+  repository_notification_channel        = "https://raw.githubusercontent.com/${local.scope_definition.repository_service_spec}/refs/heads"
   repository_notification_channel_branch = local.scope_definition.repository_service_spec_branch
   service_path                           = local.scope_definition.service_path
   repo_path                              = "/root/.np/${local.scope_definition.repository_service_spec}"

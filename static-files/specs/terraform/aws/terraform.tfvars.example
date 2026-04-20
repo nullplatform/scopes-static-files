@@ -1,6 +1,5 @@
-nrn          = ""
-np_api_key   = ""
-github_token = ""
+nrn        = ""
+np_api_key = ""
 
 # S3 bucket for OpenTofu state. Shared across every provider_configs entry
 # (there is one state bucket, not one per environment).
