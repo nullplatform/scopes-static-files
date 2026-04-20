@@ -20,7 +20,7 @@ locals {
 }
 
 module "scope_definition" {
-  source = "git::https://github.com/nullplatform/tofu-modules.git//nullplatform/scope_definition?ref=feature/remove-org-nrn"
+  source = "git::https://github.com/nullplatform/tofu-modules.git//nullplatform/scope_definition?ref=main"
 
   nrn        = var.nrn
   np_api_key = var.np_api_key
@@ -54,13 +54,57 @@ module "scope_definition_agent_association" {
   repo_path                              = "/root/.np/${local.scope_definition.repository_service_spec}"
 }
 
+# ------------------------------------------------------------------------------
+# Provider configuration for scopes of type Static Files.
+#
+# One `nullplatform_provider_config` per entry in `var.provider_configs`, typically
+# one entry per environment (dev/stg/prd) with its own NRN, AWS region, and Route
+# 53 hosted zone. The state bucket (`var.aws_state_bucket`) is shared across all
+# entries — there is exactly one state bucket, regardless of how many
+# environments you configure.
+#
+# The `nrn` of each entry is used as the `for_each` key so that adding or
+# removing an environment does not reorder the other resources in state.
+#
+# IMPORTANT — about `type`: this field expects the provider specification *slug*,
+# NOT its UUID. Using `module.scope_definition.provider_specification_id` (the
+# UUID) silently fails at apply time with:
+#
+#   Error: error fetching specification ID for slug <UUID>:
+#          no specification found for slug: <UUID>
+#
+# Always use `provider_specification_slug`.
+#
+# IMPORTANT — about `attributes`: the scope workflow validates all three layers
+# (provider / network / distribution) at deployment time. If any of them is
+# missing, `start-initial` rolls back with messages like
+# "network layer is not configured for provider 'aws'". The API does not
+# validate attributes against the schema at create time, so the problem is
+# only surfaced on the first deployment attempt.
+# ------------------------------------------------------------------------------
 resource "nullplatform_provider_config" "static_files_configuration" {
-  nrn = var.nrn
+  for_each = { for cfg in var.provider_configs : cfg.nrn => cfg }
 
-  type       = module.scope_definition.provider_specification_id
+  nrn = each.value.nrn
+
+  type       = module.scope_definition.provider_specification_slug
   dimensions = {}
 
   attributes = jsonencode({
-    region = "us-east-1"
+    cloud_provider = "aws"
+
+    provider = {
+      aws_region       = each.value.aws_region
+      aws_state_bucket = var.aws_state_bucket
+    }
+
+    network = {
+      aws_network               = "route53"
+      aws_hosted_public_zone_id = each.value.aws_hosted_public_zone_id
+    }
+
+    distribution = {
+      aws_distribution = "cloudfront"
+    }
   })
 }
