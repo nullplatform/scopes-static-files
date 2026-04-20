@@ -57,6 +57,15 @@ module "scope_definition_agent_association" {
 # ------------------------------------------------------------------------------
 # Provider configuration for scopes of type Static Files.
 #
+# One `nullplatform_provider_config` per entry in `var.provider_configs`, typically
+# one entry per environment (dev/stg/prd) with its own NRN, AWS region, and Route
+# 53 hosted zone. The state bucket (`var.aws_state_bucket`) is shared across all
+# entries — there is exactly one state bucket, regardless of how many
+# environments you configure.
+#
+# The `nrn` of each entry is used as the `for_each` key so that adding or
+# removing an environment does not reorder the other resources in state.
+#
 # IMPORTANT — about `type`: this field expects the provider specification *slug*,
 # NOT its UUID. Using `module.scope_definition.provider_specification_id` (the
 # UUID) silently fails at apply time with:
@@ -74,7 +83,9 @@ module "scope_definition_agent_association" {
 # only surfaced on the first deployment attempt.
 # ------------------------------------------------------------------------------
 resource "nullplatform_provider_config" "static_files_configuration" {
-  nrn = var.nrn
+  for_each = { for cfg in var.provider_configs : cfg.nrn => cfg }
+
+  nrn = each.value.nrn
 
   type       = module.scope_definition.provider_specification_slug
   dimensions = {}
@@ -83,13 +94,13 @@ resource "nullplatform_provider_config" "static_files_configuration" {
     cloud_provider = "aws"
 
     provider = {
-      aws_region       = var.aws_region
+      aws_region       = each.value.aws_region
       aws_state_bucket = var.aws_state_bucket
     }
 
     network = {
       aws_network               = "route53"
-      aws_hosted_public_zone_id = var.aws_hosted_public_zone_id
+      aws_hosted_public_zone_id = each.value.aws_hosted_public_zone_id
     }
 
     distribution = {

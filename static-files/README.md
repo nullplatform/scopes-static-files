@@ -9,6 +9,7 @@ This module provides infrastructure-as-code for deploying static files applicati
   - [Pre-requisites](#pre-requisites)
     - [AWS](#aws)
   - [Registration (Terraform)](#registration-terraform)
+    - [Registering multiple environments](#registering-multiple-environments)
   - [Agent IAM permissions](#agent-iam-permissions)
   - [State management](#state-management)
   - [Gotchas](#gotchas)
@@ -87,7 +88,7 @@ deployment if any is missing.
 
 #### AWS
 
-1. **An S3 bucket for per-scope OpenTofu state** (`aws_state_bucket`). One
+1. **An S3 bucket to store the OpenTofu state** (`aws_state_bucket`). One
    entry per scope is written here during the deployment workflow.
 
 2. **A Route 53 public hosted zone** for the domain the scopes will use
@@ -159,13 +160,40 @@ Minimum inputs:
 | `nrn` | NRN where the scope type should be registered (usually an account-level NRN) |
 | `np_api_key` | nullplatform API key with `Admin` role on the target scope |
 | `github_token` | GitHub token with read access to `nullplatform/scopes-static-files` |
-| `aws_region` | Region where scope resources are deployed (default `us-east-1`) |
-| `aws_state_bucket` | S3 bucket for per-scope state (see Pre-requisites 1) |
-| `aws_hosted_public_zone_id` | Route 53 zone ID (see Pre-requisites 2) |
+| `aws_state_bucket` | S3 bucket for OpenTofu state (see Pre-requisites 1). One bucket, shared across every `provider_configs` entry. |
+| `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each entry needs `nrn`, `aws_region`, and `aws_hosted_public_zone_id`. See [Registering multiple environments](#registering-multiple-environments) below. |
 | `tags` | Agent/channel tag selectors (must match `tags` of the agent that should pick up deployments) |
 
 After `tofu apply`, the scope type appears in the nullplatform UI and is
 ready to host scopes.
+
+#### Registering multiple environments
+
+`provider_configs` is a list, so you can register several provider configs in
+one apply — typically one per environment (e.g. `dev` / `stg` / `prd`) or per
+region. Each entry becomes its own `nullplatform_provider_config` resource,
+with the entry's `nrn` used as the `for_each` key:
+
+```hcl
+provider_configs = [
+  {
+    nrn                       = "organization=123:account=456:namespace=789:application=*"
+    aws_region                = "us-east-1"
+    aws_hosted_public_zone_id = "Z0100000000000000000A"
+  },
+  {
+    nrn                       = "organization=123:account=456:namespace=790:application=*"
+    aws_region                = "us-east-1"
+    aws_hosted_public_zone_id = "Z0200000000000000000B"
+  },
+]
+```
+
+What varies between entries: `nrn`, `aws_region`, `aws_hosted_public_zone_id`.
+What does **not** vary (and therefore stays as a top-level variable):
+`aws_state_bucket` — the state bucket is a single bucket shared across every
+entry. Keep the `nrn` stable after the first apply; changing it forces
+OpenTofu to destroy and recreate the provider config.
 
 ### Agent IAM permissions
 

@@ -29,27 +29,28 @@ variable "tags" {
 # list of pre-requisites each of these assumes exists.
 # ------------------------------------------------------------------------------
 
-variable "aws_region" {
-  description = "AWS region where scope resources will be deployed."
-  type        = string
-  default     = "us-east-1"
-}
-
 variable "aws_state_bucket" {
   description = <<-EOT
-    S3 bucket for per-scope OpenTofu state. The nullplatform agent writes one
-    state file per scope into this bucket during the deployment workflow. Must
-    exist before any scope is created; the agent's IAM role needs
-    s3:GetObject / PutObject / DeleteObject / ListBucket on it.
+    S3 bucket for OpenTofu state. The nullplatform agent writes one state file
+    per scope into this bucket during the deployment workflow. Shared across
+    every `provider_configs` entry — the state bucket is a single bucket, not
+    per-environment. Must exist before any scope is created; the agent's IAM
+    role needs s3:GetObject / PutObject / DeleteObject / ListBucket on it.
   EOT
   type        = string
 }
 
-variable "aws_hosted_public_zone_id" {
+variable "provider_configs" {
   description = <<-EOT
-    Route 53 public hosted zone ID where per-scope DNS records are created
-    (e.g. `Z012209428HPFIKB27ZR`). The zone must already exist; the scope only
-    writes records into it.
+    One entry per environment/region. Each element creates its own
+    `nullplatform_provider_config` resource, typically scoped to a different
+    NRN (e.g. per environment) with its own AWS region and Route 53 hosted
+    zone. The `nrn` of each entry is used as the `for_each` key, so keep it
+    stable to avoid recreating provider configs on unrelated changes.
   EOT
-  type        = string
+  type = list(object({
+    nrn                       = string
+    aws_region                = string
+    aws_hosted_public_zone_id = string
+  }))
 }
