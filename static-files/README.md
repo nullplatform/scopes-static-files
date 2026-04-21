@@ -5,6 +5,14 @@ This module provides infrastructure-as-code for deploying static files applicati
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
+- [Registering and Using the Scope](#registering-and-using-the-scope)
+  - [Pre-requisites](#pre-requisites)
+    - [AWS](#aws)
+  - [Registration (Terraform)](#registration-terraform)
+    - [Registering multiple environments](#registering-multiple-environments)
+  - [Agent IAM permissions](#agent-iam-permissions)
+  - [State management](#state-management)
+  - [Gotchas](#gotchas)
 - [Layer System](#layer-system)
 - [Variable Naming Conventions](#variable-naming-conventions)
 - [Cross-Layer Communication](#cross-layer-communication)
@@ -53,6 +61,235 @@ This module provides infrastructure-as-code for deploying static files applicati
 1. **Provider Layer**: Configures cloud credentials, state backend, and resource tags
 2. **Network Layer**: Sets up DNS zones and records, calculates domains
 3. **Distribution Layer**: Deploys CDN/hosting with references to network outputs
+
+---
+
+## Registering and Using the Scope
+
+This section targets operators who want to **register this scope on a
+nullplatform account** and deploy SPAs with it. For extending the scope with
+new layer implementations, see the sections below.
+
+> **Scope of the operator guide below.** The scope itself supports multiple
+> cloud providers (see the `cloud_provider` selector in
+> [`specs/scope-configuration.json.tpl`](specs/scope-configuration.json.tpl)
+> and the parallel `aws_*` / `azure_*` fields in its schema). The pre-requisites,
+> Terraform example, and IAM guidance in the sections below are currently
+> **AWS-only** — they were written from a concrete AWS installation. If you
+> install on Azure (or GCP, once supported) and want to contribute the
+> equivalent sections, they are welcome.
+
+### Pre-requisites
+
+The scope **validates** these resources at deployment time but does **not**
+create them — they must already exist in the target cloud account before the
+first `start-initial` succeeds. The scope will fail loudly on the first
+deployment if any is missing.
+
+#### AWS
+
+1. **An S3 bucket to store the OpenTofu state** (`aws_state_bucket`). One
+   entry per scope is written here during the deployment workflow.
+
+2. **A Route 53 public hosted zone** for the domain the scopes will use
+   (`aws_hosted_public_zone_id`). The scope writes records into it; it does
+   not create the zone.
+
+3. **An ACM certificate in `us-east-1` that covers the scope's domain.** The
+   scope looks up a certificate via a data source and attaches it to the
+   CloudFront distribution — it does not request or validate certificates.
+   For the usual case, a wildcard certificate for `*.<domain>` (plus the apex
+   as a SAN) validated via DNS in Route 53 is enough. Must be in `us-east-1`
+   regardless of where the rest of the infrastructure lives: CloudFront only
+   accepts certificates from that region.
+
+4. **An S3 bucket for frontend bundles** (where CI uploads builds, keyed by
+   `frontends/<app_id>/<build_id>/`), **with a bucket policy that grants the
+   CloudFront distribution Origin Access Control (OAC) read access**. The
+   scope references this bucket but does not manage its policy. The policy
+   must look like:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Sid": "AllowCloudFrontOACRead",
+       "Effect": "Allow",
+       "Principal": { "Service": "cloudfront.amazonaws.com" },
+       "Action": "s3:GetObject",
+       "Resource": "arn:aws:s3:::<app_assets_bucket>/*",
+       "Condition": {
+         "StringEquals": { "AWS:SourceAccount": "<account_id>" }
+       }
+     }]
+   }
+   ```
+
+5. **An IAM role for the nullplatform agent** with the permissions listed in
+   [Agent IAM permissions](#agent-iam-permissions). On EKS this is usually
+   attached via IRSA to the service account the agent runs under.
+
+### Registration (Terraform)
+
+The reference Terraform for registering the scope lives under
+[`specs/terraform/`](specs/terraform/), organized by cloud. Today only the
+AWS example is complete:
+
+- [`specs/terraform/aws/`](specs/terraform/aws/) — working AWS example
+  (S3 + CloudFront + Route 53 + ACM). See
+  [`specs/terraform/README.md`](specs/terraform/README.md) for the layout
+  and for guidance on contributing the Azure / GCP equivalents.
+
+Copy the AWS example into your own infrastructure repository and fill in
+`terraform.tfvars.example`:
+
+```bash
+cp -r static-files/specs/terraform/aws /path/to/your/infra/scopes/static-files
+cd /path/to/your/infra/scopes/static-files
+cp terraform.tfvars.example terraform.tfvars
+$EDITOR terraform.tfvars
+
+tofu init
+tofu apply
+```
+
+Minimum inputs:
+
+| Variable | Description |
+|---|---|
+| `nrn` | NRN where the scope type should be registered (usually an account-level NRN) |
+| `np_api_key` | nullplatform API key with `Admin` role on the target scope |
+| `aws_state_bucket` | S3 bucket for OpenTofu state (see Pre-requisites 1). One bucket, shared across every `provider_configs` entry. |
+| `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each entry needs `nrn`, `aws_region`, and `aws_hosted_public_zone_id`. See [Registering multiple environments](#registering-multiple-environments) below. |
+| `tags` | Agent/channel tag selectors (must match `tags` of the agent that should pick up deployments) |
+
+After `tofu apply`, the scope type appears in the nullplatform UI and is
+ready to host scopes.
+
+#### Registering multiple environments
+
+`provider_configs` is a list, so you can register several provider configs in
+one apply — typically one per environment (e.g. `dev` / `stg` / `prd`) or per
+region. Each entry becomes its own `nullplatform_provider_config` resource,
+with the entry's `nrn` used as the `for_each` key:
+
+```hcl
+provider_configs = [
+  {
+    nrn                       = "organization=123:account=456:namespace=789:application=*"
+    aws_region                = "us-east-1"
+    aws_hosted_public_zone_id = "Z0100000000000000000A"
+  },
+  {
+    nrn                       = "organization=123:account=456:namespace=790:application=*"
+    aws_region                = "us-east-1"
+    aws_hosted_public_zone_id = "Z0200000000000000000B"
+  },
+]
+```
+
+What varies between entries: `nrn`, `aws_region`, `aws_hosted_public_zone_id`.
+What does **not** vary (and therefore stays as a top-level variable):
+`aws_state_bucket` — the state bucket is a single bucket shared across every
+entry. Keep the `nrn` stable after the first apply; changing it forces
+OpenTofu to destroy and recreate the provider config.
+
+### Agent IAM permissions
+
+The nullplatform agent needs the permissions below to run the full lifecycle
+(`start-initial`, `start-blue-green`, `finalize-blue-green`,
+`rollback-deployment`, `delete-deployment`, `delete-scope`). The permissions
+and policy file below are **AWS-only**; the Azure equivalent would be a set
+of Azure RBAC role assignments (Storage Blob Data Contributor on the state
+and asset storage accounts, DNS Zone Contributor on the DNS zone, CDN
+Profile / Endpoint Contributor on the CDN profile) — not yet documented
+here.
+
+A ready-to-use policy JSON for AWS is at
+[`docs/agent-iam-policy-aws-example.json`](docs/agent-iam-policy-aws-example.json).
+Attach it to the agent's IAM role (IRSA on EKS) after replacing the
+placeholders with your actual values:
+
+| Placeholder | Source | Example |
+|---|---|---|
+| `YOUR_STATE_BUCKET` | S3 bucket for per-scope OpenTofu state (created in your infra layer) | `my-cluster-sf-tfstate-a1b2c3d4` |
+| `YOUR_ASSETS_BUCKET` | S3 bucket for frontend asset bundles (created in your infra layer) | `my-cluster-sf-assets-e5f6g7h8` |
+| `YOUR_HOSTED_ZONE_ID` | Route 53 public hosted zone ID | `Z012209428HPFIKB27ZR` |
+| `YOUR_ACCOUNT_ID` | AWS account ID | `984449730514` |
+
+| Service | Actions | Resource | Notes |
+|---|---|---|---|
+| **S3** | Create/Delete bucket, Get/Put bucket-level config (policy, tagging, versioning, PAB, encryption, lifecycle, CORS, website, logging), List bucket, object-level Get/Put/Delete | `*` (scope down post-install) | Used both for the state bucket and for the per-scope asset bucket. |
+| **CloudFront** | `cloudfront:*` | `*` | Distribution lifecycle + invalidations. |
+| **Route 53** | `GetHostedZone`, `ChangeResourceRecordSets`, `ListResourceRecordSets` | `hostedzone/*` | Record-level operations. |
+| **Route 53** | `ListHostedZones`, `ListHostedZonesByName` | `*` | **Must be `*`** — these two actions don't support resource-level permissions, so scoping them to `hostedzone/*` silently denies them and the provider fails on its first list call. |
+| **Route 53** | `GetChange` | `change/*` | **Easy to miss.** The AWS provider polls this while waiting for DNS propagation; without it, `start-initial` fails with `AccessDenied` *after* successfully creating the record. |
+| **ACM** | `DescribeCertificate`, `GetCertificate`, `ListCertificates`, `ListTagsForCertificate` | `*` | Certificate lookup for the CloudFront distribution. `GetCertificate` is required in addition to `DescribeCertificate` — the provider calls both. |
+| **STS** | `GetCallerIdentity` | `*` | Used by the agent to report the target account in workflow logs. |
+
+### State management
+
+Each scope of type Static Files has its **own OpenTofu state file**, stored in
+the S3 bucket referenced by `aws_state_bucket` in the provider config. The
+file is managed by the nullplatform agent during deployment actions; operators
+should never edit it by hand.
+
+The state bucket is independent from whichever bucket holds the state of the
+infrastructure that registers the scope. Recommended layouts:
+
+- **Dedicated bucket per account or per environment** (recommended for
+  production — isolates blast radius and simplifies IAM).
+- **Shared with the infrastructure tfstate bucket** (simpler, but mixes
+  concerns — fine for a POC).
+
+S3-native state locking is used (no DynamoDB table required).
+
+### Gotchas
+
+#### `nullplatform_provider_config.type` expects a slug, not a UUID
+
+The `scope_definition` module exposes two relevant outputs:
+
+- `provider_specification_id` — UUID
+- `provider_specification_slug` — slug
+
+The `type` field on `nullplatform_provider_config` expects a **slug**. Using
+the UUID silently fails with:
+
+```
+Error: error fetching specification ID for slug <UUID>:
+       no specification found for slug: <UUID>
+```
+
+The AWS example in
+[`specs/terraform/aws/main.tf`](specs/terraform/aws/main.tf) uses
+`provider_specification_slug` — stick to it. The same applies to any
+future Azure / GCP examples.
+
+#### `scope_type.description` has a 60-character cap
+
+The description in `scope-type-definition.json.tpl` is validated by the
+backend against a 60-character maximum. The default description fits (46
+chars). If you customize it and exceed the cap, `tofu apply` fails with:
+
+```
+Error: failed to create scope type resource: status code 400,
+       {"type":"ValidationError",
+        "errors":[{"message":"body/description must NOT have more than 60 characters"}]}
+```
+
+#### `provider_config.attributes` is validated on first deploy, not on create
+
+The nullplatform API accepts a `provider_config` with incomplete
+`attributes` at create time (e.g., missing the `network` or `distribution`
+block) without any error. The validation happens inside the scope workflow
+at `start-initial`, so an incomplete config only surfaces when you try to
+create the first scope and the deployment rolls back with
+`"network layer is not configured for provider 'aws'"` or similar.
+
+The AWS example in
+[`specs/terraform/aws/main.tf`](specs/terraform/aws/main.tf) includes
+all three layers (`provider`, `network`, `distribution`); do not prune them.
 
 ---
 

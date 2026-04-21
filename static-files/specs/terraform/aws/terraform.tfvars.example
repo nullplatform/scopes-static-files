@@ -1,0 +1,27 @@
+nrn        = ""
+np_api_key = ""
+
+# S3 bucket for OpenTofu state. Shared across every provider_configs entry
+# (there is one state bucket, not one per environment).
+# See README section "Pre-requisites (AWS)" for what must exist before apply.
+aws_state_bucket = ""
+
+# One entry per environment/region. You can add more entries to register
+# per-environment provider configs (each with its own NRN, region, and hosted
+# zone). The `nrn` of each entry is used as the for_each key.
+provider_configs = [
+  {
+    nrn                       = "" # e.g. the account-level NRN (same as `nrn` above) or an env-specific NRN
+    aws_region                = "us-east-1"
+    aws_hosted_public_zone_id = ""
+  },
+  # {
+  #   nrn                       = ""
+  #   aws_region                = "us-east-1"
+  #   aws_hosted_public_zone_id = ""
+  # },
+]
+
+tags = {
+  "environment" = ""
+}
