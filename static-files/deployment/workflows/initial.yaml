@@ -16,6 +16,10 @@ steps:
         type: environment
       - name: DISTRIBUTION_LAYER
         type: environment
+      - name: SECURITY_LAYER
+        type: environment
+      - name: DISTRIBUTION_WEB_ACL_NAME
+        type: environment
   - name: setup_provider_layer
     type: script
     file: "$SERVICE_PATH/deployment/scripts/layer_executor"

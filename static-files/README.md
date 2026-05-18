@@ -61,6 +61,7 @@ This module provides infrastructure-as-code for deploying static files applicati
 1. **Provider Layer**: Configures cloud credentials, state backend, and resource tags
 2. **Network Layer**: Sets up DNS zones and records, calculates domains
 3. **Distribution Layer**: Deploys CDN/hosting with references to network outputs
+4. **Security (optional)**: Attaches an existing WAFv2 WebACL to the CloudFront distribution. Not a separate composed layer — it's wired into the distribution module via an opt-in provider field. See [Security: attaching a WAFv2 WebACL](#security-attaching-a-wafv2-webacl).
 
 ---
 
@@ -225,6 +226,7 @@ placeholders with your actual values:
 | **Route 53** | `ListHostedZones`, `ListHostedZonesByName` | `*` | **Must be `*`** — these two actions don't support resource-level permissions, so scoping them to `hostedzone/*` silently denies them and the provider fails on its first list call. |
 | **Route 53** | `GetChange` | `change/*` | **Easy to miss.** The AWS provider polls this while waiting for DNS propagation; without it, `start-initial` fails with `AccessDenied` *after* successfully creating the record. |
 | **ACM** | `DescribeCertificate`, `GetCertificate`, `ListCertificates`, `ListTagsForCertificate` | `*` | Certificate lookup for the CloudFront distribution. `GetCertificate` is required in addition to `DescribeCertificate` — the provider calls both. |
+| **WAFv2** | `ListWebACLs`, `GetWebACL` | `arn:aws:wafv2:us-east-1:YOUR_ACCOUNT_ID:global/webacl/*/*` | **Optional** — only needed when the scope-configurations provider sets `security.aws_security = "waf"`. The `setup` script calls `ListWebACLs` to validate the name before `tofu apply`; the Terraform data source calls `GetWebACL`. |
 | **STS** | `GetCallerIdentity` | `*` | Used by the agent to report the target account in workflow logs. |
 
 ### State management
@@ -822,7 +824,37 @@ export TOFU_PROVIDER_BUCKET=my-state-bucket
 ```bash
 export NETWORK_LAYER=route53        # or: azure_dns, cloud_dns
 export DISTRIBUTION_LAYER=cloudfront # or: blob-cdn, amplify, firebase, etc.
+export SECURITY_LAYER=none           # or: waf (CloudFront only)
+export DISTRIBUTION_WEB_ACL_NAME=""  # WAFv2 WebACL name when SECURITY_LAYER=waf
 ```
+
+### Security: attaching a WAFv2 WebACL
+
+CloudFront distributions can optionally be associated with an existing
+**AWS WAFv2 WebACL**. Configure it in the scope-configurations provider:
+
+| Field | Value |
+|---|---|
+| `security.aws_security` | `"none"` (default) or `"waf"` |
+| `security.aws_web_acl_name` | Name of an existing WebACL with `scope=CLOUDFRONT` |
+
+Constraints (intentional, can be relaxed later):
+
+- **WAFv2 only.** Classic WAF (`aws_waf_*` resources) is not supported.
+- **Same-account only.** The WebACL must live in the AWS account the agent
+  authenticates against. Cross-account references are not supported.
+- **`scope=CLOUDFRONT` only.** AWS confines these WebACLs to `us-east-1`;
+  the module looks them up there via the `aws.us_east_1` provider alias.
+
+Behavior:
+
+- The scope's `setup` script validates the name with `wafv2:ListWebACLs`
+  before `tofu apply` runs (fails fast with a clear message).
+- Setting or clearing `aws_web_acl_name` triggers an **in-place update**
+  on `aws_cloudfront_distribution.static` — the distribution ID stays
+  stable and there is no re-deployment churn.
+- Leaving `aws_security="none"` (or unset) is a complete no-op: the
+  WAFv2 data source is not invoked, no extra IAM permission is required.
 
 ---
 

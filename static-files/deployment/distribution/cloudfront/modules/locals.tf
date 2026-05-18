@@ -19,6 +19,11 @@ locals {
     Module    = "distribution/cloudfront"
   })
 
+  # Resolve WAFv2 WebACL ARN (null when no WAF is attached).
+  # Setting/clearing this on aws_cloudfront_distribution triggers an in-place update,
+  # not a replacement — the distribution ID stays stable.
+  distribution_web_acl_arn = length(data.aws_wafv2_web_acl.cloudfront) > 0 ? data.aws_wafv2_web_acl.cloudfront[0].arn : null
+
   # Cross-module references (consumed by network/route53)
   distribution_target_domain  = aws_cloudfront_distribution.static.domain_name
   distribution_target_zone_id = aws_cloudfront_distribution.static.hosted_zone_id

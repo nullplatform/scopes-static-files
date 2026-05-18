@@ -96,6 +96,15 @@
       "Effect": "Allow",
       "Action": "sts:GetCallerIdentity",
       "Resource": "*"
+    },
+    {
+      "Sid": "WAFv2WebACLLookup",
+      "Effect": "Allow",
+      "Action": [
+        "wafv2:ListWebACLs",
+        "wafv2:GetWebACL"
+      ],
+      "Resource": "arn:aws:wafv2:us-east-1:YOUR_ACCOUNT_ID:global/webacl/*/*"
     }
   ]
 }

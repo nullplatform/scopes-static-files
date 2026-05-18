@@ -13,6 +13,7 @@ resource "aws_cloudfront_distribution" "static" {
   aliases             = local.distribution_aliases
   price_class         = "PriceClass_100"
   comment             = "Distribution for ${var.distribution_app_name}"
+  web_acl_id          = local.distribution_web_acl_arn
 
   origin {
     domain_name              = data.aws_s3_bucket.static.bucket_regional_domain_name
