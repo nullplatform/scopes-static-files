@@ -180,6 +180,29 @@
           }
         },
         "description": "DNS and network settings"
+      },
+
+      "security": {
+        "type": "object",
+        "title": "Security",
+        "properties": {
+          "aws_security": {
+            "type": "string",
+            "title": "AWS Security",
+            "description": "Optional WAF attachment for the CloudFront distribution. Choose 'none' to skip, or 'waf' to attach an existing AWS WAF WebACL.",
+            "default": "none",
+            "oneOf": [
+              { "const": "none", "title": "None" },
+              { "const": "waf", "title": "AWS WAF" }
+            ]
+          },
+          "aws_web_acl_name": {
+            "type": "string",
+            "title": "WAF WebACL Name",
+            "description": "Name of an existing AWS WAF WebACL with scope=CLOUDFRONT"
+          }
+        },
+        "description": "Security settings for the distribution layer (optional)"
       }
     },
 
@@ -215,7 +238,7 @@
                     }
                   },
                   "type": "Label",
-                  "text": "> **ℹ️ Agent Credentials (IRSA)**\n\nThe nullplatform agent must run with an IAM role attached to its Kubernetes service account (IRSA). The role needs permissions for:\n\n- **S3** — state backend read/write, asset bucket policy management, and state locking\n- **Route 53** — record management on `arn:aws:route53:::hostedzone/*` (GetHostedZone, ChangeResourceRecordSets, ListResourceRecordSets), zone listing on `*` (**ListHostedZones, ListHostedZonesByName** — these two don't support resource-level permissions), and **GetChange on `arn:aws:route53:::change/*`** (required for propagation polling — without it, deployments fail *after* creating the record)\n- **CloudFront** — distribution lifecycle and cache invalidation\n- **ACM** — certificate lookup (ListCertificates, DescribeCertificate, **GetCertificate**, **ListTagsForCertificate** — the AWS Terraform provider refreshes tags on every plan/apply even when the module doesn't declare them)\n- **STS** — caller identity (GetCallerIdentity)\n\nSee `static-files/docs/agent-iam-policy-aws-example.json` in the scope repo for a ready-to-use policy. Configure this in your agent Helm installation via the serviceAccount annotations.",
+                  "text": "> **ℹ️ Agent Credentials (IRSA)**\n\nThe nullplatform agent must run with an IAM role attached to its Kubernetes service account (IRSA). The role needs permissions for:\n\n- **S3** — state backend and asset bucket access\n- **Route 53** — DNS record management on the public hosted zone\n- **CloudFront** — distribution lifecycle and cache invalidation\n- **ACM** — certificate lookup for custom domains\n- **WAF** — WebACL lookup (only if you attach a WAF in the Security tab)\n- **STS** — caller identity",
                   "options": {
                     "format": "markdown"
                   }
@@ -400,6 +423,51 @@
                   },
                   "type": "Control",
                   "scope": "#/properties/network/properties/azure_dns_zone_resource_group"
+                }
+              ]
+            },
+            {
+              "type": "Category",
+              "label": "Security",
+              "elements": [
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": { "const": "aws" }
+                    }
+                  },
+                  "type": "Label",
+                  "text": "> ℹ️ No security layer is currently available for the selected cloud provider.",
+                  "options": {
+                    "format": "markdown"
+                  }
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": { "not": { "const": "aws" } }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/security/properties/aws_security",
+                  "options": {
+                    "format": "radio-cards"
+                  }
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/security/properties/aws_security",
+                      "schema": { "not": { "const": "waf" } }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/security/properties/aws_web_acl_name"
                 }
               ]
             }

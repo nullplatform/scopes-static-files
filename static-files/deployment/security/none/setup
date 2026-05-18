@@ -1,0 +1,24 @@
+#!/bin/bash
+# =============================================================================
+# Security layer: none
+#
+# No-op implementation. Selected when the scope does not need a WAF attached
+# to its distribution. Composes a single locals.tf that defines
+# local.security_web_acl_arn = null so downstream layers can reference it
+# unconditionally.
+# =============================================================================
+
+set -euo pipefail
+
+echo "🔍 Security layer set to 'none' — skipping WAF attachment"
+echo ""
+
+# Add module to composition list
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+module_name="${script_dir}/modules"
+
+if [[ -n ${MODULES_TO_USE:-} ]]; then
+	MODULES_TO_USE="$MODULES_TO_USE,$module_name"
+else
+	MODULES_TO_USE="$module_name"
+fi
