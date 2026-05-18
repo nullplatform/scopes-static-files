@@ -131,11 +131,12 @@ if [ -n "$distribution_web_acl_name" ]; then
     echo "    • The WebACL name is misspelled"
     echo "    • The WebACL exists but with a different scope (REGIONAL instead of CLOUDFRONT)"
     echo "    • The WebACL lives in a different AWS account (cross-account is not supported)"
-    echo "    • The agent role lacks wafv2:ListWebACLs permission"
+    echo "    • The agent role lacks wafv2:ListWebACLs and/or wafv2:GetWebACL permissions"
     echo ""
     echo "  🔧 How to fix:"
     echo "    • Create a WAFv2 WebACL with scope=CLOUDFRONT in us-east-1"
     echo "    • Or update 'security.aws_web_acl_name' in the scope-configurations provider"
+    echo "    • Or grant 'wafv2:ListWebACLs' and 'wafv2:GetWebACL' to the agent role"
     echo "    • Or set 'security.aws_security' to 'none' to skip WAF attachment"
     echo ""
     exit 1
