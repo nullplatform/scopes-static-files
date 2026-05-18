@@ -61,7 +61,7 @@ This module provides infrastructure-as-code for deploying static files applicati
 1. **Provider Layer**: Configures cloud credentials, state backend, and resource tags
 2. **Network Layer**: Sets up DNS zones and records, calculates domains
 3. **Distribution Layer**: Deploys CDN/hosting with references to network outputs
-4. **Security (optional)**: Attaches an existing WAFv2 WebACL to the CloudFront distribution. Not a separate composed layer — it's wired into the distribution module via an opt-in provider field. See [Security: attaching a WAFv2 WebACL](#security-attaching-a-wafv2-webacl).
+4. **Security Layer (optional)**: Optionally attaches an existing WAFv2 WebACL to the distribution. Has two implementations (`none` and `waf`) following the same pattern as the other layers. See [Security: attaching a WAFv2 WebACL](#security-attaching-a-wafv2-webacl).
 
 ---
 
@@ -825,7 +825,6 @@ export TOFU_PROVIDER_BUCKET=my-state-bucket
 export NETWORK_LAYER=route53        # or: azure_dns, cloud_dns
 export DISTRIBUTION_LAYER=cloudfront # or: blob-cdn, amplify, firebase, etc.
 export SECURITY_LAYER=none           # or: waf (CloudFront only)
-export DISTRIBUTION_WEB_ACL_NAME=""  # WAFv2 WebACL name when SECURITY_LAYER=waf
 ```
 
 ### Security: attaching a WAFv2 WebACL
@@ -846,15 +845,29 @@ Constraints (intentional, can be relaxed later):
 - **`scope=CLOUDFRONT` only.** AWS confines these WebACLs to `us-east-1`;
   the module looks them up there via the `aws.us_east_1` provider alias.
 
+Implementation:
+
+- Lives under `static-files/deployment/security/` with two paths:
+  `security/none/` (no-op, exposes `security_web_acl_arn = null`) and
+  `security/waf/` (validates the WebACL name with `wafv2:ListWebACLs`,
+  resolves the ARN via a data source, and exposes
+  `security_web_acl_arn` for the distribution to consume).
+- The distribution module reads `local.security_web_acl_arn` and plugs
+  it into `aws_cloudfront_distribution.web_acl_id` — null means no WAF.
+
 Behavior:
 
-- The scope's `setup` script validates the name with `wafv2:ListWebACLs`
-  before `tofu apply` runs (fails fast with a clear message).
+- The `security/waf/setup` script validates the WebACL with
+  `wafv2:ListWebACLs` before `tofu apply` runs (fails fast with a clear
+  message that lists IAM permissions, naming, scope, and account as
+  possible causes).
 - Setting or clearing `aws_web_acl_name` triggers an **in-place update**
   on `aws_cloudfront_distribution.static` — the distribution ID stays
   stable and there is no re-deployment churn.
 - Leaving `aws_security="none"` (or unset) is a complete no-op: the
-  WAFv2 data source is not invoked, no extra IAM permission is required.
+  `security/none` module exposes `security_web_acl_arn = null` and no
+  WAFv2 data source is ever invoked, so no extra IAM permission is
+  required.
 
 ---
 

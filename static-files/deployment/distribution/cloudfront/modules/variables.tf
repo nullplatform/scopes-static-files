@@ -24,9 +24,3 @@ variable "distribution_cloudfront_endpoint_url" {
   type        = string
   default     = ""
 }
-
-variable "distribution_web_acl_name" {
-  description = "Name of an existing WAFv2 WebACL (scope=CLOUDFRONT, us-east-1) to attach to the distribution. Empty string = no WAF."
-  type        = string
-  default     = ""
-}

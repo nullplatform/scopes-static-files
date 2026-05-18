@@ -14,7 +14,7 @@ mock_provider "aws" {
   }
 }
 
-# ACM certificates and WAFv2 WebACLs for CloudFront must be in us-east-1
+# ACM certificates for CloudFront must be in us-east-1
 mock_provider "aws" {
   alias = "us_east_1"
 
@@ -22,13 +22,6 @@ mock_provider "aws" {
     defaults = {
       arn = "arn:aws:acm:us-east-1:123456789012:certificate/12345678-1234-1234-1234-123456789012"
       id  = "arn:aws:acm:us-east-1:123456789012:certificate/12345678-1234-1234-1234-123456789012"
-    }
-  }
-
-  mock_data "aws_wafv2_web_acl" {
-    defaults = {
-      arn = "arn:aws:wafv2:us-east-1:123456789012:global/webacl/test-acl/abcdef12-3456-7890-abcd-ef1234567890"
-      id  = "abcdef12-3456-7890-abcd-ef1234567890"
     }
   }
 }
@@ -402,19 +395,14 @@ run "uses_default_certificate_without_network_domain" {
 }
 
 # =============================================================================
-# Test: No WAF attached when web_acl_name is empty
+# Test: No WAF attached when security layer is "none"
 # =============================================================================
-run "no_waf_when_web_acl_name_empty" {
+run "no_waf_when_security_arn_null" {
   command = plan
 
   assert {
-    condition     = length(data.aws_wafv2_web_acl.cloudfront) == 0
-    error_message = "WAFv2 data source should not be invoked when web_acl_name is empty"
-  }
-
-  assert {
     condition     = local.distribution_web_acl_arn == null
-    error_message = "web_acl_arn local should be null when no WAF is configured"
+    error_message = "web_acl_arn local should be null when the security layer does not expose an ARN"
   }
 
   assert {
@@ -424,27 +412,22 @@ run "no_waf_when_web_acl_name_empty" {
 }
 
 # =============================================================================
-# Test: WAF attached when web_acl_name is set
+# Test: WAF attached when security layer exposes an ARN
 # =============================================================================
-run "waf_attached_when_web_acl_name_set" {
+run "waf_attached_when_security_arn_set" {
   command = plan
 
   variables {
-    distribution_web_acl_name = "test-acl"
-  }
-
-  assert {
-    condition     = length(data.aws_wafv2_web_acl.cloudfront) == 1
-    error_message = "WAFv2 data source should be invoked exactly once when web_acl_name is set"
+    security_web_acl_arn = "arn:aws:wafv2:us-east-1:123456789012:global/webacl/test-acl/abcdef12-3456-7890-abcd-ef1234567890"
   }
 
   assert {
     condition     = local.distribution_web_acl_arn == "arn:aws:wafv2:us-east-1:123456789012:global/webacl/test-acl/abcdef12-3456-7890-abcd-ef1234567890"
-    error_message = "web_acl_arn should match the WebACL ARN returned by the data source"
+    error_message = "web_acl_arn should mirror the value exposed by the security layer"
   }
 
   assert {
     condition     = aws_cloudfront_distribution.static.web_acl_id == "arn:aws:wafv2:us-east-1:123456789012:global/webacl/test-acl/abcdef12-3456-7890-abcd-ef1234567890"
-    error_message = "Distribution web_acl_id should equal the WAFv2 ARN"
+    error_message = "Distribution web_acl_id should equal the WAFv2 ARN exposed by the security layer"
   }
 }

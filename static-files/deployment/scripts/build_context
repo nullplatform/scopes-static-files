@@ -65,33 +65,16 @@ echo "   ✅ distribution_layer=$DISTRIBUTION_LAYER"
 
 # =============================================================================
 # Security layer (optional)
-# When ${TOFU_PROVIDER}_security == "waf", an existing WAFv2 WebACL is attached
-# to the distribution. The WebACL name must be provided in the same provider.
+# Resolves to one of the implementations under deployment/security/.
+# Defaults to "none" when the scope-configurations provider does not declare
+# the field, keeping existing scopes backward-compatible.
 # =============================================================================
 SECURITY_LAYER=$(get_config_value \
 	--provider ".providers[\"scope-configurations\"].security.${TOFU_PROVIDER}_security" \
-	--env SECURITY_LAYER)
+	--env SECURITY_LAYER) || true
+SECURITY_LAYER="${SECURITY_LAYER:-none}"
 
-DISTRIBUTION_WEB_ACL_NAME=""
-
-if [ "$SECURITY_LAYER" = "waf" ]; then
-	DISTRIBUTION_WEB_ACL_NAME=$(get_config_value \
-		--provider '.providers["scope-configurations"].security.aws_web_acl_name' \
-		--env DISTRIBUTION_WEB_ACL_NAME)
-
-	if [ -z "$DISTRIBUTION_WEB_ACL_NAME" ]; then
-		echo ""
-		echo "   ❌ security layer is set to 'waf' but no WebACL name was provided"
-		echo ""
-		echo "  🔧 How to fix:"
-		echo "    • Set 'security.aws_web_acl_name' in the scope-configurations provider"
-		echo "    • Or change 'security.${TOFU_PROVIDER}_security' to 'none'"
-		exit 1
-	fi
-	echo "   ✅ security_layer=waf web_acl_name=$DISTRIBUTION_WEB_ACL_NAME"
-else
-	echo "   ✅ security_layer=none"
-fi
+echo "   ✅ security_layer=$SECURITY_LAYER"
 
 RESOURCE_TAGS_JSON=$(echo "$CONTEXT" | jq \
 	'{
@@ -130,7 +113,6 @@ export TOFU_PROVIDER
 export NETWORK_LAYER
 export DISTRIBUTION_LAYER
 export SECURITY_LAYER
-export DISTRIBUTION_WEB_ACL_NAME
 export TOFU_VARIABLES
 export TOFU_INIT_VARIABLES
 export TOFU_MODULE_DIR

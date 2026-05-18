@@ -18,8 +18,6 @@ steps:
         type: environment
       - name: SECURITY_LAYER
         type: environment
-      - name: DISTRIBUTION_WEB_ACL_NAME
-        type: environment
   - name: setup_provider_layer
     type: script
     file: "$SERVICE_PATH/deployment/scripts/layer_executor"
@@ -38,6 +36,12 @@ steps:
     configuration:
       LAYER_TYPE: distribution
       LAYER_VAR: DISTRIBUTION_LAYER
+  - name: setup_security_layer
+    type: script
+    file: "$SERVICE_PATH/deployment/scripts/layer_executor"
+    configuration:
+      LAYER_TYPE: security
+      LAYER_VAR: SECURITY_LAYER
   - name: build_modules
     type: script
     file: "$SERVICE_PATH/deployment/scripts/compose_modules"

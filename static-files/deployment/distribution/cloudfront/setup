@@ -115,36 +115,6 @@ fi
 echo "   ✅ bucket_policy=allows CloudFront access for account $current_account_id"
 echo ""
 
-# Validate WAFv2 WebACL exists (only if security layer requested one)
-distribution_web_acl_name="${DISTRIBUTION_WEB_ACL_NAME:-}"
-if [ -n "$distribution_web_acl_name" ]; then
-  echo "🔍 Validating WAFv2 WebACL '$distribution_web_acl_name' (scope=CLOUDFRONT, us-east-1)..."
-
-  web_acl_found=$(aws wafv2 list-web-acls --scope CLOUDFRONT --region us-east-1 \
-    --query "WebACLs[?Name=='$distribution_web_acl_name'].Name | [0]" --output text 2>/dev/null || true)
-
-  if [ -z "$web_acl_found" ] || [ "$web_acl_found" = "None" ]; then
-    echo ""
-    echo "   ❌ WAFv2 WebACL '$distribution_web_acl_name' not found in account $current_account_id (us-east-1, scope=CLOUDFRONT)"
-    echo ""
-    echo "  💡 Possible causes:"
-    echo "    • The WebACL name is misspelled"
-    echo "    • The WebACL exists but with a different scope (REGIONAL instead of CLOUDFRONT)"
-    echo "    • The WebACL lives in a different AWS account (cross-account is not supported)"
-    echo "    • The agent role lacks wafv2:ListWebACLs and/or wafv2:GetWebACL permissions"
-    echo ""
-    echo "  🔧 How to fix:"
-    echo "    • Create a WAFv2 WebACL with scope=CLOUDFRONT in us-east-1"
-    echo "    • Or update 'security.aws_web_acl_name' in the scope-configurations provider"
-    echo "    • Or grant 'wafv2:ListWebACLs' and 'wafv2:GetWebACL' to the agent role"
-    echo "    • Or set 'security.aws_security' to 'none' to skip WAF attachment"
-    echo ""
-    exit 1
-  fi
-  echo "   ✅ web_acl_name=$distribution_web_acl_name"
-  echo ""
-fi
-
 RESOURCE_TAGS_JSON=${RESOURCE_TAGS_JSON:-"{}"}
 
 TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
@@ -152,13 +122,11 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
   --arg app_name "$distribution_app_name" \
   --argjson resource_tags_json "$RESOURCE_TAGS_JSON" \
   --arg s3_prefix "$distribution_s3_prefix" \
-  --arg web_acl_name "$distribution_web_acl_name" \
   '. + {
     distribution_bucket_name: $bucket_name,
     distribution_app_name: $app_name,
     distribution_s3_prefix: $s3_prefix,
-    distribution_resource_tags_json: $resource_tags_json,
-    distribution_web_acl_name: $web_acl_name
+    distribution_resource_tags_json: $resource_tags_json
   }')
 
 echo ""
