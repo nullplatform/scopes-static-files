@@ -429,15 +429,29 @@
             {
               "type": "Category",
               "label": "Security",
-              "rule": {
-                "effect": "HIDE",
-                "condition": {
-                  "scope": "#/properties/cloud_provider",
-                  "schema": { "not": { "const": "aws" } }
-                }
-              },
               "elements": [
                 {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": { "const": "aws" }
+                    }
+                  },
+                  "type": "Label",
+                  "text": "> ℹ️ No security layer is currently available for the selected cloud provider.",
+                  "options": {
+                    "format": "markdown"
+                  }
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": { "not": { "const": "aws" } }
+                    }
+                  },
                   "type": "Control",
                   "scope": "#/properties/security/properties/aws_security",
                   "options": {
