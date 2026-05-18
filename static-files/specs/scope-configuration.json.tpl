@@ -189,17 +189,17 @@
           "aws_security": {
             "type": "string",
             "title": "AWS Security",
-            "description": "Optional WAF attachment for the CloudFront distribution. Choose 'none' to skip, or 'waf' to attach an existing AWS WAFv2 WebACL.",
+            "description": "Optional WAF attachment for the CloudFront distribution. Choose 'none' to skip, or 'waf' to attach an existing AWS WAF WebACL.",
             "default": "none",
             "oneOf": [
               { "const": "none", "title": "None" },
-              { "const": "waf", "title": "AWS WAFv2" }
+              { "const": "waf", "title": "AWS WAF" }
             ]
           },
           "aws_web_acl_name": {
             "type": "string",
-            "title": "WAFv2 WebACL Name",
-            "description": "Name of an existing AWS WAFv2 WebACL with scope=CLOUDFRONT"
+            "title": "WAF WebACL Name",
+            "description": "Name of an existing AWS WAF WebACL with scope=CLOUDFRONT"
           }
         },
         "description": "Security settings for the distribution layer (optional)"
@@ -238,7 +238,7 @@
                     }
                   },
                   "type": "Label",
-                  "text": "> **ℹ️ Agent Credentials (IRSA)**\n\nThe nullplatform agent must run with an IAM role attached to its Kubernetes service account (IRSA). The role needs permissions for:\n\n- **S3** — state backend and asset bucket access\n- **Route 53** — DNS record management on the public hosted zone\n- **CloudFront** — distribution lifecycle and cache invalidation\n- **ACM** — certificate lookup for custom domains\n- **WAFv2** — WebACL lookup (only if you attach a WAF in the Security tab)\n- **STS** — caller identity",
+                  "text": "> **ℹ️ Agent Credentials (IRSA)**\n\nThe nullplatform agent must run with an IAM role attached to its Kubernetes service account (IRSA). The role needs permissions for:\n\n- **S3** — state backend and asset bucket access\n- **Route 53** — DNS record management on the public hosted zone\n- **CloudFront** — distribution lifecycle and cache invalidation\n- **ACM** — certificate lookup for custom domains\n- **WAF** — WebACL lookup (only if you attach a WAF in the Security tab)\n- **STS** — caller identity",
                   "options": {
                     "format": "markdown"
                   }
