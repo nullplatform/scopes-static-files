@@ -199,7 +199,7 @@
           "aws_web_acl_name": {
             "type": "string",
             "title": "WAFv2 WebACL Name",
-            "description": "Name of an existing AWS WAFv2 WebACL with scope=CLOUDFRONT (lives in us-east-1, same account). Leave empty to skip."
+            "description": "Name of an existing AWS WAFv2 WebACL with scope=CLOUDFRONT"
           }
         },
         "description": "Security settings for the distribution layer (optional)"
