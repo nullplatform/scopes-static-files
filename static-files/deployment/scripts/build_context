@@ -63,6 +63,19 @@ echo "   ✅ cloud_provider=$TOFU_PROVIDER"
 echo "   ✅ network_layer=$NETWORK_LAYER"
 echo "   ✅ distribution_layer=$DISTRIBUTION_LAYER"
 
+# =============================================================================
+# Security layer (optional)
+# Resolves to one of the implementations under deployment/security/.
+# Defaults to "none" when the scope-configurations provider does not declare
+# the field, keeping existing scopes backward-compatible.
+# =============================================================================
+SECURITY_LAYER=$(get_config_value \
+	--provider ".providers[\"scope-configurations\"].security.${TOFU_PROVIDER}_security" \
+	--env SECURITY_LAYER) || true
+SECURITY_LAYER="${SECURITY_LAYER:-none}"
+
+echo "   ✅ security_layer=$SECURITY_LAYER"
+
 RESOURCE_TAGS_JSON=$(echo "$CONTEXT" | jq \
 	'{
 	nullplatform: "true",
@@ -99,6 +112,7 @@ MODULES_TO_USE="${CUSTOM_TOFU_MODULES:-}"
 export TOFU_PROVIDER
 export NETWORK_LAYER
 export DISTRIBUTION_LAYER
+export SECURITY_LAYER
 export TOFU_VARIABLES
 export TOFU_INIT_VARIABLES
 export TOFU_MODULE_DIR

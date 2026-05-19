@@ -13,3 +13,4 @@ data "aws_acm_certificate" "custom_domain" {
   statuses    = ["ISSUED", "PENDING_VALIDATION"]
   most_recent = true
 }
+

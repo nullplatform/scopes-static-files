@@ -1,0 +1,75 @@
+#!/bin/bash
+# =============================================================================
+# Security layer: waf
+#
+# Attaches an existing AWS WAFv2 WebACL (scope=CLOUDFRONT, same-account) to
+# the distribution. Reads the WebACL name from the scope-configurations
+# provider, validates that it exists in us-east-1, and exposes its ARN to
+# downstream layers via the security_web_acl_arn local.
+# =============================================================================
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../scripts/get_config_value"
+
+echo "🔍 Validating WAFv2 WebACL configuration..."
+echo ""
+
+security_web_acl_name=$(get_config_value \
+	--provider '.providers["scope-configurations"].security.aws_web_acl_name')
+
+if [ -z "$security_web_acl_name" ]; then
+	echo "   ❌ security.aws_web_acl_name is not set"
+	echo ""
+	echo "  💡 Possible causes:"
+	echo "    • 'security.aws_security' is set to 'waf' but 'aws_web_acl_name' is empty"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    • Set 'security.aws_web_acl_name' in the scope-configurations provider"
+	echo "    • Or change 'security.aws_security' to 'none' to skip WAF attachment"
+	echo ""
+	exit 1
+fi
+echo "   ✅ web_acl_name=$security_web_acl_name"
+
+web_acl_found=$(aws wafv2 list-web-acls --scope CLOUDFRONT --region us-east-1 \
+	--query "WebACLs[?Name=='$security_web_acl_name'].Name | [0]" --output text 2>/dev/null || true)
+
+if [ -z "$web_acl_found" ] || [ "$web_acl_found" = "None" ]; then
+	echo ""
+	echo "   ❌ WAFv2 WebACL '$security_web_acl_name' not found (us-east-1, scope=CLOUDFRONT)"
+	echo ""
+	echo "  💡 Possible causes:"
+	echo "    • The WebACL name is misspelled"
+	echo "    • The WebACL exists but with a different scope (REGIONAL instead of CLOUDFRONT)"
+	echo "    • The WebACL lives in a different AWS account (cross-account is not supported)"
+	echo "    • The agent role lacks wafv2:ListWebACLs and/or wafv2:GetWebACL permissions"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    • Create a WAFv2 WebACL with scope=CLOUDFRONT in us-east-1"
+	echo "    • Or update 'security.aws_web_acl_name' in the scope-configurations provider"
+	echo "    • Or grant 'wafv2:ListWebACLs' and 'wafv2:GetWebACL' to the agent role"
+	echo "    • Or set 'security.aws_security' to 'none' to skip WAF attachment"
+	echo ""
+	exit 1
+fi
+echo "   ✅ web_acl exists in target account"
+
+TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
+	--arg web_acl_name "$security_web_acl_name" \
+	'. + { security_web_acl_name: $web_acl_name }')
+
+echo ""
+echo "✨ WAFv2 WebACL configured successfully"
+echo ""
+
+# Add module to composition list
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+module_name="${script_dir}/modules"
+
+if [[ -n ${MODULES_TO_USE:-} ]]; then
+	MODULES_TO_USE="$MODULES_TO_USE,$module_name"
+else
+	MODULES_TO_USE="$module_name"
+fi

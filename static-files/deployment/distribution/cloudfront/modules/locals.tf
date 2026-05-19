@@ -19,6 +19,11 @@ locals {
     Module    = "distribution/cloudfront"
   })
 
+  # The WebACL ARN comes from the security layer (null when security=none).
+  # Setting/clearing web_acl_id on aws_cloudfront_distribution triggers an
+  # in-place update, not a replacement — the distribution ID stays stable.
+  distribution_web_acl_arn = local.security_web_acl_arn
+
   # Cross-module references (consumed by network/route53)
   distribution_target_domain  = aws_cloudfront_distribution.static.domain_name
   distribution_target_zone_id = aws_cloudfront_distribution.static.hosted_zone_id

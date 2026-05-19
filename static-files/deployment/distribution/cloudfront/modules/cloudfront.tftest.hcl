@@ -393,3 +393,41 @@ run "uses_default_certificate_without_network_domain" {
     error_message = "Should use default certificate when network_domain is empty"
   }
 }
+
+# =============================================================================
+# Test: No WAF attached when security layer is "none"
+# =============================================================================
+run "no_waf_when_security_arn_null" {
+  command = plan
+
+  assert {
+    condition     = local.distribution_web_acl_arn == null
+    error_message = "web_acl_arn local should be null when the security layer does not expose an ARN"
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.web_acl_id == null
+    error_message = "Distribution web_acl_id should be null when no WAF is configured"
+  }
+}
+
+# =============================================================================
+# Test: WAF attached when security layer exposes an ARN
+# =============================================================================
+run "waf_attached_when_security_arn_set" {
+  command = plan
+
+  variables {
+    security_web_acl_arn = "arn:aws:wafv2:us-east-1:123456789012:global/webacl/test-acl/abcdef12-3456-7890-abcd-ef1234567890"
+  }
+
+  assert {
+    condition     = local.distribution_web_acl_arn == "arn:aws:wafv2:us-east-1:123456789012:global/webacl/test-acl/abcdef12-3456-7890-abcd-ef1234567890"
+    error_message = "web_acl_arn should mirror the value exposed by the security layer"
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.web_acl_id == "arn:aws:wafv2:us-east-1:123456789012:global/webacl/test-acl/abcdef12-3456-7890-abcd-ef1234567890"
+    error_message = "Distribution web_acl_id should equal the WAFv2 ARN exposed by the security layer"
+  }
+}
