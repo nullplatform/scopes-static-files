@@ -462,8 +462,25 @@
                   "rule": {
                     "effect": "HIDE",
                     "condition": {
-                      "scope": "#/properties/security/properties/aws_security",
-                      "schema": { "not": { "const": "waf" } }
+                      "scope": "#",
+                      "schema": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "cloud_provider": { "not": { "const": "aws" } }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "security": {
+                                "properties": {
+                                  "aws_security": { "not": { "const": "waf" } }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
                     }
                   },
                   "type": "Control",
