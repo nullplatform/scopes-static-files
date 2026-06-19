@@ -249,6 +249,59 @@ run "cache_behaviors_configured" {
 }
 
 # =============================================================================
+# Test: No Lambda@Edge associations by default
+# =============================================================================
+run "no_lambda_associations_by_default" {
+  command = plan
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].lambda_function_association) == 0
+    error_message = "Default cache behavior should have no lambda associations when none are configured"
+  }
+}
+
+# =============================================================================
+# Test: Lambda@Edge associations applied to the default cache behavior
+# =============================================================================
+run "lambda_associations_applied_to_default_behavior" {
+  command = plan
+
+  variables {
+    distribution_lambda_associations = [
+      {
+        event_type   = "viewer-request"
+        function_arn = "arn:aws:lambda:us-east-1:123456789012:function:my-fn:1"
+      },
+      {
+        event_type   = "origin-response"
+        function_arn = "arn:aws:lambda:us-east-1:123456789012:function:other-fn:2"
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].lambda_function_association) == 2
+    error_message = "Default cache behavior should have two lambda associations"
+  }
+
+  assert {
+    condition = length([
+      for a in aws_cloudfront_distribution.static.default_cache_behavior[0].lambda_function_association :
+      a if a.event_type == "viewer-request" && a.lambda_arn == "arn:aws:lambda:us-east-1:123456789012:function:my-fn:1"
+    ]) == 1
+    error_message = "Should associate my-fn:1 on viewer-request"
+  }
+
+  assert {
+    condition = length([
+      for a in aws_cloudfront_distribution.static.default_cache_behavior[0].lambda_function_association :
+      a if a.event_type == "origin-response" && a.lambda_arn == "arn:aws:lambda:us-east-1:123456789012:function:other-fn:2"
+    ]) == 1
+    error_message = "Should associate other-fn:2 on origin-response"
+  }
+}
+
+# =============================================================================
 # Test: Custom error responses for SPA
 # =============================================================================
 run "spa_error_responses" {

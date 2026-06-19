@@ -24,3 +24,12 @@ variable "distribution_cloudfront_endpoint_url" {
   type        = string
   default     = ""
 }
+
+variable "distribution_lambda_associations" {
+  description = "Lambda@Edge function associations for the default cache behavior. Each lambda_arn must include a published version and the function must live in us-east-1."
+  type = list(object({
+    event_type   = string
+    function_arn = string
+  }))
+  default = []
+}
