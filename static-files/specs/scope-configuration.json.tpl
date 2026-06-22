@@ -160,7 +160,7 @@
                 "function_arn": {
                   "type": "string",
                   "title": "Function ARN",
-                  "description": "Lambda function ARN including a published version. The function must live in same region"
+                  "description": "Lambda function ARN including a published version"
                 }
               }
             }
