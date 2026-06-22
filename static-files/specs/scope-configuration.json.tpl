@@ -136,6 +136,34 @@
             "oneOf": [
               { "const": "blob_cdn", "title": "Azure CDN (Blob Storage)" }
             ]
+          },
+          "lambda_associations": {
+            "type": "array",
+            "title": "Function associations",
+            "description": "Associate Lambda@Edge functions with the CloudFront default cache behavior. Add one association per CloudFront event.",
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "required": ["event_type", "function_arn"],
+              "properties": {
+                "event_type": {
+                  "type": "string",
+                  "title": "CloudFront Event",
+                  "description": "When CloudFront invokes the function",
+                  "enum": [
+                    "viewer-request",
+                    "viewer-response",
+                    "origin-request",
+                    "origin-response"
+                  ]
+                },
+                "function_arn": {
+                  "type": "string",
+                  "title": "Function ARN",
+                  "description": "Lambda function ARN including a published version"
+                }
+              }
+            }
           }
         },
         "description": "CDN distribution settings"
@@ -356,6 +384,17 @@
                   "options": {
                     "format": "radio-cards"
                   }
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": { "not": { "const": "aws" } }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/lambda_associations"
                 }
               ]
             },

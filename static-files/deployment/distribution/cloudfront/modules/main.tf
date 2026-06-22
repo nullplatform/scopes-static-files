@@ -40,6 +40,14 @@ resource "aws_cloudfront_distribution" "static" {
     default_ttl            = 3600
     max_ttl                = 86400
     compress               = true
+
+    dynamic "lambda_function_association" {
+      for_each = var.distribution_lambda_associations
+      content {
+        event_type = lambda_function_association.value.event_type
+        lambda_arn = lambda_function_association.value.function_arn
+      }
+    }
   }
 
   ordered_cache_behavior {

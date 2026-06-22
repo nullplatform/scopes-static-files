@@ -117,16 +117,25 @@ echo ""
 
 RESOURCE_TAGS_JSON=${RESOURCE_TAGS_JSON:-"{}"}
 
+# Lambda@Edge function associations (optional). Defaults to an empty array,
+# keeping existing scopes unchanged when no functions are configured.
+distribution_lambda_associations=$(echo "$CONTEXT" | jq -c \
+  '.providers["scope-configurations"].distribution.lambda_associations // []')
+
+echo "   ✅ lambda_associations=$(echo "$distribution_lambda_associations" | jq 'length') association(s)"
+
 TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
   --arg bucket_name "$distribution_bucket_name" \
   --arg app_name "$distribution_app_name" \
   --argjson resource_tags_json "$RESOURCE_TAGS_JSON" \
   --arg s3_prefix "$distribution_s3_prefix" \
+  --argjson lambda_associations "$distribution_lambda_associations" \
   '. + {
     distribution_bucket_name: $bucket_name,
     distribution_app_name: $app_name,
     distribution_s3_prefix: $s3_prefix,
-    distribution_resource_tags_json: $resource_tags_json
+    distribution_resource_tags_json: $resource_tags_json,
+    distribution_lambda_associations: $lambda_associations
   }')
 
 echo ""

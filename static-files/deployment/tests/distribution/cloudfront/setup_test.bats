@@ -131,7 +131,8 @@ run_cloudfront_setup() {
   "distribution_bucket_name": "my-asset-bucket",
   "distribution_app_name": "automation-development-tools-7",
   "distribution_resource_tags_json": {},
-  "distribution_s3_prefix": "/tools/automation/v1.0.0"
+  "distribution_s3_prefix": "/tools/automation/v1.0.0",
+  "distribution_lambda_associations": []
 }'
 
   assert_json_equal "$TOFU_VARIABLES" "$expected" "TOFU_VARIABLES"
@@ -149,10 +150,37 @@ run_cloudfront_setup() {
   "distribution_bucket_name": "my-asset-bucket",
   "distribution_app_name": "automation-development-tools-7",
   "distribution_resource_tags_json": {"Environment": "production", "Team": "platform"},
-  "distribution_s3_prefix": "/tools/automation/v1.0.0"
+  "distribution_s3_prefix": "/tools/automation/v1.0.0",
+  "distribution_lambda_associations": []
 }'
 
   assert_json_equal "$TOFU_VARIABLES" "$expected" "TOFU_VARIABLES"
+}
+
+# =============================================================================
+# Test: Lambda@Edge function associations
+# =============================================================================
+@test "Should default distribution_lambda_associations to an empty array when not configured" {
+  run_cloudfront_setup
+
+  local associations=$(echo "$TOFU_VARIABLES" | jq -c '.distribution_lambda_associations')
+  assert_equal "$associations" "[]"
+}
+
+@test "Should pass through configured lambda_associations to TOFU_VARIABLES" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.lambda_associations = [
+    {"event_type": "viewer-request", "function_arn": "arn:aws:lambda:us-east-1:123456789012:function:my-fn:1"},
+    {"event_type": "origin-response", "function_arn": "arn:aws:lambda:us-east-1:123456789012:function:other-fn:2"}
+  ]')
+
+  run_cloudfront_setup
+
+  local expected='[
+    {"event_type": "viewer-request", "function_arn": "arn:aws:lambda:us-east-1:123456789012:function:my-fn:1"},
+    {"event_type": "origin-response", "function_arn": "arn:aws:lambda:us-east-1:123456789012:function:other-fn:2"}
+  ]'
+  local associations=$(echo "$TOFU_VARIABLES" | jq -c '.distribution_lambda_associations')
+  assert_json_equal "$associations" "$expected" "distribution_lambda_associations"
 }
 
 # =============================================================================
