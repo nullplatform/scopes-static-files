@@ -150,11 +150,11 @@
                   "type": "string",
                   "title": "CloudFront Event",
                   "description": "When CloudFront invokes the function",
-                  "oneOf": [
-                    { "const": "viewer-request", "title": "Viewer request" },
-                    { "const": "viewer-response", "title": "Viewer response" },
-                    { "const": "origin-request", "title": "Origin request" },
-                    { "const": "origin-response", "title": "Origin response" }
+                  "enum": [
+                    "viewer-request",
+                    "viewer-response",
+                    "origin-request",
+                    "origin-response"
                   ]
                 },
                 "function_arn": {
@@ -394,22 +394,7 @@
                     }
                   },
                   "type": "Control",
-                  "scope": "#/properties/distribution/properties/lambda_associations",
-                  "options": {
-                    "detail": {
-                      "type": "VerticalLayout",
-                      "elements": [
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/event_type"
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/function_arn"
-                        }
-                      ]
-                    }
-                  }
+                  "scope": "#/properties/distribution/properties/lambda_associations"
                 }
               ]
             },
