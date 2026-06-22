@@ -139,7 +139,7 @@
           },
           "lambda_associations": {
             "type": "array",
-            "title": "Lambda@Edge Functions",
+            "title": "Function associations",
             "description": "Associate Lambda@Edge functions with the CloudFront default cache behavior. Add one association per CloudFront event.",
             "uniqueItems": true,
             "items": {
@@ -160,7 +160,7 @@
                 "function_arn": {
                   "type": "string",
                   "title": "Function ARN",
-                  "description": "Lambda function ARN including a published version (not $LATEST). The function must live in us-east-1. e.g. arn:aws:lambda:us-east-1:123456789012:function:my-fn:1"
+                  "description": "Lambda function ARN including a published version. The function must live in same region"
                 }
               }
             }
@@ -394,7 +394,22 @@
                     }
                   },
                   "type": "Control",
-                  "scope": "#/properties/distribution/properties/lambda_associations"
+                  "scope": "#/properties/distribution/properties/lambda_associations",
+                  "options": {
+                    "detail": {
+                      "type": "VerticalLayout",
+                      "elements": [
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/event_type"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/function_arn"
+                        }
+                      ]
+                    }
+                  }
                 }
               ]
             },
