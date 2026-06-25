@@ -1,6 +1,8 @@
 {
-  "s3": {
-    "enabled": true,
-    "versioning": true
-  }
+  "s3_buckets": [
+    {
+      "name": "np-static-scope-1671037747",
+      "versioning": true
+    }
+  ]
 }
