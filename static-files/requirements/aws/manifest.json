@@ -1,0 +1,6 @@
+{
+  "s3": {
+    "enabled": true,
+    "versioning": true
+  }
+}
