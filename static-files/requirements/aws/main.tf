@@ -1,13 +1,3 @@
-module "irsa" {
-  source = "git::https://github.com/nullplatform/tofu-modules.git//nullplatform/service_infrastructure/aws?ref=feat/service-infrastructure-aws"
-
-  service_name              = var.service_name
-  oidc_provider_arn         = var.oidc_provider_arn
-  oidc_provider_url         = var.oidc_provider_url
-  service_account_name      = var.service_account_name
-  service_account_namespace = var.service_account_namespace
-}
-
 resource "aws_s3_bucket" "static_files" {
   bucket = "${var.service_name}-static"
 }
@@ -40,6 +30,6 @@ resource "aws_iam_policy" "s3" {
 }
 
 resource "aws_iam_role_policy_attachment" "s3" {
-  role       = module.irsa.role_name
+  role       = var.role_name
   policy_arn = aws_iam_policy.s3.arn
 }
