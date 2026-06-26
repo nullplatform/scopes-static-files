@@ -1,16 +1,22 @@
 {
-  "resources": [
-    {
-      "aws_s3_bucket": {
-        "name": "${service_name}-static",
-        "versioning": true,
+  "resources": {
+    "aws_s3_bucket": {
+      "bucket": "${service_name}-static",
+      "versioning": true,
+      "_meta": {
         "policies": [
           {
-            "bucket_actions": ["s3:ListBucket"],
-            "object_actions": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+            "effect": "Allow",
+            "actions": ["s3:ListBucket"],
+            "resources": ["arn:aws:s3:::${service_name}-static"]
+          },
+          {
+            "effect": "Allow",
+            "actions": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+            "resources": ["arn:aws:s3:::${service_name}-static/*"]
           }
         ]
       }
     }
-  ]
+  }
 }
