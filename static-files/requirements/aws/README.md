@@ -1,13 +1,13 @@
 # requirements/aws
 
-Este directorio declara la infraestructura AWS que el scope necesita para funcionar. Es consumido por `tofu-modules` como un módulo de OpenTofu en el momento del `tofu apply`.
+This directory declares the AWS infrastructure the scope needs to operate. It is consumed by `tofu-modules` as an OpenTofu module at `tofu apply` time.
 
-## Cómo funciona
+## How it works
 
-`tofu-modules` referencia este directorio como source de un módulo git:
+`tofu-modules` references this directory as a git module source:
 
 ```hcl
-module "scope_infra" {
+module "static_scope_infrastructure" {
   source = "git::github.com/nullplatform/<scope-repo>.git//requirements/aws?ref=<tag>"
 
   bucket_name    = "..."
@@ -16,23 +16,23 @@ module "scope_infra" {
 }
 ```
 
-OpenTofu clona el repositorio, carga este directorio como módulo y aplica los recursos declarados dentro del estado de infraestructura del cliente.
+OpenTofu clones the repository, loads this directory as a module, and applies the declared resources into the customer's infrastructure state.
 
-## Variables requeridas
+## Required variables
 
-| Variable | Descripción |
+| Variable | Description |
 |---|---|
-| `bucket_name` | Nombre del bucket S3 a crear |
-| `service_name` | Prefijo usado para nombrar el IAM role y las policies |
-| `agent_role_arn` | ARN del IAM role del agente de nullplatform |
+| `bucket_name` | Name of the S3 bucket to create |
+| `service_name` | Prefix used to name the IAM role and policies |
+| `agent_role_arn` | ARN of the nullplatform agent IAM role |
 
-## Requisitos
+## Requirements
 
-### IAM Role obligatorio
+### IAM Role is mandatory
 
-**Todo scope que declare infraestructura en este directorio debe crear un IAM role** que permita al agente de nullplatform asumir las credenciales necesarias para operar los recursos.
+**Every scope that declares infrastructure in this directory must create an IAM role** that allows the nullplatform agent to assume the credentials needed to operate the resources.
 
-El role debe tener un trust policy que permita al agent role asumir este role via `sts:AssumeRole`:
+The role must have a trust policy that allows the agent role to assume it via `sts:AssumeRole`:
 
 ```hcl
 resource "aws_iam_role" "this" {
@@ -49,16 +49,16 @@ resource "aws_iam_role" "this" {
 }
 ```
 
-Sin este role el agente no puede acceder a los recursos declarados en este directorio.
+Without this role the agent cannot access any of the resources declared in this directory.
 
-## Versionado
+## Versioning
 
-El `source` del módulo debe apuntar siempre a un **tag**, nunca a una branch:
+The module `source` must always point to a **tag**, never to a branch:
 
 ```hcl
-# ✅ Correcto — inmutable
+# ✅ Correct — immutable
 ?ref=v1.0.0
 
-# ❌ Incorrecto — cualquier push a la branch modifica lo que se aplica
-?ref=feat/mi-branch
+# ❌ Incorrect — any push to the branch changes what gets applied
+?ref=feat/my-branch
 ```
