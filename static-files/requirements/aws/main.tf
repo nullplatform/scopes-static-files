@@ -69,3 +69,22 @@ resource "aws_iam_role_policy_attachment" "write" {
   role       = aws_iam_role.this.name
   policy_arn = aws_iam_policy.write.arn
 }
+
+resource "aws_s3_bucket_policy" "this" {
+  bucket = aws_s3_bucket.static.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "DenyNonSecureTransport"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource  = [aws_s3_bucket.static.arn, "${aws_s3_bucket.static.arn}/*"]
+        Condition = {
+          Bool = { "aws:SecureTransport" = "false" }
+        }
+      }
+    ]
+  })
+}
