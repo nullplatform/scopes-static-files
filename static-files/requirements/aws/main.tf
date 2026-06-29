@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "static" {
-  bucket = "my-fake-static-files-bucket"
+  bucket = var.bucket_name
 }
 
 resource "aws_s3_bucket_versioning" "static" {
@@ -10,8 +10,23 @@ resource "aws_s3_bucket_versioning" "static" {
   }
 }
 
+resource "aws_iam_role" "this" {
+  name = "${var.service_name}-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Action    = "sts:AssumeRole"
+        Principal = { AWS = var.agent_role_arn }
+      }
+    ]
+  })
+}
+
 resource "aws_iam_policy" "read" {
-  name = "my-fake-static-files-read-policy"
+  name = "${var.service_name}-read-policy"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -31,7 +46,7 @@ resource "aws_iam_policy" "read" {
 }
 
 resource "aws_iam_policy" "write" {
-  name = "my-fake-static-files-write-policy"
+  name = "${var.service_name}-write-policy"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -43,4 +58,14 @@ resource "aws_iam_policy" "write" {
       }
     ]
   })
+}
+
+resource "aws_iam_role_policy_attachment" "read" {
+  role       = aws_iam_role.this.name
+  policy_arn = aws_iam_policy.read.arn
+}
+
+resource "aws_iam_role_policy_attachment" "write" {
+  role       = aws_iam_role.this.name
+  policy_arn = aws_iam_policy.write.arn
 }
