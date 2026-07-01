@@ -1,64 +1,47 @@
 # requirements/aws
 
-This directory declares the AWS infrastructure the scope needs to operate. It is consumed by `tofu-modules` as an OpenTofu module at `tofu apply` time.
+AWS IAM the static-files scope needs to operate under the **assume-role** pattern,
+consumed as an OpenTofu module by the implementation stack (same shape as the
+`k8s` and `lambda` scope requirements).
 
-## How it works
+It creates a dedicated **permissions role** that the nullplatform agent assumes
+(`sts:AssumeRole`) plus the static-files permissions policy (S3, CloudFront, ACM,
+Route53, WAF, Lambda@Edge). The role's ARN is wired into the agent
+(`assume_role_arns`) and published to the AWS IAM provider under selector
+`static-files`; at runtime `utils/assume_role_step` resolves it and assumes the role.
 
-`tofu-modules` references this directory as a git module source:
+## Usage
 
 ```hcl
-module "static_scope_infrastructure" {
-  source = "git::github.com/nullplatform/<scope-repo>.git//requirements/aws?ref=<tag>"
+module "scope_requirements_static" {
+  source = "git::https://github.com/nullplatform/scopes-static-files.git//static-files/requirements/aws?ref=<tag>"
 
-  bucket_name    = "..."
-  service_name   = "..."
-  agent_role_arn = "..."
+  cluster_name   = "aws-services-cluster"
+  agent_role_arn = "arn:aws:iam::<account>:role/nullplatform-<cluster>-agent-role"
 }
 ```
 
-OpenTofu clones the repository, loads this directory as a module, and applies the declared resources into the customer's infrastructure state.
+## Variables
 
-## Required variables
+| Variable | Default | Description |
+|---|---|---|
+| `cluster_name` | (required) | Cluster name; derives default resource names. |
+| `agent_role_arn` | `""` → derived | Agent role trusted to assume this role. Empty derives `nullplatform-<cluster>-agent-role`. |
+| `additional_agent_role_arns` | `[]` | Extra trusted principals. |
+| `role_name` | `""` → `nullplatform_<cluster>_static_scopes_role` | Override for the role name. |
+| `policies_name_prefix` | `""` → `nullplatform_<cluster>` | Override for the policy name prefix. |
+| `iam_create_role` | `true` | When false, the module creates nothing. |
+| `iam_resource_tags_json` | `{}` | Tags applied to IAM resources. |
 
-| Variable | Description |
-|---|---|
-| `bucket_name` | Name of the S3 bucket to create |
-| `service_name` | Prefix used to name the IAM role and policies |
-| `agent_role_arn` | ARN of the nullplatform agent IAM role |
+## Outputs
 
-## Requirements
-
-### IAM Role is mandatory
-
-**Every scope that declares infrastructure in this directory must create an IAM role** that allows the nullplatform agent to assume the credentials needed to operate the resources.
-
-The role must have a trust policy that allows the agent role to assume it via `sts:AssumeRole`:
-
-```hcl
-resource "aws_iam_role" "this" {
-  name = "${var.service_name}-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Action    = "sts:AssumeRole"
-      Principal = { AWS = var.agent_role_arn }
-    }]
-  })
-}
-```
-
-Without this role the agent cannot access any of the resources declared in this directory.
+`permissions_role_arn`, `permissions_role_name`, `permissions_role_id`.
 
 ## Versioning
 
-The module `source` must always point to a **tag**, never to a branch:
+Point the module `source` at a **tag**, never a branch:
 
 ```hcl
-# ✅ Correct — immutable
-?ref=v1.0.0
-
-# ❌ Incorrect — any push to the branch changes what gets applied
-?ref=feat/my-branch
+?ref=v0.2.0   # ✅ immutable
+?ref=main     # ⚠️ moves with every push
 ```
