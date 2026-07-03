@@ -133,19 +133,19 @@ deployment if any is missing.
 ### Registration (Terraform)
 
 The reference Terraform for registering the scope lives under
-[`specs/terraform/`](specs/terraform/), organized by cloud. Today only the
+[`specs/install/`](specs/install/), organized by cloud. Today only the
 AWS example is complete:
 
-- [`specs/terraform/aws/`](specs/terraform/aws/) — working AWS example
+- [`specs/install/aws/`](specs/install/aws/) — working AWS example
   (S3 + CloudFront + Route 53 + ACM). See
-  [`specs/terraform/README.md`](specs/terraform/README.md) for the layout
+  [`specs/install/README.md`](specs/install/README.md) for the layout
   and for guidance on contributing the Azure / GCP equivalents.
 
 Copy the AWS example into your own infrastructure repository and fill in
 `terraform.tfvars.example`:
 
 ```bash
-cp -r static-files/specs/terraform/aws /path/to/your/infra/scopes/static-files
+cp -r static-files/specs/install/aws /path/to/your/infra/scopes/static-files
 cd /path/to/your/infra/scopes/static-files
 cp terraform.tfvars.example terraform.tfvars
 $EDITOR terraform.tfvars
@@ -264,7 +264,7 @@ Error: error fetching specification ID for slug <UUID>:
 ```
 
 The AWS example in
-[`specs/terraform/aws/main.tf`](specs/terraform/aws/main.tf) uses
+[`specs/install/aws/main.tf`](specs/install/aws/main.tf) uses
 `provider_specification_slug` — stick to it. The same applies to any
 future Azure / GCP examples.
 
@@ -290,7 +290,7 @@ create the first scope and the deployment rolls back with
 `"network layer is not configured for provider 'aws'"` or similar.
 
 The AWS example in
-[`specs/terraform/aws/main.tf`](specs/terraform/aws/main.tf) includes
+[`specs/install/aws/main.tf`](specs/install/aws/main.tf) includes
 all three layers (`provider`, `network`, `distribution`); do not prune them.
 
 ---
