@@ -1,4 +1,4 @@
-# requirements/aws
+# specs/requirements/aws
 
 AWS IAM the static-files scope needs to operate under the **assume-role** pattern,
 consumed as an OpenTofu module by the implementation stack (same shape as the
@@ -14,7 +14,7 @@ Route53, WAF, Lambda@Edge). The role's ARN is wired into the agent
 
 ```hcl
 module "scope_requirements_static" {
-  source = "git::https://github.com/nullplatform/scopes-static-files.git//static-files/requirements/aws?ref=<tag>"
+  source = "git::https://github.com/nullplatform/scopes-static-files.git//static-files/specs/requirements/aws?ref=<tag>"
 
   cluster_name   = "aws-services-cluster"
   agent_role_arn = "arn:aws:iam::<account>:role/nullplatform-<cluster>-agent-role"
