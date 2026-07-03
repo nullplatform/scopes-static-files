@@ -18,7 +18,7 @@ This module provides infrastructure-as-code for deploying static files applicati
 
 ## Installation
 
-Register the scope definition in nullplatform using the Terraform module in `static-files/specs/terraform/`.
+Register the scope definition in nullplatform using the Terraform module in `static-files/specs/install/`.
 
 ### Prerequisites
 
@@ -30,7 +30,7 @@ Register the scope definition in nullplatform using the Terraform module in `sta
 1. Copy the example tfvars file and fill in your values:
 
 ```bash
-cd static-files/specs/terraform
+cd static-files/specs/install
 cp terraform.tfvars.example terraform.tfvars
 ```
 

@@ -1,12 +1,13 @@
-# Terraform example — registering the Static Files scope
+# Install — registering the Static Files scope
 
-This directory holds reference Terraform for registering the Static Files
-scope on a nullplatform account.
+This directory holds the reference OpenTofu/Terraform used to **install** the
+Static Files scope on a nullplatform account (registering its scope definition,
+provider specification and scope configuration).
 
 ## Layout
 
 ```
-terraform/
+install/
 ├── README.md            (this file)
 └── aws/                 Working example for AWS (S3 + CloudFront + Route 53 + ACM)
     ├── main.tf
@@ -25,7 +26,7 @@ terraform/
 - **Azure** — the scope itself supports Azure (see the `cloud_provider` selector
   in [`../scope-configuration.json.tpl`](../scope-configuration.json.tpl) and
   the `azure_*` provider / network / distribution fields in its schema). A
-  reference Terraform wiring for Azure would mirror the shape of `aws/`:
+  reference wiring for Azure would mirror the shape of `aws/`:
   a `scope_definition` module call plus a `nullplatform_provider_config` with
   Azure-specific `attributes` (`azure_subscription_id`, `azure_resource_group`,
   `azure_state_storage_account`, `azure_state_container`, and the equivalents
@@ -36,10 +37,10 @@ terraform/
   provider (see the layer diagram in [`../../README.md`](../../README.md)),
   but neither the scope nor this example has landed GCP support yet.
 
-## Using the AWS example
+## Using the AWS example (install the scope)
 
 ```bash
-cp -r static-files/specs/terraform/aws /path/to/your/infra/scopes/static-files
+cp -r static-files/specs/install/aws /path/to/your/infra/scopes/static-files
 cd /path/to/your/infra/scopes/static-files
 cp terraform.tfvars.example terraform.tfvars
 $EDITOR terraform.tfvars
