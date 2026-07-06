@@ -1,0 +1,6 @@
+# Trivy misconfiguration suppressions for this repo (intentional, documented).
+
+# AVD-DS-0002 — testing images (testing/docker/Dockerfile.test-runner and
+# testing/docker/azure-mock/Dockerfile) run as-is; they are test-only and may
+# need root for setup, so a non-root USER directive is not applied.
+AVD-DS-0002
