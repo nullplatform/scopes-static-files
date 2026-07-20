@@ -48,3 +48,14 @@ variable "iam_resource_tags_json" {
   type        = map(string)
   default     = {}
 }
+
+variable "assets_bucket_arn" {
+  description = "ARN of the S3 bucket that stores frontend bundles (the static-files 'assets bucket' pre-requisite). When set, the module outputs a ready-to-merge IAM policy document statement granting the CloudFront distribution's Origin Access Control (OAC) read access to this bucket. This module does NOT create an aws_s3_bucket_policy resource itself — merge the output into whichever module already owns that bucket's policy (a bucket can only have one aws_s3_bucket_policy resource managing it). Leave empty to skip generating the statement."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.assets_bucket_arn == "" || can(regex("^arn:aws:s3:::.+", var.assets_bucket_arn))
+    error_message = "assets_bucket_arn must be empty or match arn:aws:s3:::<bucket-name>"
+  }
+}
