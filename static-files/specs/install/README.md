@@ -12,7 +12,6 @@ install/
 ├── aws/                 Working example for AWS (S3 + CloudFront + Route 53 + ACM)
 │   ├── main.tf
 │   ├── variables.tf
-│   ├── versions.tf
 │   └── terraform.tfvars.example
 └── azure/               Working example for Azure (Blob + CDN + Azure DNS)
     ├── main.tf

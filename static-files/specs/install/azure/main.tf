@@ -58,10 +58,11 @@ module "scope_definition_agent_association" {
 # Provider configuration for scopes of type Static Files.
 #
 # One `nullplatform_provider_config` per entry in `var.provider_configs`, typically
-# one entry per environment (dev/stg/prd) with its own NRN, resource group, and
-# Azure DNS zone. The OpenTofu state storage account (`var.azure_state_storage_account`
-# / `var.azure_state_container`) is shared across all entries — there is exactly one
-# state location, regardless of how many environments you configure.
+# one entry per environment (dev/stg/prd) with its own NRN, subscription, resource
+# group, and Azure DNS zone. The OpenTofu state storage account
+# (`var.azure_state_storage_account` / `var.azure_state_container`) is shared across
+# all entries — there is exactly one state location, regardless of how many
+# environments you configure.
 #
 # The `nrn` of each entry is used as the `for_each` key so that adding or
 # removing an environment does not reorder the other resources in state.
@@ -94,7 +95,7 @@ resource "nullplatform_provider_config" "static_files_configuration" {
     cloud_provider = "azure"
 
     provider = {
-      azure_subscription_id       = var.azure_subscription_id
+      azure_subscription_id       = coalesce(each.value.azure_subscription_id, var.azure_subscription_id)
       azure_resource_group        = each.value.azure_resource_group
       azure_state_storage_account = var.azure_state_storage_account
       azure_state_container       = var.azure_state_container
@@ -104,12 +105,11 @@ resource "nullplatform_provider_config" "static_files_configuration" {
       azure_network       = "azure_dns"
       azure_dns_zone_name = each.value.azure_dns_zone_name
 
-      # Defaults to the scope's resource group, which is the common case: the
-      # DNS zone usually lives alongside the rest of the infrastructure.
-      azure_dns_zone_resource_group = coalesce(
-        each.value.azure_dns_zone_resource_group,
-        each.value.azure_resource_group,
-      )
+      # Must equal the scope's resource group: `network/azure_dns/setup` preflight-checks
+      # this value but never forwards it, and the module resolves the zone against
+      # `azure_provider.resource_group`. Pointing it elsewhere passes the preflight and
+      # then reads the wrong resource group, so it is not exposed as a variable.
+      azure_dns_zone_resource_group = each.value.azure_resource_group
     }
 
     distribution = {

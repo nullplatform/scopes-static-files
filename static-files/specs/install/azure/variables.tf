@@ -24,7 +24,11 @@ variable "tags" {
 # ------------------------------------------------------------------------------
 
 variable "azure_subscription_id" {
-  description = "Azure subscription where the scope's resources (CDN profile, DNS records) are created."
+  description = <<-EOT
+    Default Azure subscription where the scope's resources (CDN profile, DNS
+    records) are created. Override it per environment with
+    `provider_configs[*].azure_subscription_id`.
+  EOT
   type        = string
 }
 
@@ -53,13 +57,17 @@ variable "provider_configs" {
     The `nrn` of each entry is used as the `for_each` key, so keep it stable to
     avoid recreating provider configs on unrelated changes.
 
-    `azure_dns_zone_resource_group` is optional: leave it null and the zone is
-    looked up in `azure_resource_group`.
+    `azure_subscription_id` is optional and falls back to
+    `var.azure_subscription_id`. Set it to target a different subscription per
+    environment, which is the common Azure landing-zone layout.
+
+    The Azure DNS zone must live in the entry's own `azure_resource_group` — see
+    the comment on `azure_dns_zone_resource_group` in `main.tf`.
   EOT
   type = list(object({
-    nrn                           = string
-    azure_resource_group          = string
-    azure_dns_zone_name           = string
-    azure_dns_zone_resource_group = optional(string)
+    nrn                   = string
+    azure_subscription_id = optional(string)
+    azure_resource_group  = string
+    azure_dns_zone_name   = string
   }))
 }

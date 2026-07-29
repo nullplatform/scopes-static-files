@@ -153,15 +153,19 @@ deployment if any is missing.
    ```
 
 4. **Azure RBAC role assignments for the agent's service principal:**
-   `Storage Blob Data Contributor` on the state and asset storage accounts,
-   `DNS Zone Contributor` on the DNS zone, and a role that can manage CDN
-   profiles and endpoints on the resource group (for example `CDN Profile
-   Contributor`, or `Contributor` scoped to the resource group).
+   `Storage Blob Data Contributor` on the state storage account, `Reader` on the
+   assets storage account, `DNS Zone Contributor` on the DNS zone, and a role
+   that can manage CDN profiles and endpoints on the resource group (for example
+   `CDN Profile Contributor`, or `Contributor` scoped to the resource group).
 
    > **`Contributor` on the resource group is not sufficient on its own.** It
-   > grants the management plane but not the blob **data** plane, so uploads and
-   > reads against the storage accounts still fail. The
-   > `Storage Blob Data Contributor` assignments are required in addition to it.
+   > grants the management plane but not the blob **data** plane, so the agent's
+   > state writes still fail. The `Storage Blob Data Contributor` assignment on
+   > the state account is required in addition to it.
+   >
+   > The assets account only needs `Reader`: the distribution layer reads it
+   > through a data source to resolve `primary_web_host` and never writes to it.
+   > Uploading the bundles is CI's job, with its own credentials.
 
 **No certificate pre-requisite.** Unlike the AWS path, which needs an ACM
 certificate in `us-east-1`, the Azure distribution layer requests a CDN-managed
@@ -221,10 +225,10 @@ Minimum inputs (Azure):
 |---|---|
 | `nrn` | NRN where the scope type should be registered (usually an account-level NRN) |
 | `np_api_key` | nullplatform API key with `Admin` role on the target scope |
-| `azure_subscription_id` | Subscription where the CDN profile and DNS records are created |
+| `azure_subscription_id` | Default subscription where the CDN profile and DNS records are created. Overridable per `provider_configs` entry. |
 | `azure_state_storage_account` | Storage account for OpenTofu state (see Pre-requisites 1). Shared across every `provider_configs` entry. |
 | `azure_state_container` | Blob container inside that storage account |
-| `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each needs `nrn`, `azure_resource_group` and `azure_dns_zone_name`; `azure_dns_zone_resource_group` is optional and defaults to `azure_resource_group`. |
+| `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each needs `nrn`, `azure_resource_group` and `azure_dns_zone_name`, plus an optional `azure_subscription_id` to override the default. The DNS zone must live in the entry's own `azure_resource_group`. |
 | `tags` | Agent/channel tag selectors (must match `tags` of the agent that should pick up deployments) |
 
 After `tofu apply`, the scope type appears in the nullplatform UI and is
@@ -325,10 +329,10 @@ Error: error fetching specification ID for slug <UUID>:
        no specification found for slug: <UUID>
 ```
 
-The AWS example in
-[`specs/install/aws/main.tf`](specs/install/aws/main.tf) uses
-`provider_specification_slug` — stick to it. The same applies to any
-future Azure / GCP examples.
+Both examples,
+[`specs/install/aws/main.tf`](specs/install/aws/main.tf) and
+[`specs/install/azure/main.tf`](specs/install/azure/main.tf), use
+`provider_specification_slug` — stick to it in any new example.
 
 #### `scope_type.description` has a 60-character cap
 
@@ -351,8 +355,9 @@ at `start-initial`, so an incomplete config only surfaces when you try to
 create the first scope and the deployment rolls back with
 `"network layer is not configured for provider 'aws'"` or similar.
 
-The AWS example in
-[`specs/install/aws/main.tf`](specs/install/aws/main.tf) includes
+Both examples,
+[`specs/install/aws/main.tf`](specs/install/aws/main.tf) and
+[`specs/install/azure/main.tf`](specs/install/azure/main.tf), include
 all three layers (`provider`, `network`, `distribution`); do not prune them.
 
 ---
