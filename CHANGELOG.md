@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/nullplatform/scopes-static-files/compare/v0.3.0...v0.4.0) (2026-08-03)
+
+
+### Features
+
+* declare the scope's available actions in its spec ([#21](https://github.com/nullplatform/scopes-static-files/issues/21)) ([926bfdc](https://github.com/nullplatform/scopes-static-files/commit/926bfdc4fbd421e9714014a981eb9f3cebe816fd))
+
 ## [0.3.0](https://github.com/nullplatform/scopes-static-files/compare/v0.2.0...v0.3.0) (2026-07-06)
 
 
