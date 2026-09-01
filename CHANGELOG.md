@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/nullplatform/scopes-static-files/compare/v0.4.0...v0.5.0) (2026-09-01)
+
+
+### Features
+
+* **ci:** build+push the worker image and register its artifact on release ([bbe9731](https://github.com/nullplatform/scopes-static-files/commit/bbe973113d7ba54de6d47eaba5e2bb5a5c58b34d))
+* **ci:** build+push the worker image and register its artifact on release ([868eda8](https://github.com/nullplatform/scopes-static-files/commit/868eda8ada4b0e09051524535958f85a4dcad224))
+
 ## [0.4.0](https://github.com/nullplatform/scopes-static-files/compare/v0.3.0...v0.4.0) (2026-08-03)
 
 
