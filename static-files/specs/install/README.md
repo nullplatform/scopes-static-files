@@ -11,10 +11,13 @@ install/
 ├── README.md            (this file)
 ├── aws/                 Working example for AWS (S3 + CloudFront + Route 53 + ACM)
 │   ├── main.tf
+│   ├── provider.tf
 │   ├── variables.tf
+│   ├── versions.tf
 │   └── terraform.tfvars.example
 └── azure/               Working example for Azure (Blob + CDN + Azure DNS)
     ├── main.tf
+    ├── provider.tf
     ├── variables.tf
     ├── versions.tf
     └── terraform.tfvars.example
@@ -38,11 +41,12 @@ install/
   **Known limitation:** publishing the frontend bundle to a blob container is
   not covered by this example. The distribution layer derives the storage
   account from the asset URL and expects
-  `https://<storage>.blob.core.windows.net/<container>/...`, which requires an
-  asset-repository provider specification for Azure Blob. At the time of
-  writing there is none (the available ones are `s3-configuration` and
-  `docker-server`), so an Azure install can register the scope but cannot yet
-  complete a deployment.
+  `https://<storage>.blob.core.windows.net/<container>/...`, and nothing on the
+  platform produces such a URL today — the only provider specifications that
+  take the asset-repository role are `ecr` and `docker-server`, both
+  container-registry shaped. So an Azure install can register the scope and
+  create scopes, but cannot yet complete a deployment. See
+  [`../../README.md`](../../README.md) for the full explanation.
 
 ## Not yet provided
 

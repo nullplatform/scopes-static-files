@@ -174,12 +174,21 @@ provision or validate beforehand.
 
 **Asset publishing is not solved yet on Azure.** The distribution layer derives
 the storage account, container and prefix from the asset URL and expects
-`https://<storage>.blob.core.windows.net/<container>/...`. That requires an
-asset-repository provider specification for Azure Blob, and at the time of
-writing none exists (the available ones are `s3-configuration` for AWS S3 and
-`docker-server` for container registries). An Azure install can therefore
-register the scope and create scopes, but a deployment cannot complete until
-that gap is closed on the platform side.
+`https://<storage>.blob.core.windows.net/<container>/...`, and nothing on the
+platform produces such a URL today. Only two provider specifications take the
+asset-repository role — those mapping `repository_provider` to
+`global.asset_repository_provider` — and both are container-registry shaped
+(`ecr` and `docker-server`, verified 2026-09), so `np asset push` yields an
+image URI that the `blob-cdn` setup rejects.
+
+`s3-configuration` is not one of them: it maps `bucket.name` to
+`aws.s3_assets_bucket`, which is what makes the AWS path resolve to the
+`s3://...` URL `cloudfront/setup` parses. Closing the gap means adding either an
+Azure Blob asset-repository provider or an `azure-blob-configuration`
+counterpart to `s3-configuration`.
+
+An Azure install can therefore register the scope and create scopes, but a
+deployment cannot complete until that gap is closed on the platform side.
 
 ### Registration (Terraform)
 
