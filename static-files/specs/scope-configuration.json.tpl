@@ -132,9 +132,9 @@
             "type": "string",
             "title": "Azure Distribution",
             "description": "CDN distribution for serving static files",
-            "default": "blob_cdn",
+            "default": "blob-cdn",
             "oneOf": [
-              { "const": "blob_cdn", "title": "Azure CDN (Blob Storage)" }
+              { "const": "blob-cdn", "title": "Azure CDN (Blob Storage)" }
             ]
           },
           "lambda_associations": {

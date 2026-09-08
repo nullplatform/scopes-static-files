@@ -130,21 +130,76 @@ deployment if any is missing.
    [Agent IAM permissions](#agent-iam-permissions). On EKS this is usually
    attached via IRSA to the service account the agent runs under.
 
+#### Azure
+
+1. **A storage account and a blob container for the OpenTofu state**
+   (`azure_state_storage_account` / `azure_state_container`). One state file per
+   scope is written here during the deployment workflow.
+
+2. **A public Azure DNS zone** for the domain the scopes will use
+   (`azure_dns_zone_name`). The scope looks the zone up with a data source and
+   writes CNAME/A records into it; it does not create the zone.
+
+3. **A storage account with the static website feature enabled**, where CI
+   uploads the frontend bundles. The distribution layer reads it with a data
+   source and uses its `primary_web_host` as the CDN origin — it does not create
+   or configure the account. Set the error document to `index.html` as well as
+   the index document, so client-side routing works:
+
+   ```bash
+   az storage blob service-properties update \
+     --account-name <assets_storage_account> \
+     --static-website --index-document index.html --404-document index.html
+   ```
+
+4. **Azure RBAC role assignments for the agent's service principal:**
+   `Storage Blob Data Contributor` on the state storage account, `Reader` on the
+   assets storage account, `DNS Zone Contributor` on the DNS zone, and a role
+   that can manage CDN profiles and endpoints on the resource group (for example
+   `CDN Profile Contributor`, or `Contributor` scoped to the resource group).
+
+   > **`Contributor` on the resource group is not sufficient on its own.** It
+   > grants the management plane but not the blob **data** plane, so the agent's
+   > state writes still fail. The `Storage Blob Data Contributor` assignment on
+   > the state account is required in addition to it.
+   >
+   > The assets account only needs `Reader`: the distribution layer reads it
+   > through a data source to resolve `primary_web_host` and never writes to it.
+   > Uploading the bundles is CI's job, with its own credentials.
+
+**No certificate pre-requisite.** Unlike the AWS path, which needs an ACM
+certificate in `us-east-1`, the Azure distribution layer requests a CDN-managed
+certificate (`Dedicated`, TLS 1.2) for the custom domain, so there is nothing to
+provision or validate beforehand.
+
+**Asset publishing is not solved yet on Azure.** The distribution layer derives
+the storage account, container and prefix from the asset URL and expects
+`https://<storage>.blob.core.windows.net/<container>/...`. That requires an
+asset-repository provider specification for Azure Blob, and at the time of
+writing none exists (the available ones are `s3-configuration` for AWS S3 and
+`docker-server` for container registries). An Azure install can therefore
+register the scope and create scopes, but a deployment cannot complete until
+that gap is closed on the platform side.
+
 ### Registration (Terraform)
 
 The reference Terraform for registering the scope lives under
-[`specs/install/`](specs/install/), organized by cloud. Today only the
-AWS example is complete:
+[`specs/install/`](specs/install/), organized by cloud:
 
 - [`specs/install/aws/`](specs/install/aws/) — working AWS example
-  (S3 + CloudFront + Route 53 + ACM). See
-  [`specs/install/README.md`](specs/install/README.md) for the layout
-  and for guidance on contributing the Azure / GCP equivalents.
+  (S3 + CloudFront + Route 53 + ACM).
+- [`specs/install/azure/`](specs/install/azure/) — working Azure example
+  (Blob static website + CDN + Azure DNS), subject to the asset-publishing
+  limitation described above.
 
-Copy the AWS example into your own infrastructure repository and fill in
-`terraform.tfvars.example`:
+See [`specs/install/README.md`](specs/install/README.md) for the layout and for
+guidance on contributing the GCP equivalent.
+
+Copy the example for your cloud into your own infrastructure repository and fill
+in `terraform.tfvars.example`:
 
 ```bash
+# replace `aws` with `azure` to install on Azure
 cp -r static-files/specs/install/aws /path/to/your/infra/scopes/static-files
 cd /path/to/your/infra/scopes/static-files
 cp terraform.tfvars.example terraform.tfvars
@@ -154,7 +209,7 @@ tofu init
 tofu apply
 ```
 
-Minimum inputs:
+Minimum inputs (AWS):
 
 | Variable | Description |
 |---|---|
@@ -162,6 +217,18 @@ Minimum inputs:
 | `np_api_key` | nullplatform API key with `Admin` role on the target scope |
 | `aws_state_bucket` | S3 bucket for OpenTofu state (see Pre-requisites 1). One bucket, shared across every `provider_configs` entry. |
 | `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each entry needs `nrn`, `aws_region`, and `aws_hosted_public_zone_id`. See [Registering multiple environments](#registering-multiple-environments) below. |
+| `tags` | Agent/channel tag selectors (must match `tags` of the agent that should pick up deployments) |
+
+Minimum inputs (Azure):
+
+| Variable | Description |
+|---|---|
+| `nrn` | NRN where the scope type should be registered (usually an account-level NRN) |
+| `np_api_key` | nullplatform API key with `Admin` role on the target scope |
+| `azure_subscription_id` | Default subscription where the CDN profile and DNS records are created. Overridable per `provider_configs` entry. |
+| `azure_state_storage_account` | Storage account for OpenTofu state (see Pre-requisites 1). Shared across every `provider_configs` entry. |
+| `azure_state_container` | Blob container inside that storage account |
+| `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each needs `nrn`, `azure_resource_group` and `azure_dns_zone_name`, plus an optional `azure_subscription_id` to override the default. The DNS zone must live in the entry's own `azure_resource_group`. |
 | `tags` | Agent/channel tag selectors (must match `tags` of the agent that should pick up deployments) |
 
 After `tofu apply`, the scope type appears in the nullplatform UI and is
@@ -200,11 +267,10 @@ OpenTofu to destroy and recreate the provider config.
 The nullplatform agent needs the permissions below to run the full lifecycle
 (`start-initial`, `start-blue-green`, `finalize-blue-green`,
 `rollback-deployment`, `delete-deployment`, `delete-scope`). The permissions
-and policy file below are **AWS-only**; the Azure equivalent would be a set
-of Azure RBAC role assignments (Storage Blob Data Contributor on the state
-and asset storage accounts, DNS Zone Contributor on the DNS zone, CDN
-Profile / Endpoint Contributor on the CDN profile) — not yet documented
-here.
+and policy file below are **AWS-only**. For Azure the equivalent is a set of
+Azure RBAC role assignments, listed in
+[Pre-requisites → Azure](#azure) (item 4) — note in particular that
+`Contributor` on the resource group does not cover the blob data plane.
 
 A ready-to-use policy JSON for AWS is at
 [`docs/agent-iam-policy-aws-example.json`](docs/agent-iam-policy-aws-example.json).
@@ -263,10 +329,10 @@ Error: error fetching specification ID for slug <UUID>:
        no specification found for slug: <UUID>
 ```
 
-The AWS example in
-[`specs/install/aws/main.tf`](specs/install/aws/main.tf) uses
-`provider_specification_slug` — stick to it. The same applies to any
-future Azure / GCP examples.
+Both examples,
+[`specs/install/aws/main.tf`](specs/install/aws/main.tf) and
+[`specs/install/azure/main.tf`](specs/install/azure/main.tf), use
+`provider_specification_slug` — stick to it in any new example.
 
 #### `scope_type.description` has a 60-character cap
 
@@ -289,8 +355,9 @@ at `start-initial`, so an incomplete config only surfaces when you try to
 create the first scope and the deployment rolls back with
 `"network layer is not configured for provider 'aws'"` or similar.
 
-The AWS example in
-[`specs/install/aws/main.tf`](specs/install/aws/main.tf) includes
+Both examples,
+[`specs/install/aws/main.tf`](specs/install/aws/main.tf) and
+[`specs/install/azure/main.tf`](specs/install/azure/main.tf), include
 all three layers (`provider`, `network`, `distribution`); do not prune them.
 
 ---

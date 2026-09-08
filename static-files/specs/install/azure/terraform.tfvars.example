@@ -1,0 +1,35 @@
+nrn        = ""
+np_api_key = ""
+
+# Default subscription for every provider_configs entry. Override it per entry
+# to target a different subscription per environment.
+azure_subscription_id = ""
+
+# Storage account + container for OpenTofu state. Shared across every
+# provider_configs entry (there is one state location, not one per environment).
+# See README section "Pre-requisites (Azure)" for what must exist before apply.
+azure_state_storage_account = ""
+azure_state_container       = "tfstate"
+
+# One entry per environment/region. You can add more entries to register
+# per-environment provider configs (each with its own NRN, resource group, and
+# DNS zone). The `nrn` of each entry is used as the for_each key. The DNS zone
+# must live in the entry's own azure_resource_group.
+provider_configs = [
+  {
+    nrn                  = "" # e.g. the account-level NRN (same as `nrn` above) or an env-specific NRN
+    azure_resource_group = ""
+    azure_dns_zone_name  = ""
+    # Optional: defaults to azure_subscription_id above.
+    # azure_subscription_id = ""
+  },
+  # {
+  #   nrn                  = ""
+  #   azure_resource_group = ""
+  #   azure_dns_zone_name  = ""
+  # },
+]
+
+tags = {
+  "environment" = ""
+}
