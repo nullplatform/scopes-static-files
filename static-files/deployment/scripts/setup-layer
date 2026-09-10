@@ -17,7 +17,10 @@
 #       ├── variables.tf
 #       ├── locals.tf
 #       ├── outputs.tf
-#       └── test_locals.tf
+#       ├── test_locals.tf
+#       └── {name}.tftest.hcl
+#
+#   static-files/deployment/tests/{type}/{name}/   (empty, for BATS unit tests)
 # =============================================================================
 
 set -euo pipefail
@@ -578,7 +581,10 @@ echo -e "  ${GREEN}✓${NC} Created modules/test_locals.tf"
 TEST_DIR="$DEPLOYMENT_DIR/tests/$LAYER_TYPE/$LAYER_NAME"
 mkdir -p "$TEST_DIR"
 
-cat > "$TEST_DIR/${LAYER_NAME}.tftest.hcl" << TEST_HCL
+# Tofu tests must sit next to the .tf files they exercise: run_tofu_tests.sh
+# runs `tofu test` from the directory holding the .tftest.hcl file, so a test
+# placed under tests/ would run against a directory with no module in it.
+cat > "$TARGET_DIR/modules/${LAYER_NAME}.tftest.hcl" << TEST_HCL
 # =============================================================================
 # Unit Tests: ${LAYER_TYPE}/${LAYER_NAME}
 # =============================================================================
@@ -608,7 +614,8 @@ run "test_basic_configuration" {
 }
 TEST_HCL
 
-echo -e "  ${GREEN}✓${NC} Created tests/$LAYER_TYPE/$LAYER_NAME/${LAYER_NAME}.tftest.hcl"
+echo -e "  ${GREEN}✓${NC} Created modules/${LAYER_NAME}.tftest.hcl"
+echo -e "  ${GREEN}✓${NC} Created tests/$LAYER_TYPE/$LAYER_NAME/ (for BATS unit tests)"
 
 # =============================================================================
 # Summary
@@ -625,10 +632,10 @@ echo "      ├── main.tf"
 echo "      ├── variables.tf"
 echo "      ├── locals.tf"
 echo "      ├── outputs.tf"
-echo "      └── test_locals.tf"
+echo "      ├── test_locals.tf"
+echo "      └── ${LAYER_NAME}.tftest.hcl"
 echo ""
-echo "  $TEST_DIR/"
-echo "  └── ${LAYER_NAME}.tftest.hcl"
+echo "  $TEST_DIR/    (add your BATS unit tests here)"
 echo ""
 echo -e "${YELLOW}Next steps:${NC}"
 echo "  1. Edit the setup script to add validation and TOFU_VARIABLES"
