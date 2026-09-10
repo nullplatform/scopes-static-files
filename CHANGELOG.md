@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.0](https://github.com/nullplatform/scopes-static-files/compare/v0.5.0...v0.6.0) (2026-09-10)
+
+
+### Features
+
+* add Azure install reference for the static files scope ([632c34e](https://github.com/nullplatform/scopes-static-files/commit/632c34e105a998e3eda5a60c1b7351abb0ae69bc))
+* **requirements/aws:** output CloudFront OAC bucket-policy statement ([d6e8157](https://github.com/nullplatform/scopes-static-files/commit/d6e8157b3ab7400eb7482196e9c35ce7f559948f))
+
+
+### Bug Fixes
+
+* declare the nullplatform provider source in the install example ([ed22cc1](https://github.com/nullplatform/scopes-static-files/commit/ed22cc19fc98f7b802eb9b8f406096abfb050ae8))
+* **scripts:** generate the tofu test inside the module directory ([#27](https://github.com/nullplatform/scopes-static-files/issues/27)) ([ca4edd7](https://github.com/nullplatform/scopes-static-files/commit/ca4edd75784830d5c57b16eb1455d4cd25262c16))
+
 ## [0.5.0](https://github.com/nullplatform/scopes-static-files/compare/v0.4.0...v0.5.0) (2026-09-01)
 
 
