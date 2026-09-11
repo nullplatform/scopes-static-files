@@ -313,52 +313,59 @@
               "invocations": {
                 "type": "array",
                 "title": "Invocations",
-                "description": "Functions CloudFront runs for this behavior. Pick when it runs, then paste the function ARN. CloudFront allows one invocation per event, and a Lambda@Edge and a CloudFront Function cannot share the same event.",
+                "description": "Functions this behavior runs. CloudFront allows one function per event.",
+                "default": [],
                 "items": {
                   "type": "object",
                   "required": [
-                    "type",
+                    "event_type",
                     "function_arn"
                   ],
                   "properties": {
-                    "type": {
+                    "event_type": {
                       "type": "string",
                       "title": "Invocation",
+                      "description": "Which function runs and when CloudFront invokes it. Only the combinations CloudFront accepts are listed: Functions run on viewer events only, and a Function and a Lambda@Edge cannot share an event on the same behavior.",
                       "oneOf": [
                         {
-                          "const": "function_viewer_request",
-                          "title": "CloudFront Function — viewer request"
+                          "const": "function-viewer-request",
+                          "title": "CloudFront Function — viewer request",
+                          "description": "Lightweight JS before CloudFront checks its cache. Typical for URL rewrites."
                         },
                         {
-                          "const": "function_viewer_response",
-                          "title": "CloudFront Function — viewer response"
+                          "const": "function-viewer-response",
+                          "title": "CloudFront Function — viewer response",
+                          "description": "Lightweight JS before the response reaches the viewer. Typical for simple headers."
                         },
                         {
-                          "const": "lambda_viewer_request",
-                          "title": "Lambda@Edge — viewer request"
+                          "const": "lambda-viewer-request",
+                          "title": "Lambda@Edge — viewer request",
+                          "description": "Before CloudFront checks its cache"
                         },
                         {
-                          "const": "lambda_viewer_response",
-                          "title": "Lambda@Edge — viewer response"
+                          "const": "lambda-viewer-response",
+                          "title": "Lambda@Edge — viewer response",
+                          "description": "Before the response reaches the viewer"
                         },
                         {
-                          "const": "lambda_origin_request",
-                          "title": "Lambda@Edge — origin request"
+                          "const": "lambda-origin-request",
+                          "title": "Lambda@Edge — origin request",
+                          "description": "On a cache miss, before CloudFront calls the origin"
                         },
                         {
-                          "const": "lambda_origin_response",
-                          "title": "Lambda@Edge — origin response"
+                          "const": "lambda-origin-response",
+                          "title": "Lambda@Edge — origin response",
+                          "description": "After the origin responds, before caching"
                         }
                       ]
                     },
                     "function_arn": {
                       "type": "string",
                       "title": "Function ARN",
-                      "description": "CloudFront Function ARN, or Lambda ARN including a published version"
+                      "description": "CloudFront Function ARN, or Lambda function ARN including a published version"
                     }
                   }
-                },
-                "default": []
+                }
               },
               "configure_caching": {
                 "type": "boolean",
@@ -526,52 +533,59 @@
                 "invocations": {
                   "type": "array",
                   "title": "Invocations",
-                  "description": "Functions CloudFront runs for this behavior. Pick when it runs, then paste the function ARN. CloudFront allows one invocation per event, and a Lambda@Edge and a CloudFront Function cannot share the same event.",
+                  "description": "Functions this behavior runs. CloudFront allows one function per event.",
+                  "default": [],
                   "items": {
                     "type": "object",
                     "required": [
-                      "type",
+                      "event_type",
                       "function_arn"
                     ],
                     "properties": {
-                      "type": {
+                      "event_type": {
                         "type": "string",
                         "title": "Invocation",
+                        "description": "Which function runs and when CloudFront invokes it. Only the combinations CloudFront accepts are listed: Functions run on viewer events only, and a Function and a Lambda@Edge cannot share an event on the same behavior.",
                         "oneOf": [
                           {
-                            "const": "function_viewer_request",
-                            "title": "CloudFront Function — viewer request"
+                            "const": "function-viewer-request",
+                            "title": "CloudFront Function — viewer request",
+                            "description": "Lightweight JS before CloudFront checks its cache. Typical for URL rewrites."
                           },
                           {
-                            "const": "function_viewer_response",
-                            "title": "CloudFront Function — viewer response"
+                            "const": "function-viewer-response",
+                            "title": "CloudFront Function — viewer response",
+                            "description": "Lightweight JS before the response reaches the viewer. Typical for simple headers."
                           },
                           {
-                            "const": "lambda_viewer_request",
-                            "title": "Lambda@Edge — viewer request"
+                            "const": "lambda-viewer-request",
+                            "title": "Lambda@Edge — viewer request",
+                            "description": "Before CloudFront checks its cache"
                           },
                           {
-                            "const": "lambda_viewer_response",
-                            "title": "Lambda@Edge — viewer response"
+                            "const": "lambda-viewer-response",
+                            "title": "Lambda@Edge — viewer response",
+                            "description": "Before the response reaches the viewer"
                           },
                           {
-                            "const": "lambda_origin_request",
-                            "title": "Lambda@Edge — origin request"
+                            "const": "lambda-origin-request",
+                            "title": "Lambda@Edge — origin request",
+                            "description": "On a cache miss, before CloudFront calls the origin"
                           },
                           {
-                            "const": "lambda_origin_response",
-                            "title": "Lambda@Edge — origin response"
+                            "const": "lambda-origin-response",
+                            "title": "Lambda@Edge — origin response",
+                            "description": "After the origin responds, before caching"
                           }
                         ]
                       },
                       "function_arn": {
                         "type": "string",
                         "title": "Function ARN",
-                        "description": "CloudFront Function ARN, or Lambda ARN including a published version"
+                        "description": "CloudFront Function ARN, or Lambda function ARN including a published version"
                       }
                     }
-                  },
-                  "default": []
+                  }
                 },
                 "configure_caching": {
                   "type": "boolean",
@@ -1062,7 +1076,7 @@
                           "elements": [
                             {
                               "type": "Control",
-                              "scope": "#/properties/type"
+                              "scope": "#/properties/event_type"
                             },
                             {
                               "type": "Control",
@@ -1166,7 +1180,7 @@
                               "elements": [
                                 {
                                   "type": "Control",
-                                  "scope": "#/properties/type"
+                                  "scope": "#/properties/event_type"
                                 },
                                 {
                                   "type": "Control",
@@ -1281,7 +1295,7 @@
                   "elements": [
                     {
                       "type": "Category",
-                      "label": "Distribution",
+                      "label": "General",
                       "elements": [
                         {
                           "type": "Control",
