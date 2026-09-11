@@ -325,38 +325,14 @@
                     "event_type": {
                       "type": "string",
                       "title": "Invocation",
-                      "description": "Which function runs and when CloudFront invokes it. Only the combinations CloudFront accepts are listed: Functions run on viewer events only, and a Function and a Lambda@Edge cannot share an event on the same behavior.",
-                      "oneOf": [
-                        {
-                          "const": "function-viewer-request",
-                          "title": "CloudFront Function — viewer request",
-                          "description": "Lightweight JS before CloudFront checks its cache. Typical for URL rewrites."
-                        },
-                        {
-                          "const": "function-viewer-response",
-                          "title": "CloudFront Function — viewer response",
-                          "description": "Lightweight JS before the response reaches the viewer. Typical for simple headers."
-                        },
-                        {
-                          "const": "lambda-viewer-request",
-                          "title": "Lambda@Edge — viewer request",
-                          "description": "Before CloudFront checks its cache"
-                        },
-                        {
-                          "const": "lambda-viewer-response",
-                          "title": "Lambda@Edge — viewer response",
-                          "description": "Before the response reaches the viewer"
-                        },
-                        {
-                          "const": "lambda-origin-request",
-                          "title": "Lambda@Edge — origin request",
-                          "description": "On a cache miss, before CloudFront calls the origin"
-                        },
-                        {
-                          "const": "lambda-origin-response",
-                          "title": "Lambda@Edge — origin response",
-                          "description": "After the origin responds, before caching"
-                        }
+                      "description": "Which function runs and when. CloudFront Functions run on viewer events only, and a Function and a Lambda@Edge cannot share an event on the same behavior.",
+                      "enum": [
+                        "CloudFront Function - viewer request",
+                        "CloudFront Function - viewer response",
+                        "Lambda@Edge - viewer request",
+                        "Lambda@Edge - viewer response",
+                        "Lambda@Edge - origin request",
+                        "Lambda@Edge - origin response"
                       ]
                     },
                     "function_arn": {
@@ -545,38 +521,14 @@
                       "event_type": {
                         "type": "string",
                         "title": "Invocation",
-                        "description": "Which function runs and when CloudFront invokes it. Only the combinations CloudFront accepts are listed: Functions run on viewer events only, and a Function and a Lambda@Edge cannot share an event on the same behavior.",
-                        "oneOf": [
-                          {
-                            "const": "function-viewer-request",
-                            "title": "CloudFront Function — viewer request",
-                            "description": "Lightweight JS before CloudFront checks its cache. Typical for URL rewrites."
-                          },
-                          {
-                            "const": "function-viewer-response",
-                            "title": "CloudFront Function — viewer response",
-                            "description": "Lightweight JS before the response reaches the viewer. Typical for simple headers."
-                          },
-                          {
-                            "const": "lambda-viewer-request",
-                            "title": "Lambda@Edge — viewer request",
-                            "description": "Before CloudFront checks its cache"
-                          },
-                          {
-                            "const": "lambda-viewer-response",
-                            "title": "Lambda@Edge — viewer response",
-                            "description": "Before the response reaches the viewer"
-                          },
-                          {
-                            "const": "lambda-origin-request",
-                            "title": "Lambda@Edge — origin request",
-                            "description": "On a cache miss, before CloudFront calls the origin"
-                          },
-                          {
-                            "const": "lambda-origin-response",
-                            "title": "Lambda@Edge — origin response",
-                            "description": "After the origin responds, before caching"
-                          }
+                        "description": "Which function runs and when. CloudFront Functions run on viewer events only, and a Function and a Lambda@Edge cannot share an event on the same behavior.",
+                        "enum": [
+                          "CloudFront Function - viewer request",
+                          "CloudFront Function - viewer response",
+                          "Lambda@Edge - viewer request",
+                          "Lambda@Edge - viewer response",
+                          "Lambda@Edge - origin request",
+                          "Lambda@Edge - origin response"
                         ]
                       },
                       "function_arn": {
