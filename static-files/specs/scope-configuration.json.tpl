@@ -1095,6 +1095,24 @@
                       }
                     }
                   },
+                  "type": "Label",
+                  "text": "**Cache**",
+                  "options": {
+                    "format": "markdown"
+                  }
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
+                    }
+                  },
                   "type": "Control",
                   "scope": "#/properties/distribution/properties/default_configure_caching"
                 },
@@ -1225,7 +1243,104 @@
                     }
                   },
                   "type": "Control",
-                  "scope": "#/properties/distribution/properties/behaviors"
+                  "scope": "#/properties/distribution/properties/behaviors",
+                  "options": {
+                    "detail": {
+                      "type": "VerticalLayout",
+                      "elements": [
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/path_pattern"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/viewer_protocol_policy"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/invocations"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/compress",
+                          "options": {
+                            "toggle": true
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/allowed_methods"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/cached_methods"
+                        },
+                        {
+                          "type": "Label",
+                          "text": "**Cache**",
+                          "options": {
+                            "format": "markdown"
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/configure_caching"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/cache_policy",
+                          "rule": {
+                            "effect": "SHOW",
+                            "condition": {
+                              "scope": "#/properties/configure_caching",
+                              "schema": {
+                                "const": true
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/cache_policy_id",
+                          "rule": {
+                            "effect": "SHOW",
+                            "condition": {
+                              "scope": "#/properties/configure_caching",
+                              "schema": {
+                                "const": true
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/origin_request_policy",
+                          "rule": {
+                            "effect": "SHOW",
+                            "condition": {
+                              "scope": "#/properties/configure_caching",
+                              "schema": {
+                                "const": true
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/response_headers_policy",
+                          "rule": {
+                            "effect": "SHOW",
+                            "condition": {
+                              "scope": "#/properties/configure_caching",
+                              "schema": {
+                                "const": true
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
                 },
                 {
                   "rule": {
