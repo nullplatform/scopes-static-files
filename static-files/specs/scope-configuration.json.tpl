@@ -8,6 +8,120 @@
   ],
   "allow_dimensions": true,
   "schema": {
+    "$defs": {
+      "cacheBehavior": {
+        "type": "object",
+        "properties": {
+          "cache_policy": {
+            "type": "string",
+            "title": "Cache policy",
+            "description": "AWS managed cache policy. It decides what is cached and for how long.",
+            "default": "Managed-CachingOptimized",
+            "oneOf": [
+              { "const": "Managed-CachingOptimized", "title": "CachingOptimized — cache by URL, compression on (static assets)" },
+              { "const": "Managed-CachingOptimizedForUncompressedObjects", "title": "CachingOptimizedForUncompressedObjects — already-compressed files" },
+              { "const": "Managed-CachingDisabled", "title": "CachingDisabled — never cache (APIs, dynamic content)" },
+              { "const": "Managed-Amplify", "title": "Amplify — tuned for Amplify-hosted apps" },
+              { "const": "Managed-Elemental-MediaPackage", "title": "Elemental-MediaPackage — video streaming" }
+            ]
+          },
+          "cache_policy_id": {
+            "type": "string",
+            "title": "Custom cache policy ID",
+            "description": "Use a cache policy of your own instead of a managed one. Leave the managed policy above empty when you set this."
+          },
+          "origin_request_policy": {
+            "type": "string",
+            "title": "Origin request policy",
+            "description": "What CloudFront forwards to the origin (headers, cookies, query strings)",
+            "oneOf": [
+              { "const": "Managed-AllViewer", "title": "AllViewer — forward everything the viewer sent" },
+              { "const": "Managed-AllViewerExceptHostHeader", "title": "AllViewerExceptHostHeader — everything but Host" },
+              { "const": "Managed-CORS-S3Origin", "title": "CORS-S3Origin — CORS headers for S3 origins" },
+              { "const": "Managed-CORS-CustomOrigin", "title": "CORS-CustomOrigin — CORS headers for custom origins" },
+              { "const": "Managed-UserAgentRefererHeaders", "title": "UserAgentRefererHeaders — User-Agent and Referer only" }
+            ]
+          },
+          "response_headers_policy": {
+            "type": "string",
+            "title": "Response headers policy",
+            "description": "Headers CloudFront adds to the response",
+            "oneOf": [
+              { "const": "Managed-SecurityHeadersPolicy", "title": "SecurityHeadersPolicy — HSTS, X-Frame-Options, etc." },
+              { "const": "Managed-SimpleCORS", "title": "SimpleCORS — basic CORS headers" },
+              { "const": "Managed-CORS-With-Preflight", "title": "CORS-With-Preflight — CORS including OPTIONS" },
+              { "const": "Managed-CORS-and-SecurityHeadersPolicy", "title": "CORS and security headers combined" }
+            ]
+          },
+          "viewer_protocol_policy": {
+            "type": "string",
+            "title": "Viewer protocol",
+            "description": "How CloudFront answers HTTP requests",
+            "default": "redirect-to-https",
+            "oneOf": [
+              { "const": "redirect-to-https", "title": "Redirect HTTP to HTTPS" },
+              { "const": "https-only", "title": "HTTPS only" },
+              { "const": "allow-all", "title": "Allow HTTP and HTTPS" }
+            ]
+          },
+          "allowed_methods": {
+            "type": "array",
+            "title": "Allowed methods",
+            "description": "HTTP methods CloudFront forwards to the origin",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+            }
+          },
+          "cached_methods": {
+            "type": "array",
+            "title": "Cached methods",
+            "description": "Methods whose responses CloudFront caches. Must be a subset of the allowed methods.",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": ["GET", "HEAD", "OPTIONS"]
+            }
+          },
+          "compress": {
+            "type": "boolean",
+            "title": "Compress objects automatically",
+            "default": true
+          },
+          "lambda_viewer_request": {
+            "type": "string",
+            "title": "Lambda@Edge on viewer request",
+            "description": "Function ARN including a published version. Runs before CloudFront checks its cache."
+          },
+          "lambda_viewer_response": {
+            "type": "string",
+            "title": "Lambda@Edge on viewer response",
+            "description": "Function ARN including a published version. Runs before the response reaches the viewer."
+          },
+          "lambda_origin_request": {
+            "type": "string",
+            "title": "Lambda@Edge on origin request",
+            "description": "Function ARN including a published version. Runs on a cache miss, before CloudFront calls the origin."
+          },
+          "lambda_origin_response": {
+            "type": "string",
+            "title": "Lambda@Edge on origin response",
+            "description": "Function ARN including a published version. Runs after the origin responds, before caching."
+          },
+          "function_viewer_request": {
+            "type": "string",
+            "title": "CloudFront Function on viewer request",
+            "description": "CloudFront Function ARN. Lighter and faster than Lambda@Edge; typical for URL rewrites."
+          },
+          "function_viewer_response": {
+            "type": "string",
+            "title": "CloudFront Function on viewer response",
+            "description": "CloudFront Function ARN. Typical for adding simple response headers."
+          }
+        }
+      }
+    },
     "type": "object",
     "required": [
       "cloud_provider"
@@ -137,30 +251,95 @@
               { "const": "blob-cdn", "title": "Azure CDN (Blob Storage)" }
             ]
           },
-          "lambda_associations": {
+          "default_behavior": {
+            "$ref": "#/$defs/cacheBehavior",
+            "type": "object",
+            "title": "Default behavior",
+            "description": "Serves every request that no path pattern below matches."
+          },
+          "behaviors": {
             "type": "array",
-            "title": "Function associations",
-            "description": "Associate Lambda@Edge functions with the CloudFront default cache behavior. Add one association per CloudFront event.",
-            "uniqueItems": true,
+            "title": "Path behaviors",
+            "description": "Extra cache behaviors, one per path pattern. The order matters: CloudFront applies the first pattern that matches a request.",
+            "items": {
+              "$ref": "#/$defs/cacheBehavior",
+              "type": "object",
+              "required": ["path_pattern"],
+              "properties": {
+                "path_pattern": {
+                  "type": "string",
+                  "title": "Path pattern",
+                  "description": "Pattern this behavior applies to (e.g. /api/*, /static/*, *.jpg)"
+                }
+              }
+            }
+          },
+          "price_class": {
+            "type": "string",
+            "title": "Price class",
+            "description": "Edge locations the distribution is served from",
+            "default": "PriceClass_100",
+            "oneOf": [
+              { "const": "PriceClass_100", "title": "North America and Europe (cheapest)" },
+              { "const": "PriceClass_200", "title": "Adds Asia, Middle East and Africa" },
+              { "const": "PriceClass_All", "title": "All edge locations (best performance)" }
+            ]
+          },
+          "default_root_object": {
+            "type": "string",
+            "title": "Default root object",
+            "description": "Object returned when the request is for the site root",
+            "default": "index.html"
+          },
+          "geo_restriction": {
+            "type": "object",
+            "title": "Geographic restriction",
+            "properties": {
+              "restriction_type": {
+                "type": "string",
+                "title": "Restriction type",
+                "default": "none",
+                "oneOf": [
+                  { "const": "none", "title": "No restriction" },
+                  { "const": "whitelist", "title": "Allow only these countries" },
+                  { "const": "blacklist", "title": "Block these countries" }
+                ]
+              },
+              "locations": {
+                "type": "array",
+                "title": "Countries",
+                "description": "ISO 3166-1 alpha-2 country codes (e.g. AR, BR, US)",
+                "items": { "type": "string" }
+              }
+            }
+          },
+          "custom_error_responses": {
+            "type": "array",
+            "title": "Custom error responses",
+            "description": "Single-page apps map 403 and 404 to /index.html with a 200 response code so client-side routing works. Leave empty to return the original status.",
             "items": {
               "type": "object",
-              "required": ["event_type", "function_arn"],
+              "required": ["error_code"],
               "properties": {
-                "event_type": {
-                  "type": "string",
-                  "title": "CloudFront Event",
-                  "description": "When CloudFront invokes the function",
-                  "enum": [
-                    "viewer-request",
-                    "viewer-response",
-                    "origin-request",
-                    "origin-response"
-                  ]
+                "error_code": {
+                  "type": "integer",
+                  "title": "Error code",
+                  "description": "HTTP status returned by the origin (e.g. 404)"
                 },
-                "function_arn": {
+                "response_code": {
+                  "type": "integer",
+                  "title": "Response code",
+                  "description": "HTTP status CloudFront returns to the viewer instead (e.g. 200)"
+                },
+                "response_page_path": {
                   "type": "string",
-                  "title": "Function ARN",
-                  "description": "Lambda function ARN including a published version"
+                  "title": "Response page path",
+                  "description": "Page served instead of the error (e.g. /index.html)"
+                },
+                "error_caching_min_ttl": {
+                  "type": "integer",
+                  "title": "Error caching TTL",
+                  "description": "Seconds CloudFront caches the error response"
                 }
               }
             }
@@ -394,7 +573,62 @@
                     }
                   },
                   "type": "Control",
-                  "scope": "#/properties/distribution/properties/lambda_associations"
+                  "scope": "#/properties/distribution/properties/default_behavior"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": { "not": { "const": "aws" } }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/behaviors"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": { "not": { "const": "aws" } }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/price_class"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": { "not": { "const": "aws" } }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/default_root_object"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": { "not": { "const": "aws" } }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/geo_restriction"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": { "not": { "const": "aws" } }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/custom_error_responses"
                 }
               ]
             },

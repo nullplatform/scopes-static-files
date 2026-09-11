@@ -117,25 +117,61 @@ echo ""
 
 RESOURCE_TAGS_JSON=${RESOURCE_TAGS_JSON:-"{}"}
 
-# Lambda@Edge function associations (optional). Defaults to an empty array,
-# keeping existing scopes unchanged when no functions are configured.
-distribution_lambda_associations=$(echo "$CONTEXT" | jq -c \
-  '.providers["scope-configurations"].distribution.lambda_associations // []')
+# Cache behaviors and distribution options (all optional). Empty strings are what
+# the UI leaves behind on a field nobody filled in, so they are dropped here: the
+# module distinguishes "not set" (null) from a real value.
+distribution_config=$(echo "$CONTEXT" | jq -c \
+  '(.providers["scope-configurations"].distribution // {})
+   | walk(if type == "object" then with_entries(select(.value != "" and .value != null)) else . end)')
 
-echo "   ✅ lambda_associations=$(echo "$distribution_lambda_associations" | jq 'length') association(s)"
+distribution_default_behavior=$(echo "$distribution_config" | jq -c '.default_behavior // {}')
+distribution_behaviors=$(echo "$distribution_config" | jq -c '.behaviors // []')
+distribution_price_class=$(echo "$distribution_config" | jq -r '.price_class // "PriceClass_100"')
+distribution_default_root_object=$(echo "$distribution_config" | jq -r '.default_root_object // "index.html"')
+distribution_geo_restriction=$(echo "$distribution_config" | jq -c '.geo_restriction // {}')
+distribution_custom_error_responses=$(echo "$distribution_config" | jq -c '.custom_error_responses // []')
+
+# A behavior without a path pattern cannot be matched by CloudFront
+missing_path_pattern=$(echo "$distribution_behaviors" | jq '[.[] | select(has("path_pattern") | not)] | length')
+if [ "$missing_path_pattern" != "0" ]; then
+  echo ""
+  echo "   ❌ Every behavior needs a path_pattern"
+  echo ""
+  echo "  💡 Possible causes:"
+  echo "    • A behavior was added in the scope configuration without filling in its path pattern"
+  echo ""
+  echo "  🔧 How to fix:"
+  echo "    • Set a path pattern on every behavior (e.g. '/api/*'), or remove the empty one"
+  echo "    • The default behavior has no path pattern: configure it under 'default_behavior'"
+  echo ""
+  exit 1
+fi
+
+echo "   ✅ default_behavior.cache_policy=$(echo "$distribution_default_behavior" | jq -r '.cache_policy // .cache_policy_id // "Managed-CachingOptimized (default)"')"
+echo "   ✅ behaviors=$(echo "$distribution_behaviors" | jq 'length') behavior(s)$(echo "$distribution_behaviors" | jq -r 'if length > 0 then " [" + (map(.path_pattern) | join(", ")) + "]" else "" end')"
 
 TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
   --arg bucket_name "$distribution_bucket_name" \
   --arg app_name "$distribution_app_name" \
   --argjson resource_tags_json "$RESOURCE_TAGS_JSON" \
   --arg s3_prefix "$distribution_s3_prefix" \
-  --argjson lambda_associations "$distribution_lambda_associations" \
+  --argjson default_behavior "$distribution_default_behavior" \
+  --argjson behaviors "$distribution_behaviors" \
+  --arg price_class "$distribution_price_class" \
+  --arg default_root_object "$distribution_default_root_object" \
+  --argjson geo_restriction "$distribution_geo_restriction" \
+  --argjson custom_error_responses "$distribution_custom_error_responses" \
   '. + {
     distribution_bucket_name: $bucket_name,
     distribution_app_name: $app_name,
     distribution_s3_prefix: $s3_prefix,
     distribution_resource_tags_json: $resource_tags_json,
-    distribution_lambda_associations: $lambda_associations
+    distribution_default_behavior: $default_behavior,
+    distribution_behaviors: $behaviors,
+    distribution_price_class: $price_class,
+    distribution_default_root_object: $default_root_object,
+    distribution_geo_restriction: $geo_restriction,
+    distribution_custom_error_responses: $custom_error_responses
   }')
 
 echo ""

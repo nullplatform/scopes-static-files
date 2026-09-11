@@ -132,7 +132,12 @@ run_cloudfront_setup() {
   "distribution_app_name": "automation-development-tools-7",
   "distribution_resource_tags_json": {},
   "distribution_s3_prefix": "/tools/automation/v1.0.0",
-  "distribution_lambda_associations": []
+  "distribution_default_behavior": {},
+  "distribution_behaviors": [],
+  "distribution_price_class": "PriceClass_100",
+  "distribution_default_root_object": "index.html",
+  "distribution_geo_restriction": {},
+  "distribution_custom_error_responses": []
 }'
 
   assert_json_equal "$TOFU_VARIABLES" "$expected" "TOFU_VARIABLES"
@@ -151,36 +156,97 @@ run_cloudfront_setup() {
   "distribution_app_name": "automation-development-tools-7",
   "distribution_resource_tags_json": {"Environment": "production", "Team": "platform"},
   "distribution_s3_prefix": "/tools/automation/v1.0.0",
-  "distribution_lambda_associations": []
+  "distribution_default_behavior": {},
+  "distribution_behaviors": [],
+  "distribution_price_class": "PriceClass_100",
+  "distribution_default_root_object": "index.html",
+  "distribution_geo_restriction": {},
+  "distribution_custom_error_responses": []
 }'
 
   assert_json_equal "$TOFU_VARIABLES" "$expected" "TOFU_VARIABLES"
 }
 
 # =============================================================================
-# Test: Lambda@Edge function associations
+# Test: Behaviors
 # =============================================================================
-@test "Should default distribution_lambda_associations to an empty array when not configured" {
+@test "Should default the behavior variables when the distribution is not configured" {
   run_cloudfront_setup
 
-  local associations=$(echo "$TOFU_VARIABLES" | jq -c '.distribution_lambda_associations')
-  assert_equal "$associations" "[]"
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_default_behavior')" "{}"
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_behaviors')" "[]"
 }
 
-@test "Should pass through configured lambda_associations to TOFU_VARIABLES" {
-  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.lambda_associations = [
-    {"event_type": "viewer-request", "function_arn": "arn:aws:lambda:us-east-1:123456789012:function:my-fn:1"},
-    {"event_type": "origin-response", "function_arn": "arn:aws:lambda:us-east-1:123456789012:function:other-fn:2"}
+@test "Should pass through the configured default_behavior to TOFU_VARIABLES" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.default_behavior = {
+    "cache_policy": "Managed-CachingOptimized",
+    "lambda_viewer_response": "arn:aws:lambda:us-east-1:123456789012:function:edge-headers:1"
+  }')
+
+  run_cloudfront_setup
+
+  local expected='{
+    "cache_policy": "Managed-CachingOptimized",
+    "lambda_viewer_response": "arn:aws:lambda:us-east-1:123456789012:function:edge-headers:1"
+  }'
+  assert_json_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_default_behavior')" "$expected" "distribution_default_behavior"
+}
+
+@test "Should pass through the configured behaviors keeping their order" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.behaviors = [
+    {"path_pattern": "/api/*", "cache_policy": "Managed-CachingDisabled"},
+    {"path_pattern": "/static/*"}
   ]')
 
   run_cloudfront_setup
 
   local expected='[
-    {"event_type": "viewer-request", "function_arn": "arn:aws:lambda:us-east-1:123456789012:function:my-fn:1"},
-    {"event_type": "origin-response", "function_arn": "arn:aws:lambda:us-east-1:123456789012:function:other-fn:2"}
+    {"path_pattern": "/api/*", "cache_policy": "Managed-CachingDisabled"},
+    {"path_pattern": "/static/*"}
   ]'
-  local associations=$(echo "$TOFU_VARIABLES" | jq -c '.distribution_lambda_associations')
-  assert_json_equal "$associations" "$expected" "distribution_lambda_associations"
+  assert_json_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_behaviors')" "$expected" "distribution_behaviors"
+}
+
+@test "Should drop behavior fields left empty by the UI" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.behaviors = [
+    {"path_pattern": "/api/*", "cache_policy": "Managed-CachingDisabled", "lambda_viewer_request": "", "origin_request_policy": ""}
+  ]')
+
+  run_cloudfront_setup
+
+  local expected='[{"path_pattern": "/api/*", "cache_policy": "Managed-CachingDisabled"}]'
+  assert_json_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_behaviors')" "$expected" "distribution_behaviors"
+}
+
+@test "Should fail when a behavior has no path_pattern" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.behaviors = [
+    {"cache_policy": "Managed-CachingDisabled"}
+  ]')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "❌ Every behavior needs a path_pattern"
+  assert_contains "$output" "🔧 How to fix:"
+}
+
+# =============================================================================
+# Test: Distribution-level options
+# =============================================================================
+@test "Should pass through the distribution-level options to TOFU_VARIABLES" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution += {
+    "price_class": "PriceClass_All",
+    "default_root_object": "main.html",
+    "geo_restriction": {"restriction_type": "whitelist", "locations": ["AR", "BR"]},
+    "custom_error_responses": [{"error_code": 404, "response_code": 200, "response_page_path": "/index.html"}]
+  }')
+
+  run_cloudfront_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_price_class')" "PriceClass_All"
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_default_root_object')" "main.html"
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_geo_restriction')" '{"restriction_type":"whitelist","locations":["AR","BR"]}'
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_custom_error_responses')" '[{"error_code":404,"response_code":200,"response_page_path":"/index.html"}]'
 }
 
 # =============================================================================

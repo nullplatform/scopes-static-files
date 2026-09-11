@@ -9,9 +9,9 @@ resource "aws_cloudfront_origin_access_control" "static" {
 resource "aws_cloudfront_distribution" "static" {
   enabled             = true
   is_ipv6_enabled     = true
-  default_root_object = "index.html"
+  default_root_object = var.distribution_default_root_object
   aliases             = local.distribution_aliases
-  price_class         = "PriceClass_100"
+  price_class         = var.distribution_price_class
   comment             = "Distribution for ${var.distribution_app_name}"
   web_acl_id          = local.distribution_web_acl_arn
 
@@ -24,67 +24,84 @@ resource "aws_cloudfront_distribution" "static" {
   }
 
   default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
-    cached_methods   = ["GET", "HEAD"]
+    allowed_methods  = var.distribution_default_behavior.allowed_methods
+    cached_methods   = var.distribution_default_behavior.cached_methods
     target_origin_id = local.distribution_origin_id
 
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
+    cache_policy_id            = local.distribution_default_cache_policy_id
+    origin_request_policy_id   = try(data.aws_cloudfront_origin_request_policy.by_name["default"].id, null)
+    response_headers_policy_id = try(data.aws_cloudfront_response_headers_policy.by_name["default"].id, null)
 
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
-    compress               = true
+    viewer_protocol_policy = var.distribution_default_behavior.viewer_protocol_policy
+    compress               = var.distribution_default_behavior.compress
 
     dynamic "lambda_function_association" {
-      for_each = var.distribution_lambda_associations
+      for_each = local.distribution_default_lambda_associations
       content {
         event_type = lambda_function_association.value.event_type
-        lambda_arn = lambda_function_association.value.function_arn
+        lambda_arn = lambda_function_association.value.lambda_arn
+      }
+    }
+
+    dynamic "function_association" {
+      for_each = local.distribution_default_function_associations
+      content {
+        event_type   = function_association.value.event_type
+        function_arn = function_association.value.function_arn
       }
     }
   }
 
-  ordered_cache_behavior {
-    path_pattern     = "/static/*"
-    allowed_methods  = ["GET", "HEAD"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = local.distribution_origin_id
+  # The list order is the CloudFront precedence: the first pattern that matches
+  # a request wins, so iterating a list (never a map or a set) matters here.
+  dynamic "ordered_cache_behavior" {
+    for_each = var.distribution_behaviors
 
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
+    content {
+      path_pattern     = ordered_cache_behavior.value.path_pattern
+      allowed_methods  = ordered_cache_behavior.value.allowed_methods
+      cached_methods   = ordered_cache_behavior.value.cached_methods
+      target_origin_id = local.distribution_origin_id
+
+      cache_policy_id            = local.distribution_behavior_cache_policy_ids[ordered_cache_behavior.key]
+      origin_request_policy_id   = try(data.aws_cloudfront_origin_request_policy.by_name["behavior-${ordered_cache_behavior.key}"].id, null)
+      response_headers_policy_id = try(data.aws_cloudfront_response_headers_policy.by_name["behavior-${ordered_cache_behavior.key}"].id, null)
+
+      viewer_protocol_policy = ordered_cache_behavior.value.viewer_protocol_policy
+      compress               = ordered_cache_behavior.value.compress
+
+      dynamic "lambda_function_association" {
+        for_each = local.distribution_behavior_lambda_associations[ordered_cache_behavior.key]
+        content {
+          event_type = lambda_function_association.value.event_type
+          lambda_arn = lambda_function_association.value.lambda_arn
+        }
+      }
+
+      dynamic "function_association" {
+        for_each = local.distribution_behavior_function_associations[ordered_cache_behavior.key]
+        content {
+          event_type   = function_association.value.event_type
+          function_arn = function_association.value.function_arn
+        }
       }
     }
-
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 86400
-    default_ttl            = 604800
-    max_ttl                = 31536000
-    compress               = true
   }
 
-  custom_error_response {
-    error_code         = 404
-    response_code      = 200
-    response_page_path = "/index.html"
-  }
-
-  custom_error_response {
-    error_code         = 403
-    response_code      = 200
-    response_page_path = "/index.html"
+  dynamic "custom_error_response" {
+    for_each = var.distribution_custom_error_responses
+    content {
+      error_code            = custom_error_response.value.error_code
+      response_code         = custom_error_response.value.response_code
+      response_page_path    = custom_error_response.value.response_page_path
+      error_caching_min_ttl = custom_error_response.value.error_caching_min_ttl
+    }
   }
 
   restrictions {
     geo_restriction {
-      restriction_type = "none"
+      restriction_type = var.distribution_geo_restriction.restriction_type
+      locations        = var.distribution_geo_restriction.locations
     }
   }
 

@@ -231,57 +231,90 @@ run "cross_module_locals_for_dns" {
 }
 
 # =============================================================================
-# Test: Cache behaviors
+# Test: Default cache behavior defaults
 # =============================================================================
-run "cache_behaviors_configured" {
+run "default_behavior_defaults" {
   command = plan
 
-  # Default cache behavior
   assert {
     condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].viewer_protocol_policy == "redirect-to-https"
-    error_message = "Default cache should redirect to HTTPS"
+    error_message = "Default behavior should redirect to HTTPS"
   }
 
   assert {
     condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].compress == true
-    error_message = "Default cache should enable compression"
+    error_message = "Default behavior should enable compression"
+  }
+
+  assert {
+    condition     = contains(keys(data.aws_cloudfront_cache_policy.by_name), "default")
+    error_message = "Default behavior should look its cache policy up by name"
+  }
+
+  assert {
+    condition     = local.distribution_cache_policy_names["default"] == "Managed-CachingOptimized"
+    error_message = "Default behavior should default to the Managed-CachingOptimized policy"
   }
 }
 
 # =============================================================================
-# Test: No Lambda@Edge associations by default
+# Test: The legacy TTL/forwarded_values model is gone
 # =============================================================================
-run "no_lambda_associations_by_default" {
+run "default_behavior_has_no_legacy_cache_settings" {
+  command = plan
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].forwarded_values) == 0
+    error_message = "Cache policies and forwarded_values are mutually exclusive in CloudFront"
+  }
+}
+
+# =============================================================================
+# Test: No ordered cache behaviors unless configured
+# =============================================================================
+run "no_ordered_behaviors_by_default" {
+  command = plan
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.ordered_cache_behavior) == 0
+    error_message = "Should create no ordered cache behaviors when none are configured"
+  }
+}
+
+# =============================================================================
+# Test: No invocations on the default behavior unless configured
+# =============================================================================
+run "no_invocations_by_default" {
   command = plan
 
   assert {
     condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].lambda_function_association) == 0
-    error_message = "Default cache behavior should have no lambda associations when none are configured"
+    error_message = "Default behavior should have no Lambda@Edge associations when none are configured"
+  }
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].function_association) == 0
+    error_message = "Default behavior should have no CloudFront Function associations when none are configured"
   }
 }
 
 # =============================================================================
-# Test: Lambda@Edge associations applied to the default cache behavior
+# Test: Flat invocation fields become associations on the default behavior
 # =============================================================================
-run "lambda_associations_applied_to_default_behavior" {
+run "invocations_applied_to_default_behavior" {
   command = plan
 
   variables {
-    distribution_lambda_associations = [
-      {
-        event_type   = "viewer-request"
-        function_arn = "arn:aws:lambda:us-east-1:123456789012:function:my-fn:1"
-      },
-      {
-        event_type   = "origin-response"
-        function_arn = "arn:aws:lambda:us-east-1:123456789012:function:other-fn:2"
-      }
-    ]
+    distribution_default_behavior = {
+      lambda_viewer_request   = "arn:aws:lambda:us-east-1:123456789012:function:my-fn:1"
+      lambda_origin_response  = "arn:aws:lambda:us-east-1:123456789012:function:other-fn:2"
+      function_viewer_request = "arn:aws:cloudfront::123456789012:function/spa-rewrite"
+    }
   }
 
   assert {
     condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].lambda_function_association) == 2
-    error_message = "Default cache behavior should have two lambda associations"
+    error_message = "Default behavior should have two Lambda@Edge associations"
   }
 
   assert {
@@ -299,18 +332,201 @@ run "lambda_associations_applied_to_default_behavior" {
     ]) == 1
     error_message = "Should associate other-fn:2 on origin-response"
   }
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].function_association) == 1
+    error_message = "Default behavior should have one CloudFront Function association"
+  }
+
+  assert {
+    condition     = one(aws_cloudfront_distribution.static.default_cache_behavior[0].function_association).event_type == "viewer-request"
+    error_message = "CloudFront Function should run on viewer-request"
+  }
 }
 
 # =============================================================================
-# Test: Custom error responses for SPA
+# Test: Ordered behaviors are created in the configured order
 # =============================================================================
-run "spa_error_responses" {
+run "ordered_behaviors_keep_their_order" {
   command = plan
 
-  # Check that 404 and 403 errors redirect to index.html (SPA behavior)
+  variables {
+    distribution_behaviors = [
+      { path_pattern = "/api/*", cache_policy = "Managed-CachingDisabled" },
+      { path_pattern = "/static/*" },
+      { path_pattern = "/assets/*" }
+    ]
+  }
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.ordered_cache_behavior) == 3
+    error_message = "Should create one ordered cache behavior per configured behavior"
+  }
+
+  assert {
+    condition = [
+      for b in aws_cloudfront_distribution.static.ordered_cache_behavior : b.path_pattern
+    ] == ["/api/*", "/static/*", "/assets/*"]
+    error_message = "Ordered behaviors must keep the configured order: it is the CloudFront precedence"
+  }
+}
+
+# =============================================================================
+# Test: Each ordered behavior carries its own invocations and policies
+# =============================================================================
+run "ordered_behaviors_carry_their_own_invocations" {
+  command = plan
+
+  variables {
+    distribution_behaviors = [
+      {
+        path_pattern          = "/api/*"
+        cache_policy          = "Managed-CachingDisabled"
+        origin_request_policy = "Managed-AllViewer"
+        lambda_viewer_request = "arn:aws:lambda:us-east-1:123456789012:function:auth:3"
+      },
+      {
+        path_pattern = "/static/*"
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.ordered_cache_behavior[0].lambda_function_association) == 1
+    error_message = "The /api/* behavior should carry its own Lambda@Edge association"
+  }
+
+  assert {
+    condition     = one(aws_cloudfront_distribution.static.ordered_cache_behavior[0].lambda_function_association).lambda_arn == "arn:aws:lambda:us-east-1:123456789012:function:auth:3"
+    error_message = "The /api/* behavior should associate auth:3"
+  }
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.ordered_cache_behavior[1].lambda_function_association) == 0
+    error_message = "The /static/* behavior should carry no associations of its own"
+  }
+
+  assert {
+    condition     = local.distribution_cache_policy_names["behavior-0"] == "Managed-CachingDisabled"
+    error_message = "The /api/* behavior should resolve its own cache policy"
+  }
+
+  assert {
+    condition     = local.distribution_origin_request_policy_names["behavior-0"] == "Managed-AllViewer"
+    error_message = "The /api/* behavior should look its origin request policy up by name"
+  }
+
+  assert {
+    condition     = !contains(keys(local.distribution_origin_request_policy_names), "behavior-1")
+    error_message = "A behavior without an origin request policy should not look one up"
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.ordered_cache_behavior[1].origin_request_policy_id == null
+    error_message = "A behavior without an origin request policy should not set one"
+  }
+}
+
+# =============================================================================
+# Test: A behavior can reference a cache policy by id instead of by name
+# =============================================================================
+run "cache_policy_by_id" {
+  command = plan
+
+  variables {
+    distribution_behaviors = [
+      { path_pattern = "/api/*", cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" }
+    ]
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.ordered_cache_behavior[0].cache_policy_id == "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+    error_message = "An explicit cache_policy_id should be used as-is"
+  }
+
+  assert {
+    condition     = !contains(keys(local.distribution_cache_policy_names), "behavior-0")
+    error_message = "An explicit cache_policy_id should not trigger a lookup by name"
+  }
+
+  assert {
+    condition     = !contains(keys(data.aws_cloudfront_cache_policy.by_name), "behavior-0")
+    error_message = "An explicit cache_policy_id should not create a data source lookup"
+  }
+}
+
+# =============================================================================
+# Test: Distribution-level options are configurable
+# =============================================================================
+run "distribution_options_are_configurable" {
+  command = plan
+
+  variables {
+    distribution_price_class         = "PriceClass_All"
+    distribution_default_root_object = "main.html"
+    distribution_geo_restriction = {
+      restriction_type = "whitelist"
+      locations        = ["AR", "BR"]
+    }
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.price_class == "PriceClass_All"
+    error_message = "Price class should be configurable"
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.default_root_object == "main.html"
+    error_message = "Default root object should be configurable"
+  }
+
+  assert {
+    condition     = one(one(aws_cloudfront_distribution.static.restrictions).geo_restriction).restriction_type == "whitelist"
+    error_message = "Geo restriction type should be configurable"
+  }
+
+  assert {
+    condition     = one(one(aws_cloudfront_distribution.static.restrictions).geo_restriction).locations == toset(["AR", "BR"])
+    error_message = "Geo restriction locations should be configurable"
+  }
+}
+
+# =============================================================================
+# Test: Custom error responses are opt-in (they break non-SPA apps)
+# =============================================================================
+run "no_custom_error_responses_by_default" {
+  command = plan
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.custom_error_response) == 0
+    error_message = "Should create no custom error responses unless configured"
+  }
+}
+
+# =============================================================================
+# Test: Custom error responses are created as configured (SPA case)
+# =============================================================================
+run "custom_error_responses_configured" {
+  command = plan
+
+  variables {
+    distribution_custom_error_responses = [
+      { error_code = 404, response_code = 200, response_page_path = "/index.html" },
+      { error_code = 403, response_code = 200, response_page_path = "/index.html" }
+    ]
+  }
+
   assert {
     condition     = length(aws_cloudfront_distribution.static.custom_error_response) == 2
-    error_message = "Should have 2 custom error responses"
+    error_message = "Should create one custom error response per configured entry"
+  }
+
+  assert {
+    condition = length([
+      for r in aws_cloudfront_distribution.static.custom_error_response :
+      r if r.error_code == 404 && r.response_code == 200 && r.response_page_path == "/index.html"
+    ]) == 1
+    error_message = "Should map 404 to /index.html with a 200 response code"
   }
 }
 
@@ -483,4 +699,82 @@ run "waf_attached_when_security_arn_set" {
     condition     = aws_cloudfront_distribution.static.web_acl_id == "arn:aws:wafv2:us-east-1:123456789012:global/webacl/test-acl/abcdef12-3456-7890-abcd-ef1234567890"
     error_message = "Distribution web_acl_id should equal the WAFv2 ARN exposed by the security layer"
   }
+}
+
+# =============================================================================
+# Test: Duplicated path patterns are rejected
+# =============================================================================
+run "rejects_duplicated_path_patterns" {
+  command = plan
+
+  variables {
+    distribution_behaviors = [
+      { path_pattern = "/api/*" },
+      { path_pattern = "/api/*" }
+    ]
+  }
+
+  expect_failures = [var.distribution_behaviors]
+}
+
+# =============================================================================
+# Test: Lambda@Edge ARNs must include a published version
+# =============================================================================
+run "rejects_lambda_arn_without_version" {
+  command = plan
+
+  variables {
+    distribution_default_behavior = {
+      lambda_viewer_request = "arn:aws:lambda:us-east-1:123456789012:function:my-fn"
+    }
+  }
+
+  expect_failures = [var.distribution_default_behavior]
+}
+
+# =============================================================================
+# Test: A behavior cannot set both a cache policy name and a cache policy id
+# =============================================================================
+run "rejects_cache_policy_name_and_id_together" {
+  command = plan
+
+  variables {
+    distribution_behaviors = [
+      {
+        path_pattern    = "/api/*"
+        cache_policy    = "Managed-CachingDisabled"
+        cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+      }
+    ]
+  }
+
+  expect_failures = [var.distribution_behaviors]
+}
+
+# =============================================================================
+# Test: Invalid viewer protocol policy is rejected
+# =============================================================================
+run "rejects_invalid_viewer_protocol_policy" {
+  command = plan
+
+  variables {
+    distribution_behaviors = [
+      { path_pattern = "/api/*", viewer_protocol_policy = "always-http" }
+    ]
+  }
+
+  expect_failures = [var.distribution_behaviors]
+}
+
+# =============================================================================
+# Test: Invalid price class is rejected
+# =============================================================================
+run "rejects_invalid_price_class" {
+  command = plan
+
+  variables {
+    distribution_price_class = "PriceClass_Cheap"
+  }
+
+  expect_failures = [var.distribution_price_class]
 }
