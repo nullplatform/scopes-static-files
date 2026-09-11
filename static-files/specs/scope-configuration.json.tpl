@@ -759,7 +759,7 @@
                     }
                   },
                   "type": "Label",
-                  "text": "### Default behavior\n\nServes every request that no path pattern matches. CloudFront always requires it.",
+                  "text": "#### Default behavior\nServes every request no path pattern matches.",
                   "options": {
                     "format": "markdown"
                   }
@@ -822,7 +822,7 @@
                     }
                   },
                   "type": "Label",
-                  "text": "### Cache behaviors\n\nOne block per path pattern, on top of the default behavior. The first pattern that matches a request wins, so the order sets the precedence.",
+                  "text": "#### Cache behaviors\nOne block per path pattern; the first match wins, so the order sets the precedence.",
                   "options": {
                     "format": "markdown"
                   }
