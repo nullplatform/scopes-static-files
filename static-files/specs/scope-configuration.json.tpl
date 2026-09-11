@@ -12,57 +12,30 @@
       "cacheBehavior": {
         "type": "object",
         "properties": {
-          "cache_policy": {
-            "type": "string",
-            "title": "Cache policy",
-            "description": "AWS managed cache policy. It decides what is cached and for how long.",
-            "default": "Managed-CachingOptimized",
-            "oneOf": [
-              { "const": "Managed-CachingOptimized", "title": "CachingOptimized — cache by URL, compression on (static assets)" },
-              { "const": "Managed-CachingOptimizedForUncompressedObjects", "title": "CachingOptimizedForUncompressedObjects — already-compressed files" },
-              { "const": "Managed-CachingDisabled", "title": "CachingDisabled — never cache (APIs, dynamic content)" },
-              { "const": "Managed-Amplify", "title": "Amplify — tuned for Amplify-hosted apps" },
-              { "const": "Managed-Elemental-MediaPackage", "title": "Elemental-MediaPackage — video streaming" }
-            ]
-          },
-          "cache_policy_id": {
-            "type": "string",
-            "title": "Custom cache policy ID",
-            "description": "Use a cache policy of your own instead of a managed one. Leave the managed policy above empty when you set this."
-          },
-          "origin_request_policy": {
-            "type": "string",
-            "title": "Origin request policy",
-            "description": "What CloudFront forwards to the origin (headers, cookies, query strings)",
-            "oneOf": [
-              { "const": "Managed-AllViewer", "title": "AllViewer — forward everything the viewer sent" },
-              { "const": "Managed-AllViewerExceptHostHeader", "title": "AllViewerExceptHostHeader — everything but Host" },
-              { "const": "Managed-CORS-S3Origin", "title": "CORS-S3Origin — CORS headers for S3 origins" },
-              { "const": "Managed-CORS-CustomOrigin", "title": "CORS-CustomOrigin — CORS headers for custom origins" },
-              { "const": "Managed-UserAgentRefererHeaders", "title": "UserAgentRefererHeaders — User-Agent and Referer only" }
-            ]
-          },
-          "response_headers_policy": {
-            "type": "string",
-            "title": "Response headers policy",
-            "description": "Headers CloudFront adds to the response",
-            "oneOf": [
-              { "const": "Managed-SecurityHeadersPolicy", "title": "SecurityHeadersPolicy — HSTS, X-Frame-Options, etc." },
-              { "const": "Managed-SimpleCORS", "title": "SimpleCORS — basic CORS headers" },
-              { "const": "Managed-CORS-With-Preflight", "title": "CORS-With-Preflight — CORS including OPTIONS" },
-              { "const": "Managed-CORS-and-SecurityHeadersPolicy", "title": "CORS and security headers combined" }
-            ]
-          },
           "viewer_protocol_policy": {
             "type": "string",
             "title": "Viewer protocol",
             "description": "How CloudFront answers HTTP requests",
             "default": "redirect-to-https",
             "oneOf": [
-              { "const": "redirect-to-https", "title": "Redirect HTTP to HTTPS" },
-              { "const": "https-only", "title": "HTTPS only" },
-              { "const": "allow-all", "title": "Allow HTTP and HTTPS" }
+              {
+                "const": "redirect-to-https",
+                "title": "Redirect HTTP to HTTPS"
+              },
+              {
+                "const": "https-only",
+                "title": "HTTPS only"
+              },
+              {
+                "const": "allow-all",
+                "title": "Allow HTTP and HTTPS"
+              }
             ]
+          },
+          "compress": {
+            "type": "boolean",
+            "title": "Compress objects automatically",
+            "default": true
           },
           "allowed_methods": {
             "type": "array",
@@ -71,7 +44,15 @@
             "uniqueItems": true,
             "items": {
               "type": "string",
-              "enum": ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+              "enum": [
+                "GET",
+                "HEAD",
+                "OPTIONS",
+                "PUT",
+                "POST",
+                "PATCH",
+                "DELETE"
+              ]
             }
           },
           "cached_methods": {
@@ -81,13 +62,12 @@
             "uniqueItems": true,
             "items": {
               "type": "string",
-              "enum": ["GET", "HEAD", "OPTIONS"]
+              "enum": [
+                "GET",
+                "HEAD",
+                "OPTIONS"
+              ]
             }
-          },
-          "compress": {
-            "type": "boolean",
-            "title": "Compress objects automatically",
-            "default": true
           },
           "lambda_viewer_request": {
             "type": "string",
@@ -118,6 +98,94 @@
             "type": "string",
             "title": "CloudFront Function on viewer response",
             "description": "CloudFront Function ARN. Typical for adding simple response headers."
+          },
+          "configure_caching": {
+            "type": "boolean",
+            "title": "Configure caching policies",
+            "description": "Off: this behavior caches the way the scope always has — no query strings or cookies forwarded, TTL 0/3600/86400. On: pick AWS cache policies instead, which is where CloudFront puts every new caching feature.",
+            "default": false
+          },
+          "cache_policy": {
+            "type": "string",
+            "title": "Cache policy",
+            "description": "AWS managed cache policy. It decides what is cached and for how long.",
+            "oneOf": [
+              {
+                "const": "Managed-CachingOptimized",
+                "title": "CachingOptimized — cache by URL, compression on (static assets)"
+              },
+              {
+                "const": "Managed-CachingOptimizedForUncompressedObjects",
+                "title": "CachingOptimizedForUncompressedObjects — already-compressed files"
+              },
+              {
+                "const": "Managed-CachingDisabled",
+                "title": "CachingDisabled — never cache (APIs, dynamic content)"
+              },
+              {
+                "const": "Managed-Amplify",
+                "title": "Amplify — tuned for Amplify-hosted apps"
+              },
+              {
+                "const": "Managed-Elemental-MediaPackage",
+                "title": "Elemental-MediaPackage — video streaming"
+              }
+            ]
+          },
+          "cache_policy_id": {
+            "type": "string",
+            "title": "Custom cache policy ID",
+            "description": "Use a cache policy of your own instead of a managed one. Leave the managed policy above empty when you set this."
+          },
+          "origin_request_policy": {
+            "type": "string",
+            "title": "Origin request policy",
+            "description": "What CloudFront forwards to the origin (headers, cookies, query strings)",
+            "oneOf": [
+              {
+                "const": "Managed-AllViewer",
+                "title": "AllViewer — forward everything the viewer sent"
+              },
+              {
+                "const": "Managed-AllViewerExceptHostHeader",
+                "title": "AllViewerExceptHostHeader — everything but Host"
+              },
+              {
+                "const": "Managed-CORS-S3Origin",
+                "title": "CORS-S3Origin — CORS headers for S3 origins"
+              },
+              {
+                "const": "Managed-CORS-CustomOrigin",
+                "title": "CORS-CustomOrigin — CORS headers for custom origins"
+              },
+              {
+                "const": "Managed-UserAgentRefererHeaders",
+                "title": "UserAgentRefererHeaders — User-Agent and Referer only"
+              }
+            ]
+          },
+          "response_headers_policy": {
+            "type": "string",
+            "title": "Response headers policy",
+            "description": "Headers CloudFront adds to the response",
+            "oneOf": [
+              {
+                "const": "Managed-SecurityHeadersPolicy",
+                "title": "SecurityHeadersPolicy — HSTS, X-Frame-Options, etc."
+              },
+              {
+                "const": "Managed-SimpleCORS",
+                "title": "SimpleCORS — basic CORS headers"
+              },
+              {
+                "const": "Managed-CORS-With-Preflight",
+                "title": "CORS-With-Preflight — CORS including OPTIONS"
+              },
+              {
+                "const": "Managed-CORS-and-SecurityHeadersPolicy",
+                "title": "CORS and security headers combined"
+              }
+            ]
           }
         }
       }
@@ -127,25 +195,45 @@
       "cloud_provider"
     ],
     "if": {
-      "properties": { "cloud_provider": { "const": "aws" } },
-      "required": ["cloud_provider"]
+      "properties": {
+        "cloud_provider": {
+          "const": "aws"
+        }
+      },
+      "required": [
+        "cloud_provider"
+      ]
     },
     "then": {
       "properties": {
         "provider": {
-          "required": ["aws_region", "aws_state_bucket"]
+          "required": [
+            "aws_region",
+            "aws_state_bucket"
+          ]
         }
       }
     },
     "else": {
       "if": {
-        "properties": { "cloud_provider": { "const": "azure" } },
-        "required": ["cloud_provider"]
+        "properties": {
+          "cloud_provider": {
+            "const": "azure"
+          }
+        },
+        "required": [
+          "cloud_provider"
+        ]
       },
       "then": {
         "properties": {
           "provider": {
-            "required": ["azure_subscription_id", "azure_resource_group", "azure_state_storage_account", "azure_state_container"]
+            "required": [
+              "azure_subscription_id",
+              "azure_resource_group",
+              "azure_state_storage_account",
+              "azure_state_container"
+            ]
           }
         }
       }
@@ -156,12 +244,17 @@
         "title": "Cloud Provider",
         "description": "Select the cloud provider for this scope configuration",
         "oneOf": [
-          { "const": "aws", "title": "Amazon Web Services" },
-          { "const": "azure", "title": "Microsoft Azure" }
+          {
+            "const": "aws",
+            "title": "Amazon Web Services"
+          },
+          {
+            "const": "azure",
+            "title": "Microsoft Azure"
+          }
         ],
         "default": "aws"
       },
-
       "provider": {
         "type": "object",
         "title": "Provider Configuration",
@@ -171,33 +264,114 @@
             "title": "AWS Region",
             "description": "AWS region where resources will be deployed",
             "oneOf": [
-              { "const": "us-east-1", "title": "US East (N. Virginia)" },
-              { "const": "us-east-2", "title": "US East (Ohio)" },
-              { "const": "us-west-1", "title": "US West (N. California)" },
-              { "const": "us-west-2", "title": "US West (Oregon)" },
-              { "const": "ca-central-1", "title": "Canada (Central)" },
-              { "const": "sa-east-1", "title": "South America (São Paulo)" },
-              { "const": "eu-west-1", "title": "Europe (Ireland)" },
-              { "const": "eu-west-2", "title": "Europe (London)" },
-              { "const": "eu-west-3", "title": "Europe (Paris)" },
-              { "const": "eu-central-1", "title": "Europe (Frankfurt)" },
-              { "const": "eu-central-2", "title": "Europe (Zurich)" },
-              { "const": "eu-north-1", "title": "Europe (Stockholm)" },
-              { "const": "eu-south-1", "title": "Europe (Milan)" },
-              { "const": "eu-south-2", "title": "Europe (Spain)" },
-              { "const": "ap-east-1", "title": "Asia Pacific (Hong Kong)" },
-              { "const": "ap-south-1", "title": "Asia Pacific (Mumbai)" },
-              { "const": "ap-south-2", "title": "Asia Pacific (Hyderabad)" },
-              { "const": "ap-southeast-1", "title": "Asia Pacific (Singapore)" },
-              { "const": "ap-southeast-2", "title": "Asia Pacific (Sydney)" },
-              { "const": "ap-southeast-3", "title": "Asia Pacific (Jakarta)" },
-              { "const": "ap-northeast-1", "title": "Asia Pacific (Tokyo)" },
-              { "const": "ap-northeast-2", "title": "Asia Pacific (Seoul)" },
-              { "const": "ap-northeast-3", "title": "Asia Pacific (Osaka)" },
-              { "const": "me-south-1", "title": "Middle East (Bahrain)" },
-              { "const": "me-central-1", "title": "Middle East (UAE)" },
-              { "const": "af-south-1", "title": "Africa (Cape Town)" },
-              { "const": "il-central-1", "title": "Israel (Tel Aviv)" }
+              {
+                "const": "us-east-1",
+                "title": "US East (N. Virginia)"
+              },
+              {
+                "const": "us-east-2",
+                "title": "US East (Ohio)"
+              },
+              {
+                "const": "us-west-1",
+                "title": "US West (N. California)"
+              },
+              {
+                "const": "us-west-2",
+                "title": "US West (Oregon)"
+              },
+              {
+                "const": "ca-central-1",
+                "title": "Canada (Central)"
+              },
+              {
+                "const": "sa-east-1",
+                "title": "South America (São Paulo)"
+              },
+              {
+                "const": "eu-west-1",
+                "title": "Europe (Ireland)"
+              },
+              {
+                "const": "eu-west-2",
+                "title": "Europe (London)"
+              },
+              {
+                "const": "eu-west-3",
+                "title": "Europe (Paris)"
+              },
+              {
+                "const": "eu-central-1",
+                "title": "Europe (Frankfurt)"
+              },
+              {
+                "const": "eu-central-2",
+                "title": "Europe (Zurich)"
+              },
+              {
+                "const": "eu-north-1",
+                "title": "Europe (Stockholm)"
+              },
+              {
+                "const": "eu-south-1",
+                "title": "Europe (Milan)"
+              },
+              {
+                "const": "eu-south-2",
+                "title": "Europe (Spain)"
+              },
+              {
+                "const": "ap-east-1",
+                "title": "Asia Pacific (Hong Kong)"
+              },
+              {
+                "const": "ap-south-1",
+                "title": "Asia Pacific (Mumbai)"
+              },
+              {
+                "const": "ap-south-2",
+                "title": "Asia Pacific (Hyderabad)"
+              },
+              {
+                "const": "ap-southeast-1",
+                "title": "Asia Pacific (Singapore)"
+              },
+              {
+                "const": "ap-southeast-2",
+                "title": "Asia Pacific (Sydney)"
+              },
+              {
+                "const": "ap-southeast-3",
+                "title": "Asia Pacific (Jakarta)"
+              },
+              {
+                "const": "ap-northeast-1",
+                "title": "Asia Pacific (Tokyo)"
+              },
+              {
+                "const": "ap-northeast-2",
+                "title": "Asia Pacific (Seoul)"
+              },
+              {
+                "const": "ap-northeast-3",
+                "title": "Asia Pacific (Osaka)"
+              },
+              {
+                "const": "me-south-1",
+                "title": "Middle East (Bahrain)"
+              },
+              {
+                "const": "me-central-1",
+                "title": "Middle East (UAE)"
+              },
+              {
+                "const": "af-south-1",
+                "title": "Africa (Cape Town)"
+              },
+              {
+                "const": "il-central-1",
+                "title": "Israel (Tel Aviv)"
+              }
             ]
           },
           "aws_state_bucket": {
@@ -228,7 +402,6 @@
         },
         "description": "Cloud provider settings, credentials, and state backend"
       },
-
       "distribution": {
         "type": "object",
         "title": "Distribution Layer",
@@ -239,7 +412,10 @@
             "description": "CDN distribution for serving static files",
             "default": "cloudfront",
             "oneOf": [
-              { "const": "cloudfront", "title": "Amazon CloudFront" }
+              {
+                "const": "cloudfront",
+                "title": "Amazon CloudFront"
+              }
             ]
           },
           "azure_distribution": {
@@ -248,7 +424,10 @@
             "description": "CDN distribution for serving static files",
             "default": "blob-cdn",
             "oneOf": [
-              { "const": "blob-cdn", "title": "Azure CDN (Blob Storage)" }
+              {
+                "const": "blob-cdn",
+                "title": "Azure CDN (Blob Storage)"
+              }
             ]
           },
           "default_behavior": {
@@ -264,7 +443,9 @@
             "items": {
               "$ref": "#/$defs/cacheBehavior",
               "type": "object",
-              "required": ["path_pattern"],
+              "required": [
+                "path_pattern"
+              ],
               "properties": {
                 "path_pattern": {
                   "type": "string",
@@ -280,9 +461,18 @@
             "description": "Edge locations the distribution is served from",
             "default": "PriceClass_100",
             "oneOf": [
-              { "const": "PriceClass_100", "title": "North America and Europe (cheapest)" },
-              { "const": "PriceClass_200", "title": "Adds Asia, Middle East and Africa" },
-              { "const": "PriceClass_All", "title": "All edge locations (best performance)" }
+              {
+                "const": "PriceClass_100",
+                "title": "North America and Europe (cheapest)"
+              },
+              {
+                "const": "PriceClass_200",
+                "title": "Adds Asia, Middle East and Africa"
+              },
+              {
+                "const": "PriceClass_All",
+                "title": "All edge locations (best performance)"
+              }
             ]
           },
           "default_root_object": {
@@ -300,16 +490,27 @@
                 "title": "Restriction type",
                 "default": "none",
                 "oneOf": [
-                  { "const": "none", "title": "No restriction" },
-                  { "const": "whitelist", "title": "Allow only these countries" },
-                  { "const": "blacklist", "title": "Block these countries" }
+                  {
+                    "const": "none",
+                    "title": "No restriction"
+                  },
+                  {
+                    "const": "whitelist",
+                    "title": "Allow only these countries"
+                  },
+                  {
+                    "const": "blacklist",
+                    "title": "Block these countries"
+                  }
                 ]
               },
               "locations": {
                 "type": "array",
                 "title": "Countries",
                 "description": "ISO 3166-1 alpha-2 country codes (e.g. AR, BR, US)",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -319,7 +520,9 @@
             "description": "Single-page apps map 403 and 404 to /index.html with a 200 response code so client-side routing works. Leave empty to return the original status.",
             "items": {
               "type": "object",
-              "required": ["error_code"],
+              "required": [
+                "error_code"
+              ],
               "properties": {
                 "error_code": {
                   "type": "integer",
@@ -347,7 +550,6 @@
         },
         "description": "CDN distribution settings"
       },
-
       "network": {
         "type": "object",
         "title": "Network Configuration",
@@ -358,7 +560,10 @@
             "description": "DNS provider for managing records",
             "default": "route53",
             "oneOf": [
-              { "const": "route53", "title": "Amazon Route 53" }
+              {
+                "const": "route53",
+                "title": "Amazon Route 53"
+              }
             ]
           },
           "aws_hosted_public_zone_id": {
@@ -372,7 +577,10 @@
             "description": "DNS provider for managing records",
             "default": "azure_dns",
             "oneOf": [
-              { "const": "azure_dns", "title": "Azure DNS" }
+              {
+                "const": "azure_dns",
+                "title": "Azure DNS"
+              }
             ]
           },
           "azure_dns_zone_name": {
@@ -388,7 +596,6 @@
         },
         "description": "DNS and network settings"
       },
-
       "security": {
         "type": "object",
         "title": "Security",
@@ -399,8 +606,14 @@
             "description": "Optional WAF attachment for the CloudFront distribution. Choose 'none' to skip, or 'waf' to attach an existing AWS WAF WebACL.",
             "default": "none",
             "oneOf": [
-              { "const": "none", "title": "None" },
-              { "const": "waf", "title": "AWS WAF" }
+              {
+                "const": "none",
+                "title": "None"
+              },
+              {
+                "const": "waf",
+                "title": "AWS WAF"
+              }
             ]
           },
           "aws_web_acl_name": {
@@ -412,7 +625,6 @@
         "description": "Security settings for the distribution layer (optional)"
       }
     },
-
     "uiSchema": {
       "type": "VerticalLayout",
       "elements": [
@@ -441,7 +653,11 @@
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "aws" } }
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
                     }
                   },
                   "type": "Label",
@@ -455,7 +671,11 @@
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "aws" } }
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
                     }
                   },
                   "type": "Control",
@@ -466,7 +686,11 @@
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "aws" } }
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
                     }
                   },
                   "type": "Control",
@@ -477,7 +701,11 @@
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "azure" } }
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
                     }
                   },
                   "type": "Label",
@@ -491,7 +719,11 @@
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "azure" } }
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
                     }
                   },
                   "type": "Control",
@@ -502,7 +734,11 @@
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "azure" } }
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
                     }
                   },
                   "type": "Control",
@@ -513,7 +749,11 @@
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "azure" } }
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
                     }
                   },
                   "type": "Control",
@@ -524,7 +764,11 @@
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "azure" } }
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
                     }
                   },
                   "type": "Control",
@@ -537,98 +781,311 @@
               "label": "Distribution",
               "elements": [
                 {
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "aws" } }
-                    }
-                  },
                   "type": "Control",
                   "scope": "#/properties/distribution/properties/aws_distribution",
                   "options": {
                     "format": "radio-cards"
-                  }
-                },
-                {
+                  },
                   "rule": {
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "azure" } }
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
                     }
-                  },
+                  }
+                },
+                {
                   "type": "Control",
                   "scope": "#/properties/distribution/properties/azure_distribution",
                   "options": {
                     "format": "radio-cards"
+                  },
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
                   }
                 },
                 {
+                  "type": "Group",
+                  "label": "Default behavior",
+                  "elements": [
+                    {
+                      "type": "Group",
+                      "label": "Delivery",
+                      "elements": [
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/viewer_protocol_policy"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/compress"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/allowed_methods"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/cached_methods"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "Group",
+                      "label": "Invocations",
+                      "elements": [
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/function_viewer_request"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/function_viewer_response"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/lambda_viewer_request"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/lambda_viewer_response"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/lambda_origin_request"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/lambda_origin_response"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "Group",
+                      "label": "Caching",
+                      "elements": [
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/cache_policy",
+                          "rule": {
+                            "effect": "SHOW",
+                            "condition": {
+                              "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
+                              "schema": {
+                                "const": true
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/cache_policy_id",
+                          "rule": {
+                            "effect": "SHOW",
+                            "condition": {
+                              "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
+                              "schema": {
+                                "const": true
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/origin_request_policy",
+                          "rule": {
+                            "effect": "SHOW",
+                            "condition": {
+                              "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
+                              "schema": {
+                                "const": true
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/response_headers_policy",
+                          "rule": {
+                            "effect": "SHOW",
+                            "condition": {
+                              "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
+                              "schema": {
+                                "const": true
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ],
                   "rule": {
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "aws" } }
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
                     }
-                  },
-                  "type": "Control",
-                  "scope": "#/properties/distribution/properties/default_behavior"
+                  }
                 },
                 {
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/behaviors",
+                  "options": {
+                    "detail": {
+                      "type": "VerticalLayout",
+                      "elements": [
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/path_pattern"
+                        },
+                        {
+                          "type": "Group",
+                          "label": "Delivery",
+                          "elements": [
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/viewer_protocol_policy"
+                            },
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/compress"
+                            },
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/allowed_methods"
+                            },
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/cached_methods"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "Group",
+                          "label": "Invocations",
+                          "elements": [
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/function_viewer_request"
+                            },
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/function_viewer_response"
+                            },
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/lambda_viewer_request"
+                            },
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/lambda_viewer_response"
+                            },
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/lambda_origin_request"
+                            },
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/lambda_origin_response"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "Group",
+                          "label": "Caching",
+                          "elements": [
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/configure_caching"
+                            },
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/cache_policy",
+                              "rule": {
+                                "effect": "SHOW",
+                                "condition": {
+                                  "scope": "#/properties/configure_caching",
+                                  "schema": {
+                                    "const": true
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/cache_policy_id",
+                              "rule": {
+                                "effect": "SHOW",
+                                "condition": {
+                                  "scope": "#/properties/configure_caching",
+                                  "schema": {
+                                    "const": true
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/origin_request_policy",
+                              "rule": {
+                                "effect": "SHOW",
+                                "condition": {
+                                  "scope": "#/properties/configure_caching",
+                                  "schema": {
+                                    "const": true
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/response_headers_policy",
+                              "rule": {
+                                "effect": "SHOW",
+                                "condition": {
+                                  "scope": "#/properties/configure_caching",
+                                  "schema": {
+                                    "const": true
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
                   "rule": {
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "aws" } }
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
                     }
-                  },
-                  "type": "Control",
-                  "scope": "#/properties/distribution/properties/behaviors"
-                },
-                {
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "aws" } }
-                    }
-                  },
-                  "type": "Control",
-                  "scope": "#/properties/distribution/properties/price_class"
-                },
-                {
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "aws" } }
-                    }
-                  },
-                  "type": "Control",
-                  "scope": "#/properties/distribution/properties/default_root_object"
-                },
-                {
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "aws" } }
-                    }
-                  },
-                  "type": "Control",
-                  "scope": "#/properties/distribution/properties/geo_restriction"
-                },
-                {
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "aws" } }
-                    }
-                  },
-                  "type": "Control",
-                  "scope": "#/properties/distribution/properties/custom_error_responses"
+                  }
                 }
               ]
             },
@@ -641,7 +1098,11 @@
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "aws" } }
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
                     }
                   },
                   "type": "Control",
@@ -655,7 +1116,11 @@
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "aws" } }
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
                     }
                   },
                   "type": "Control",
@@ -666,7 +1131,11 @@
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "azure" } }
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
                     }
                   },
                   "type": "Control",
@@ -680,7 +1149,11 @@
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "azure" } }
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
                     }
                   },
                   "type": "Control",
@@ -691,7 +1164,11 @@
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "azure" } }
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
                     }
                   },
                   "type": "Control",
@@ -708,7 +1185,9 @@
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "const": "aws" }
+                      "schema": {
+                        "const": "aws"
+                      }
                     }
                   },
                   "type": "Label",
@@ -722,7 +1201,11 @@
                     "effect": "HIDE",
                     "condition": {
                       "scope": "#/properties/cloud_provider",
-                      "schema": { "not": { "const": "aws" } }
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
                     }
                   },
                   "type": "Control",
@@ -740,14 +1223,22 @@
                         "anyOf": [
                           {
                             "properties": {
-                              "cloud_provider": { "not": { "const": "aws" } }
+                              "cloud_provider": {
+                                "not": {
+                                  "const": "aws"
+                                }
+                              }
                             }
                           },
                           {
                             "properties": {
                               "security": {
                                 "properties": {
-                                  "aws_security": { "not": { "const": "waf" } }
+                                  "aws_security": {
+                                    "not": {
+                                      "const": "waf"
+                                    }
+                                  }
                                 }
                               }
                             }
@@ -758,6 +1249,83 @@
                   },
                   "type": "Control",
                   "scope": "#/properties/security/properties/aws_web_acl_name"
+                }
+              ]
+            },
+            {
+              "type": "Category",
+              "label": "Advanced",
+              "elements": [
+                {
+                  "type": "Group",
+                  "label": "Distribution options",
+                  "elements": [
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/price_class"
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/default_root_object"
+                    }
+                  ],
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "Group",
+                  "label": "Geographic restriction",
+                  "elements": [
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/geo_restriction/properties/restriction_type"
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/geo_restriction/properties/locations"
+                    }
+                  ],
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "Group",
+                  "label": "Custom error responses",
+                  "elements": [
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/custom_error_responses"
+                    }
+                  ],
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
+                    }
+                  }
                 }
               ]
             }
