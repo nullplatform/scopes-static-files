@@ -12,6 +12,11 @@
       "cacheBehavior": {
         "type": "object",
         "properties": {
+          "path_pattern": {
+            "type": "string",
+            "title": "Path pattern",
+            "description": "Requests matching this pattern use this behavior (e.g. /api/*, /static/*, *.jpg). Leave the default behavior for everything else."
+          },
           "viewer_protocol_policy": {
             "type": "string",
             "title": "Viewer protocol",
@@ -454,25 +459,14 @@
             "$ref": "#/$defs/cacheBehavior",
             "type": "object",
             "title": "Default behavior",
-            "description": "Serves every request that no path pattern below matches."
+            "description": "Serves every request that no path pattern below matches. CloudFront requires it."
           },
           "behaviors": {
             "type": "array",
             "title": "Path behaviors",
             "description": "Extra cache behaviors, one per path pattern. The order matters: CloudFront applies the first pattern that matches a request.",
             "items": {
-              "$ref": "#/$defs/cacheBehavior",
-              "type": "object",
-              "required": [
-                "path_pattern"
-              ],
-              "properties": {
-                "path_pattern": {
-                  "type": "string",
-                  "title": "Path pattern",
-                  "description": "Pattern this behavior applies to (e.g. /api/*, /static/*, *.jpg)"
-                }
-              }
+              "$ref": "#/$defs/cacheBehavior"
             }
           },
           "price_class": {
@@ -838,118 +832,7 @@
                 },
                 {
                   "type": "Group",
-                  "label": "Default behavior",
-                  "elements": [
-                    {
-                      "type": "Group",
-                      "label": "Delivery",
-                      "elements": [
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/viewer_protocol_policy"
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/compress"
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/allowed_methods"
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/cached_methods"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "Group",
-                      "label": "Invocations",
-                      "elements": [
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/invocations",
-                          "options": {
-                            "detail": {
-                              "type": "HorizontalLayout",
-                              "elements": [
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/type"
-                                },
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/function_arn"
-                                }
-                              ]
-                            }
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "type": "Group",
-                      "label": "Caching",
-                      "elements": [
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching"
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/cache_policy",
-                          "rule": {
-                            "effect": "SHOW",
-                            "condition": {
-                              "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
-                              "schema": {
-                                "const": true
-                              }
-                            }
-                          }
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/cache_policy_id",
-                          "rule": {
-                            "effect": "SHOW",
-                            "condition": {
-                              "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
-                              "schema": {
-                                "const": true
-                              }
-                            }
-                          }
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/origin_request_policy",
-                          "rule": {
-                            "effect": "SHOW",
-                            "condition": {
-                              "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
-                              "schema": {
-                                "const": true
-                              }
-                            }
-                          }
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/response_headers_policy",
-                          "rule": {
-                            "effect": "SHOW",
-                            "condition": {
-                              "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
-                              "schema": {
-                                "const": true
-                              }
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  ],
+                  "label": "Behaviors",
                   "rule": {
                     "effect": "HIDE",
                     "condition": {
@@ -960,38 +843,38 @@
                         }
                       }
                     }
-                  }
-                },
-                {
-                  "type": "Control",
-                  "scope": "#/properties/distribution/properties/behaviors",
-                  "options": {
-                    "detail": {
-                      "type": "VerticalLayout",
+                  },
+                  "elements": [
+                    {
+                      "type": "Label",
+                      "text": "CloudFront always needs a default behavior; add one block per extra path. The first pattern that matches a request wins, so order matters.",
+                      "options": {
+                        "format": "markdown"
+                      }
+                    },
+                    {
+                      "type": "Group",
+                      "label": "Default — everything else",
                       "elements": [
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/path_pattern"
-                        },
                         {
                           "type": "Group",
                           "label": "Delivery",
                           "elements": [
                             {
                               "type": "Control",
-                              "scope": "#/properties/viewer_protocol_policy"
+                              "scope": "#/properties/distribution/properties/default_behavior/properties/viewer_protocol_policy"
                             },
                             {
                               "type": "Control",
-                              "scope": "#/properties/compress"
+                              "scope": "#/properties/distribution/properties/default_behavior/properties/compress"
                             },
                             {
                               "type": "Control",
-                              "scope": "#/properties/allowed_methods"
+                              "scope": "#/properties/distribution/properties/default_behavior/properties/allowed_methods"
                             },
                             {
                               "type": "Control",
-                              "scope": "#/properties/cached_methods"
+                              "scope": "#/properties/distribution/properties/default_behavior/properties/cached_methods"
                             }
                           ]
                         },
@@ -1001,7 +884,7 @@
                           "elements": [
                             {
                               "type": "Control",
-                              "scope": "#/properties/invocations",
+                              "scope": "#/properties/distribution/properties/default_behavior/properties/invocations",
                               "options": {
                                 "detail": {
                                   "type": "HorizontalLayout",
@@ -1026,15 +909,15 @@
                           "elements": [
                             {
                               "type": "Control",
-                              "scope": "#/properties/configure_caching"
+                              "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching"
                             },
                             {
                               "type": "Control",
-                              "scope": "#/properties/cache_policy",
+                              "scope": "#/properties/distribution/properties/default_behavior/properties/cache_policy",
                               "rule": {
                                 "effect": "SHOW",
                                 "condition": {
-                                  "scope": "#/properties/configure_caching",
+                                  "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
                                   "schema": {
                                     "const": true
                                   }
@@ -1043,11 +926,11 @@
                             },
                             {
                               "type": "Control",
-                              "scope": "#/properties/cache_policy_id",
+                              "scope": "#/properties/distribution/properties/default_behavior/properties/cache_policy_id",
                               "rule": {
                                 "effect": "SHOW",
                                 "condition": {
-                                  "scope": "#/properties/configure_caching",
+                                  "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
                                   "schema": {
                                     "const": true
                                   }
@@ -1056,11 +939,11 @@
                             },
                             {
                               "type": "Control",
-                              "scope": "#/properties/origin_request_policy",
+                              "scope": "#/properties/distribution/properties/default_behavior/properties/origin_request_policy",
                               "rule": {
                                 "effect": "SHOW",
                                 "condition": {
-                                  "scope": "#/properties/configure_caching",
+                                  "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
                                   "schema": {
                                     "const": true
                                   }
@@ -1069,11 +952,11 @@
                             },
                             {
                               "type": "Control",
-                              "scope": "#/properties/response_headers_policy",
+                              "scope": "#/properties/distribution/properties/default_behavior/properties/response_headers_policy",
                               "rule": {
                                 "effect": "SHOW",
                                 "condition": {
-                                  "scope": "#/properties/configure_caching",
+                                  "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
                                   "schema": {
                                     "const": true
                                   }
@@ -1083,19 +966,138 @@
                           ]
                         }
                       ]
-                    }
-                  },
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": {
-                        "not": {
-                          "const": "aws"
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/behaviors",
+                      "options": {
+                        "detail": {
+                          "type": "VerticalLayout",
+                          "elements": [
+                            {
+                              "type": "Group",
+                              "label": "Path",
+                              "elements": [
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/path_pattern"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "Group",
+                              "label": "Delivery",
+                              "elements": [
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/viewer_protocol_policy"
+                                },
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/compress"
+                                },
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/allowed_methods"
+                                },
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/cached_methods"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "Group",
+                              "label": "Invocations",
+                              "elements": [
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/invocations",
+                                  "options": {
+                                    "detail": {
+                                      "type": "HorizontalLayout",
+                                      "elements": [
+                                        {
+                                          "type": "Control",
+                                          "scope": "#/properties/type"
+                                        },
+                                        {
+                                          "type": "Control",
+                                          "scope": "#/properties/function_arn"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "type": "Group",
+                              "label": "Caching",
+                              "elements": [
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/configure_caching"
+                                },
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/cache_policy",
+                                  "rule": {
+                                    "effect": "SHOW",
+                                    "condition": {
+                                      "scope": "#/properties/configure_caching",
+                                      "schema": {
+                                        "const": true
+                                      }
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/cache_policy_id",
+                                  "rule": {
+                                    "effect": "SHOW",
+                                    "condition": {
+                                      "scope": "#/properties/configure_caching",
+                                      "schema": {
+                                        "const": true
+                                      }
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/origin_request_policy",
+                                  "rule": {
+                                    "effect": "SHOW",
+                                    "condition": {
+                                      "scope": "#/properties/configure_caching",
+                                      "schema": {
+                                        "const": true
+                                      }
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/response_headers_policy",
+                                  "rule": {
+                                    "effect": "SHOW",
+                                    "condition": {
+                                      "scope": "#/properties/configure_caching",
+                                      "schema": {
+                                        "const": true
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
                         }
                       }
                     }
-                  }
+                  ]
                 }
               ]
             },
