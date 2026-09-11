@@ -277,7 +277,6 @@
           "default_invocations": {
             "type": "array",
             "title": "Invocations",
-            "description": "Functions this behavior runs. CloudFront allows one function per event.",
             "default": [],
             "items": {
               "type": "object",
@@ -309,8 +308,6 @@
           },
           "behaviors": {
             "type": "array",
-            "title": "Cache behaviors",
-            "description": "One block per path pattern, on top of the default behavior. The first pattern that matches a request wins, so the order sets the precedence.",
             "items": {
               "type": "object",
               "required": [
@@ -351,7 +348,6 @@
                 "invocations": {
                   "type": "array",
                   "title": "Invocations",
-                  "description": "Functions this behavior runs. CloudFront allows one function per event.",
                   "default": [],
                   "items": {
                     "type": "object",
@@ -825,6 +821,24 @@
                       }
                     }
                   },
+                  "type": "Label",
+                  "text": "### Cache behaviors\n\nOne block per path pattern, on top of the default behavior. The first pattern that matches a request wins, so the order sets the precedence.",
+                  "options": {
+                    "format": "markdown"
+                  }
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
+                    }
+                  },
                   "type": "Control",
                   "scope": "#/properties/distribution/properties/behaviors",
                   "options": {
@@ -852,7 +866,8 @@
                         }
                       ]
                     }
-                  }
+                  },
+                  "label": false
                 },
                 {
                   "type": "Categorization",
