@@ -792,7 +792,7 @@
                     }
                   },
                   "type": "Control",
-                  "scope": "#/properties/distribution/properties/default_invocations"
+                  "scope": "#/properties/distribution/properties/default_compress"
                 },
                 {
                   "rule": {
@@ -807,7 +807,7 @@
                     }
                   },
                   "type": "Control",
-                  "scope": "#/properties/distribution/properties/default_compress"
+                  "scope": "#/properties/distribution/properties/default_invocations"
                 },
                 {
                   "rule": {
@@ -855,14 +855,14 @@
                         },
                         {
                           "type": "Control",
-                          "scope": "#/properties/invocations"
-                        },
-                        {
-                          "type": "Control",
                           "scope": "#/properties/compress",
                           "options": {
                             "toggle": true
                           }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/invocations"
                         }
                       ]
                     }
