@@ -69,35 +69,55 @@
               ]
             }
           },
-          "lambda_viewer_request": {
-            "type": "string",
-            "title": "Lambda@Edge on viewer request",
-            "description": "Function ARN including a published version. Runs before CloudFront checks its cache."
-          },
-          "lambda_viewer_response": {
-            "type": "string",
-            "title": "Lambda@Edge on viewer response",
-            "description": "Function ARN including a published version. Runs before the response reaches the viewer."
-          },
-          "lambda_origin_request": {
-            "type": "string",
-            "title": "Lambda@Edge on origin request",
-            "description": "Function ARN including a published version. Runs on a cache miss, before CloudFront calls the origin."
-          },
-          "lambda_origin_response": {
-            "type": "string",
-            "title": "Lambda@Edge on origin response",
-            "description": "Function ARN including a published version. Runs after the origin responds, before caching."
-          },
-          "function_viewer_request": {
-            "type": "string",
-            "title": "CloudFront Function on viewer request",
-            "description": "CloudFront Function ARN. Lighter and faster than Lambda@Edge; typical for URL rewrites."
-          },
-          "function_viewer_response": {
-            "type": "string",
-            "title": "CloudFront Function on viewer response",
-            "description": "CloudFront Function ARN. Typical for adding simple response headers."
+          "invocations": {
+            "type": "array",
+            "title": "Invocations",
+            "description": "Functions CloudFront runs for this behavior. Pick when it runs, then paste the function ARN. CloudFront allows one invocation per event, and a Lambda@Edge and a CloudFront Function cannot share the same event.",
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "required": [
+                "type",
+                "function_arn"
+              ],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "title": "Invocation",
+                  "oneOf": [
+                    {
+                      "const": "function_viewer_request",
+                      "title": "CloudFront Function — viewer request"
+                    },
+                    {
+                      "const": "function_viewer_response",
+                      "title": "CloudFront Function — viewer response"
+                    },
+                    {
+                      "const": "lambda_viewer_request",
+                      "title": "Lambda@Edge — viewer request"
+                    },
+                    {
+                      "const": "lambda_viewer_response",
+                      "title": "Lambda@Edge — viewer response"
+                    },
+                    {
+                      "const": "lambda_origin_request",
+                      "title": "Lambda@Edge — origin request"
+                    },
+                    {
+                      "const": "lambda_origin_response",
+                      "title": "Lambda@Edge — origin response"
+                    }
+                  ]
+                },
+                "function_arn": {
+                  "type": "string",
+                  "title": "Function ARN",
+                  "description": "CloudFront Function ARN, or Lambda ARN including a published version"
+                }
+              }
+            }
           },
           "configure_caching": {
             "type": "boolean",
@@ -848,27 +868,22 @@
                       "elements": [
                         {
                           "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/function_viewer_request"
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/function_viewer_response"
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/lambda_viewer_request"
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/lambda_viewer_response"
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/lambda_origin_request"
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/distribution/properties/default_behavior/properties/lambda_origin_response"
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/invocations",
+                          "options": {
+                            "detail": {
+                              "type": "HorizontalLayout",
+                              "elements": [
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/type"
+                                },
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/function_arn"
+                                }
+                              ]
+                            }
+                          }
                         }
                       ]
                     },
@@ -986,27 +1001,22 @@
                           "elements": [
                             {
                               "type": "Control",
-                              "scope": "#/properties/function_viewer_request"
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/function_viewer_response"
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/lambda_viewer_request"
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/lambda_viewer_response"
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/lambda_origin_request"
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/lambda_origin_response"
+                              "scope": "#/properties/invocations",
+                              "options": {
+                                "detail": {
+                                  "type": "HorizontalLayout",
+                                  "elements": [
+                                    {
+                                      "type": "Control",
+                                      "scope": "#/properties/type"
+                                    },
+                                    {
+                                      "type": "Control",
+                                      "scope": "#/properties/function_arn"
+                                    }
+                                  ]
+                                }
+                              }
                             }
                           ]
                         },
