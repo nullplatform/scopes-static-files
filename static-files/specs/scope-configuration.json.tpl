@@ -8,213 +8,6 @@
   ],
   "allow_dimensions": true,
   "schema": {
-    "$defs": {
-      "cacheBehavior": {
-        "type": "object",
-        "properties": {
-          "path_pattern": {
-            "type": "string",
-            "title": "Path pattern",
-            "description": "Requests matching this pattern use this behavior (e.g. /api/*, /static/*, *.jpg). Leave the default behavior for everything else."
-          },
-          "viewer_protocol_policy": {
-            "type": "string",
-            "title": "Viewer protocol",
-            "description": "How CloudFront answers HTTP requests",
-            "default": "redirect-to-https",
-            "oneOf": [
-              {
-                "const": "redirect-to-https",
-                "title": "Redirect HTTP to HTTPS"
-              },
-              {
-                "const": "https-only",
-                "title": "HTTPS only"
-              },
-              {
-                "const": "allow-all",
-                "title": "Allow HTTP and HTTPS"
-              }
-            ]
-          },
-          "compress": {
-            "type": "boolean",
-            "title": "Compress objects automatically",
-            "default": true
-          },
-          "allowed_methods": {
-            "type": "array",
-            "title": "Allowed methods",
-            "description": "HTTP methods CloudFront forwards to the origin",
-            "uniqueItems": true,
-            "items": {
-              "type": "string",
-              "enum": [
-                "GET",
-                "HEAD",
-                "OPTIONS",
-                "PUT",
-                "POST",
-                "PATCH",
-                "DELETE"
-              ]
-            }
-          },
-          "cached_methods": {
-            "type": "array",
-            "title": "Cached methods",
-            "description": "Methods whose responses CloudFront caches. Must be a subset of the allowed methods.",
-            "uniqueItems": true,
-            "items": {
-              "type": "string",
-              "enum": [
-                "GET",
-                "HEAD",
-                "OPTIONS"
-              ]
-            }
-          },
-          "invocations": {
-            "type": "array",
-            "title": "Invocations",
-            "description": "Functions CloudFront runs for this behavior. Pick when it runs, then paste the function ARN. CloudFront allows one invocation per event, and a Lambda@Edge and a CloudFront Function cannot share the same event.",
-            "uniqueItems": true,
-            "items": {
-              "type": "object",
-              "required": [
-                "type",
-                "function_arn"
-              ],
-              "properties": {
-                "type": {
-                  "type": "string",
-                  "title": "Invocation",
-                  "oneOf": [
-                    {
-                      "const": "function_viewer_request",
-                      "title": "CloudFront Function — viewer request"
-                    },
-                    {
-                      "const": "function_viewer_response",
-                      "title": "CloudFront Function — viewer response"
-                    },
-                    {
-                      "const": "lambda_viewer_request",
-                      "title": "Lambda@Edge — viewer request"
-                    },
-                    {
-                      "const": "lambda_viewer_response",
-                      "title": "Lambda@Edge — viewer response"
-                    },
-                    {
-                      "const": "lambda_origin_request",
-                      "title": "Lambda@Edge — origin request"
-                    },
-                    {
-                      "const": "lambda_origin_response",
-                      "title": "Lambda@Edge — origin response"
-                    }
-                  ]
-                },
-                "function_arn": {
-                  "type": "string",
-                  "title": "Function ARN",
-                  "description": "CloudFront Function ARN, or Lambda ARN including a published version"
-                }
-              }
-            }
-          },
-          "configure_caching": {
-            "type": "boolean",
-            "title": "Configure caching policies",
-            "description": "Off: this behavior caches the way the scope always has — no query strings or cookies forwarded, TTL 0/3600/86400. On: pick AWS cache policies instead, which is where CloudFront puts every new caching feature.",
-            "default": false
-          },
-          "cache_policy": {
-            "type": "string",
-            "title": "Cache policy",
-            "description": "AWS managed cache policy. It decides what is cached and for how long.",
-            "oneOf": [
-              {
-                "const": "Managed-CachingOptimized",
-                "title": "CachingOptimized — cache by URL, compression on (static assets)"
-              },
-              {
-                "const": "Managed-CachingOptimizedForUncompressedObjects",
-                "title": "CachingOptimizedForUncompressedObjects — already-compressed files"
-              },
-              {
-                "const": "Managed-CachingDisabled",
-                "title": "CachingDisabled — never cache (APIs, dynamic content)"
-              },
-              {
-                "const": "Managed-Amplify",
-                "title": "Amplify — tuned for Amplify-hosted apps"
-              },
-              {
-                "const": "Managed-Elemental-MediaPackage",
-                "title": "Elemental-MediaPackage — video streaming"
-              }
-            ]
-          },
-          "cache_policy_id": {
-            "type": "string",
-            "title": "Custom cache policy ID",
-            "description": "Use a cache policy of your own instead of a managed one. Leave the managed policy above empty when you set this."
-          },
-          "origin_request_policy": {
-            "type": "string",
-            "title": "Origin request policy",
-            "description": "What CloudFront forwards to the origin (headers, cookies, query strings)",
-            "oneOf": [
-              {
-                "const": "Managed-AllViewer",
-                "title": "AllViewer — forward everything the viewer sent"
-              },
-              {
-                "const": "Managed-AllViewerExceptHostHeader",
-                "title": "AllViewerExceptHostHeader — everything but Host"
-              },
-              {
-                "const": "Managed-CORS-S3Origin",
-                "title": "CORS-S3Origin — CORS headers for S3 origins"
-              },
-              {
-                "const": "Managed-CORS-CustomOrigin",
-                "title": "CORS-CustomOrigin — CORS headers for custom origins"
-              },
-              {
-                "const": "Managed-UserAgentRefererHeaders",
-                "title": "UserAgentRefererHeaders — User-Agent and Referer only"
-              }
-            ]
-          },
-          "response_headers_policy": {
-            "type": "string",
-            "title": "Response headers policy",
-            "description": "Headers CloudFront adds to the response",
-            "oneOf": [
-              {
-                "const": "Managed-SecurityHeadersPolicy",
-                "title": "SecurityHeadersPolicy — HSTS, X-Frame-Options, etc."
-              },
-              {
-                "const": "Managed-SimpleCORS",
-                "title": "SimpleCORS — basic CORS headers"
-              },
-              {
-                "const": "Managed-CORS-With-Preflight",
-                "title": "CORS-With-Preflight — CORS including OPTIONS"
-              },
-              {
-                "const": "Managed-CORS-and-SecurityHeadersPolicy",
-                "title": "CORS and security headers combined"
-              }
-            ]
-          }
-        }
-      }
-    },
     "type": "object",
     "required": [
       "cloud_provider"
@@ -456,17 +249,418 @@
             ]
           },
           "default_behavior": {
-            "$ref": "#/$defs/cacheBehavior",
             "type": "object",
             "title": "Default behavior",
-            "description": "Serves every request that no path pattern below matches. CloudFront requires it."
+            "description": "Serves every request that no path pattern matches. CloudFront requires it.",
+            "properties": {
+              "viewer_protocol_policy": {
+                "type": "string",
+                "title": "Viewer protocol",
+                "description": "How CloudFront answers HTTP requests",
+                "default": "redirect-to-https",
+                "oneOf": [
+                  {
+                    "const": "redirect-to-https",
+                    "title": "Redirect HTTP to HTTPS"
+                  },
+                  {
+                    "const": "https-only",
+                    "title": "HTTPS only"
+                  },
+                  {
+                    "const": "allow-all",
+                    "title": "Allow HTTP and HTTPS"
+                  }
+                ]
+              },
+              "compress": {
+                "type": "boolean",
+                "title": "Compress objects automatically",
+                "default": true
+              },
+              "allowed_methods": {
+                "type": "array",
+                "title": "Allowed methods",
+                "description": "HTTP methods CloudFront forwards to the origin",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "GET",
+                    "HEAD",
+                    "OPTIONS",
+                    "PUT",
+                    "POST",
+                    "PATCH",
+                    "DELETE"
+                  ]
+                }
+              },
+              "cached_methods": {
+                "type": "array",
+                "title": "Cached methods",
+                "description": "Methods whose responses CloudFront caches. Must be a subset of the allowed methods.",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "GET",
+                    "HEAD",
+                    "OPTIONS"
+                  ]
+                }
+              },
+              "invocations": {
+                "type": "array",
+                "title": "Invocations",
+                "description": "Functions CloudFront runs for this behavior. Pick when it runs, then paste the function ARN. CloudFront allows one invocation per event, and a Lambda@Edge and a CloudFront Function cannot share the same event.",
+                "uniqueItems": true,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "function_arn"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "title": "Invocation",
+                      "oneOf": [
+                        {
+                          "const": "function_viewer_request",
+                          "title": "CloudFront Function — viewer request"
+                        },
+                        {
+                          "const": "function_viewer_response",
+                          "title": "CloudFront Function — viewer response"
+                        },
+                        {
+                          "const": "lambda_viewer_request",
+                          "title": "Lambda@Edge — viewer request"
+                        },
+                        {
+                          "const": "lambda_viewer_response",
+                          "title": "Lambda@Edge — viewer response"
+                        },
+                        {
+                          "const": "lambda_origin_request",
+                          "title": "Lambda@Edge — origin request"
+                        },
+                        {
+                          "const": "lambda_origin_response",
+                          "title": "Lambda@Edge — origin response"
+                        }
+                      ]
+                    },
+                    "function_arn": {
+                      "type": "string",
+                      "title": "Function ARN",
+                      "description": "CloudFront Function ARN, or Lambda ARN including a published version"
+                    }
+                  }
+                }
+              },
+              "configure_caching": {
+                "type": "boolean",
+                "title": "Configure caching policies",
+                "description": "Off: this behavior caches the way the scope always has — no query strings or cookies forwarded, TTL 0/3600/86400. On: pick AWS cache policies instead, which is where CloudFront puts every new caching feature.",
+                "default": false
+              },
+              "cache_policy": {
+                "type": "string",
+                "title": "Cache policy",
+                "description": "AWS managed cache policy. It decides what is cached and for how long.",
+                "oneOf": [
+                  {
+                    "const": "Managed-CachingOptimized",
+                    "title": "CachingOptimized — cache by URL, compression on (static assets)"
+                  },
+                  {
+                    "const": "Managed-CachingOptimizedForUncompressedObjects",
+                    "title": "CachingOptimizedForUncompressedObjects — already-compressed files"
+                  },
+                  {
+                    "const": "Managed-CachingDisabled",
+                    "title": "CachingDisabled — never cache (APIs, dynamic content)"
+                  },
+                  {
+                    "const": "Managed-Amplify",
+                    "title": "Amplify — tuned for Amplify-hosted apps"
+                  },
+                  {
+                    "const": "Managed-Elemental-MediaPackage",
+                    "title": "Elemental-MediaPackage — video streaming"
+                  }
+                ]
+              },
+              "cache_policy_id": {
+                "type": "string",
+                "title": "Custom cache policy ID",
+                "description": "Use a cache policy of your own instead of a managed one. Leave the managed policy above empty when you set this."
+              },
+              "origin_request_policy": {
+                "type": "string",
+                "title": "Origin request policy",
+                "description": "What CloudFront forwards to the origin (headers, cookies, query strings)",
+                "oneOf": [
+                  {
+                    "const": "Managed-AllViewer",
+                    "title": "AllViewer — forward everything the viewer sent"
+                  },
+                  {
+                    "const": "Managed-AllViewerExceptHostHeader",
+                    "title": "AllViewerExceptHostHeader — everything but Host"
+                  },
+                  {
+                    "const": "Managed-CORS-S3Origin",
+                    "title": "CORS-S3Origin — CORS headers for S3 origins"
+                  },
+                  {
+                    "const": "Managed-CORS-CustomOrigin",
+                    "title": "CORS-CustomOrigin — CORS headers for custom origins"
+                  },
+                  {
+                    "const": "Managed-UserAgentRefererHeaders",
+                    "title": "UserAgentRefererHeaders — User-Agent and Referer only"
+                  }
+                ]
+              },
+              "response_headers_policy": {
+                "type": "string",
+                "title": "Response headers policy",
+                "description": "Headers CloudFront adds to the response",
+                "oneOf": [
+                  {
+                    "const": "Managed-SecurityHeadersPolicy",
+                    "title": "SecurityHeadersPolicy — HSTS, X-Frame-Options, etc."
+                  },
+                  {
+                    "const": "Managed-SimpleCORS",
+                    "title": "SimpleCORS — basic CORS headers"
+                  },
+                  {
+                    "const": "Managed-CORS-With-Preflight",
+                    "title": "CORS-With-Preflight — CORS including OPTIONS"
+                  },
+                  {
+                    "const": "Managed-CORS-and-SecurityHeadersPolicy",
+                    "title": "CORS and security headers combined"
+                  }
+                ]
+              }
+            }
           },
           "behaviors": {
             "type": "array",
             "title": "Path behaviors",
-            "description": "Extra cache behaviors, one per path pattern. The order matters: CloudFront applies the first pattern that matches a request.",
+            "description": "One block per path pattern. The first pattern that matches a request wins, so the order matters.",
             "items": {
-              "$ref": "#/$defs/cacheBehavior"
+              "type": "object",
+              "required": [
+                "path_pattern"
+              ],
+              "properties": {
+                "path_pattern": {
+                  "type": "string",
+                  "title": "Path pattern",
+                  "description": "Requests matching this pattern use this behavior (e.g. /api/*, /static/*, *.jpg). Leave the default behavior for everything else."
+                },
+                "viewer_protocol_policy": {
+                  "type": "string",
+                  "title": "Viewer protocol",
+                  "description": "How CloudFront answers HTTP requests",
+                  "default": "redirect-to-https",
+                  "oneOf": [
+                    {
+                      "const": "redirect-to-https",
+                      "title": "Redirect HTTP to HTTPS"
+                    },
+                    {
+                      "const": "https-only",
+                      "title": "HTTPS only"
+                    },
+                    {
+                      "const": "allow-all",
+                      "title": "Allow HTTP and HTTPS"
+                    }
+                  ]
+                },
+                "compress": {
+                  "type": "boolean",
+                  "title": "Compress objects automatically",
+                  "default": true
+                },
+                "allowed_methods": {
+                  "type": "array",
+                  "title": "Allowed methods",
+                  "description": "HTTP methods CloudFront forwards to the origin",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "GET",
+                      "HEAD",
+                      "OPTIONS",
+                      "PUT",
+                      "POST",
+                      "PATCH",
+                      "DELETE"
+                    ]
+                  }
+                },
+                "cached_methods": {
+                  "type": "array",
+                  "title": "Cached methods",
+                  "description": "Methods whose responses CloudFront caches. Must be a subset of the allowed methods.",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "GET",
+                      "HEAD",
+                      "OPTIONS"
+                    ]
+                  }
+                },
+                "invocations": {
+                  "type": "array",
+                  "title": "Invocations",
+                  "description": "Functions CloudFront runs for this behavior. Pick when it runs, then paste the function ARN. CloudFront allows one invocation per event, and a Lambda@Edge and a CloudFront Function cannot share the same event.",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "function_arn"
+                    ],
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "title": "Invocation",
+                        "oneOf": [
+                          {
+                            "const": "function_viewer_request",
+                            "title": "CloudFront Function — viewer request"
+                          },
+                          {
+                            "const": "function_viewer_response",
+                            "title": "CloudFront Function — viewer response"
+                          },
+                          {
+                            "const": "lambda_viewer_request",
+                            "title": "Lambda@Edge — viewer request"
+                          },
+                          {
+                            "const": "lambda_viewer_response",
+                            "title": "Lambda@Edge — viewer response"
+                          },
+                          {
+                            "const": "lambda_origin_request",
+                            "title": "Lambda@Edge — origin request"
+                          },
+                          {
+                            "const": "lambda_origin_response",
+                            "title": "Lambda@Edge — origin response"
+                          }
+                        ]
+                      },
+                      "function_arn": {
+                        "type": "string",
+                        "title": "Function ARN",
+                        "description": "CloudFront Function ARN, or Lambda ARN including a published version"
+                      }
+                    }
+                  }
+                },
+                "configure_caching": {
+                  "type": "boolean",
+                  "title": "Configure caching policies",
+                  "description": "Off: this behavior caches the way the scope always has — no query strings or cookies forwarded, TTL 0/3600/86400. On: pick AWS cache policies instead, which is where CloudFront puts every new caching feature.",
+                  "default": false
+                },
+                "cache_policy": {
+                  "type": "string",
+                  "title": "Cache policy",
+                  "description": "AWS managed cache policy. It decides what is cached and for how long.",
+                  "oneOf": [
+                    {
+                      "const": "Managed-CachingOptimized",
+                      "title": "CachingOptimized — cache by URL, compression on (static assets)"
+                    },
+                    {
+                      "const": "Managed-CachingOptimizedForUncompressedObjects",
+                      "title": "CachingOptimizedForUncompressedObjects — already-compressed files"
+                    },
+                    {
+                      "const": "Managed-CachingDisabled",
+                      "title": "CachingDisabled — never cache (APIs, dynamic content)"
+                    },
+                    {
+                      "const": "Managed-Amplify",
+                      "title": "Amplify — tuned for Amplify-hosted apps"
+                    },
+                    {
+                      "const": "Managed-Elemental-MediaPackage",
+                      "title": "Elemental-MediaPackage — video streaming"
+                    }
+                  ]
+                },
+                "cache_policy_id": {
+                  "type": "string",
+                  "title": "Custom cache policy ID",
+                  "description": "Use a cache policy of your own instead of a managed one. Leave the managed policy above empty when you set this."
+                },
+                "origin_request_policy": {
+                  "type": "string",
+                  "title": "Origin request policy",
+                  "description": "What CloudFront forwards to the origin (headers, cookies, query strings)",
+                  "oneOf": [
+                    {
+                      "const": "Managed-AllViewer",
+                      "title": "AllViewer — forward everything the viewer sent"
+                    },
+                    {
+                      "const": "Managed-AllViewerExceptHostHeader",
+                      "title": "AllViewerExceptHostHeader — everything but Host"
+                    },
+                    {
+                      "const": "Managed-CORS-S3Origin",
+                      "title": "CORS-S3Origin — CORS headers for S3 origins"
+                    },
+                    {
+                      "const": "Managed-CORS-CustomOrigin",
+                      "title": "CORS-CustomOrigin — CORS headers for custom origins"
+                    },
+                    {
+                      "const": "Managed-UserAgentRefererHeaders",
+                      "title": "UserAgentRefererHeaders — User-Agent and Referer only"
+                    }
+                  ]
+                },
+                "response_headers_policy": {
+                  "type": "string",
+                  "title": "Response headers policy",
+                  "description": "Headers CloudFront adds to the response",
+                  "oneOf": [
+                    {
+                      "const": "Managed-SecurityHeadersPolicy",
+                      "title": "SecurityHeadersPolicy — HSTS, X-Frame-Options, etc."
+                    },
+                    {
+                      "const": "Managed-SimpleCORS",
+                      "title": "SimpleCORS — basic CORS headers"
+                    },
+                    {
+                      "const": "Managed-CORS-With-Preflight",
+                      "title": "CORS-With-Preflight — CORS including OPTIONS"
+                    },
+                    {
+                      "const": "Managed-CORS-and-SecurityHeadersPolicy",
+                      "title": "CORS and security headers combined"
+                    }
+                  ]
+                }
+              }
             }
           },
           "price_class": {
@@ -832,7 +1026,7 @@
                 },
                 {
                   "type": "Group",
-                  "label": "Behaviors",
+                  "label": "Default behavior",
                   "rule": {
                     "effect": "HIDE",
                     "condition": {
@@ -846,45 +1040,143 @@
                   },
                   "elements": [
                     {
-                      "type": "Label",
-                      "text": "CloudFront always needs a default behavior; add one block per extra path. The first pattern that matches a request wins, so order matters.",
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/default_behavior/properties/viewer_protocol_policy"
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/default_behavior/properties/compress"
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/default_behavior/properties/allowed_methods"
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/default_behavior/properties/cached_methods"
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/default_behavior/properties/invocations",
                       "options": {
-                        "format": "markdown"
+                        "detail": {
+                          "type": "HorizontalLayout",
+                          "elements": [
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/type"
+                            },
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/function_arn"
+                            }
+                          ]
+                        }
                       }
                     },
                     {
-                      "type": "Group",
-                      "label": "Default — everything else",
-                      "elements": [
-                        {
-                          "type": "Group",
-                          "label": "Delivery",
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching"
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/default_behavior/properties/cache_policy",
+                      "rule": {
+                        "effect": "SHOW",
+                        "condition": {
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
+                          "schema": {
+                            "const": true
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/default_behavior/properties/cache_policy_id",
+                      "rule": {
+                        "effect": "SHOW",
+                        "condition": {
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
+                          "schema": {
+                            "const": true
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/default_behavior/properties/origin_request_policy",
+                      "rule": {
+                        "effect": "SHOW",
+                        "condition": {
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
+                          "schema": {
+                            "const": true
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/default_behavior/properties/response_headers_policy",
+                      "rule": {
+                        "effect": "SHOW",
+                        "condition": {
+                          "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
+                          "schema": {
+                            "const": true
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "Group",
+                  "label": "Path behaviors",
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
+                    }
+                  },
+                  "elements": [
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/behaviors",
+                      "options": {
+                        "detail": {
+                          "type": "VerticalLayout",
                           "elements": [
                             {
                               "type": "Control",
-                              "scope": "#/properties/distribution/properties/default_behavior/properties/viewer_protocol_policy"
+                              "scope": "#/properties/path_pattern"
                             },
                             {
                               "type": "Control",
-                              "scope": "#/properties/distribution/properties/default_behavior/properties/compress"
+                              "scope": "#/properties/viewer_protocol_policy"
                             },
                             {
                               "type": "Control",
-                              "scope": "#/properties/distribution/properties/default_behavior/properties/allowed_methods"
+                              "scope": "#/properties/compress"
                             },
                             {
                               "type": "Control",
-                              "scope": "#/properties/distribution/properties/default_behavior/properties/cached_methods"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "Group",
-                          "label": "Invocations",
-                          "elements": [
+                              "scope": "#/properties/allowed_methods"
+                            },
                             {
                               "type": "Control",
-                              "scope": "#/properties/distribution/properties/default_behavior/properties/invocations",
+                              "scope": "#/properties/cached_methods"
+                            },
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/invocations",
                               "options": {
                                 "detail": {
                                   "type": "HorizontalLayout",
@@ -900,24 +1192,18 @@
                                   ]
                                 }
                               }
-                            }
-                          ]
-                        },
-                        {
-                          "type": "Group",
-                          "label": "Caching",
-                          "elements": [
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching"
                             },
                             {
                               "type": "Control",
-                              "scope": "#/properties/distribution/properties/default_behavior/properties/cache_policy",
+                              "scope": "#/properties/configure_caching"
+                            },
+                            {
+                              "type": "Control",
+                              "scope": "#/properties/cache_policy",
                               "rule": {
                                 "effect": "SHOW",
                                 "condition": {
-                                  "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
+                                  "scope": "#/properties/configure_caching",
                                   "schema": {
                                     "const": true
                                   }
@@ -926,11 +1212,11 @@
                             },
                             {
                               "type": "Control",
-                              "scope": "#/properties/distribution/properties/default_behavior/properties/cache_policy_id",
+                              "scope": "#/properties/cache_policy_id",
                               "rule": {
                                 "effect": "SHOW",
                                 "condition": {
-                                  "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
+                                  "scope": "#/properties/configure_caching",
                                   "schema": {
                                     "const": true
                                   }
@@ -939,11 +1225,11 @@
                             },
                             {
                               "type": "Control",
-                              "scope": "#/properties/distribution/properties/default_behavior/properties/origin_request_policy",
+                              "scope": "#/properties/origin_request_policy",
                               "rule": {
                                 "effect": "SHOW",
                                 "condition": {
-                                  "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
+                                  "scope": "#/properties/configure_caching",
                                   "schema": {
                                     "const": true
                                   }
@@ -952,11 +1238,11 @@
                             },
                             {
                               "type": "Control",
-                              "scope": "#/properties/distribution/properties/default_behavior/properties/response_headers_policy",
+                              "scope": "#/properties/response_headers_policy",
                               "rule": {
                                 "effect": "SHOW",
                                 "condition": {
-                                  "scope": "#/properties/distribution/properties/default_behavior/properties/configure_caching",
+                                  "scope": "#/properties/configure_caching",
                                   "schema": {
                                     "const": true
                                   }
@@ -965,133 +1251,59 @@
                             }
                           ]
                         }
-                      ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "Group",
+                  "label": "Advanced",
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
+                    }
+                  },
+                  "elements": [
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/price_class"
                     },
                     {
                       "type": "Control",
-                      "scope": "#/properties/distribution/properties/behaviors",
+                      "scope": "#/properties/distribution/properties/default_root_object"
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/geo_restriction/properties/restriction_type"
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/geo_restriction/properties/locations"
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/custom_error_responses",
                       "options": {
                         "detail": {
-                          "type": "VerticalLayout",
+                          "type": "HorizontalLayout",
                           "elements": [
                             {
-                              "type": "Group",
-                              "label": "Path",
-                              "elements": [
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/path_pattern"
-                                }
-                              ]
+                              "type": "Control",
+                              "scope": "#/properties/error_code"
                             },
                             {
-                              "type": "Group",
-                              "label": "Delivery",
-                              "elements": [
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/viewer_protocol_policy"
-                                },
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/compress"
-                                },
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/allowed_methods"
-                                },
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/cached_methods"
-                                }
-                              ]
+                              "type": "Control",
+                              "scope": "#/properties/response_code"
                             },
                             {
-                              "type": "Group",
-                              "label": "Invocations",
-                              "elements": [
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/invocations",
-                                  "options": {
-                                    "detail": {
-                                      "type": "HorizontalLayout",
-                                      "elements": [
-                                        {
-                                          "type": "Control",
-                                          "scope": "#/properties/type"
-                                        },
-                                        {
-                                          "type": "Control",
-                                          "scope": "#/properties/function_arn"
-                                        }
-                                      ]
-                                    }
-                                  }
-                                }
-                              ]
-                            },
-                            {
-                              "type": "Group",
-                              "label": "Caching",
-                              "elements": [
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/configure_caching"
-                                },
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/cache_policy",
-                                  "rule": {
-                                    "effect": "SHOW",
-                                    "condition": {
-                                      "scope": "#/properties/configure_caching",
-                                      "schema": {
-                                        "const": true
-                                      }
-                                    }
-                                  }
-                                },
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/cache_policy_id",
-                                  "rule": {
-                                    "effect": "SHOW",
-                                    "condition": {
-                                      "scope": "#/properties/configure_caching",
-                                      "schema": {
-                                        "const": true
-                                      }
-                                    }
-                                  }
-                                },
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/origin_request_policy",
-                                  "rule": {
-                                    "effect": "SHOW",
-                                    "condition": {
-                                      "scope": "#/properties/configure_caching",
-                                      "schema": {
-                                        "const": true
-                                      }
-                                    }
-                                  }
-                                },
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/response_headers_policy",
-                                  "rule": {
-                                    "effect": "SHOW",
-                                    "condition": {
-                                      "scope": "#/properties/configure_caching",
-                                      "schema": {
-                                        "const": true
-                                      }
-                                    }
-                                  }
-                                }
-                              ]
+                              "type": "Control",
+                              "scope": "#/properties/response_page_path"
                             }
                           ]
                         }
@@ -1261,83 +1473,6 @@
                   },
                   "type": "Control",
                   "scope": "#/properties/security/properties/aws_web_acl_name"
-                }
-              ]
-            },
-            {
-              "type": "Category",
-              "label": "Advanced",
-              "elements": [
-                {
-                  "type": "Group",
-                  "label": "Distribution options",
-                  "elements": [
-                    {
-                      "type": "Control",
-                      "scope": "#/properties/distribution/properties/price_class"
-                    },
-                    {
-                      "type": "Control",
-                      "scope": "#/properties/distribution/properties/default_root_object"
-                    }
-                  ],
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": {
-                        "not": {
-                          "const": "aws"
-                        }
-                      }
-                    }
-                  }
-                },
-                {
-                  "type": "Group",
-                  "label": "Geographic restriction",
-                  "elements": [
-                    {
-                      "type": "Control",
-                      "scope": "#/properties/distribution/properties/geo_restriction/properties/restriction_type"
-                    },
-                    {
-                      "type": "Control",
-                      "scope": "#/properties/distribution/properties/geo_restriction/properties/locations"
-                    }
-                  ],
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": {
-                        "not": {
-                          "const": "aws"
-                        }
-                      }
-                    }
-                  }
-                },
-                {
-                  "type": "Group",
-                  "label": "Custom error responses",
-                  "elements": [
-                    {
-                      "type": "Control",
-                      "scope": "#/properties/distribution/properties/custom_error_responses"
-                    }
-                  ],
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": {
-                        "not": {
-                          "const": "aws"
-                        }
-                      }
-                    }
-                  }
                 }
               ]
             }
