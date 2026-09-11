@@ -429,8 +429,8 @@
           },
           "behaviors": {
             "type": "array",
-            "title": "Path behaviors",
-            "description": "One block per path pattern. The first pattern that matches a request wins, so the order matters.",
+            "title": "Cache behaviors",
+            "description": "One block per path pattern, on top of the default behavior. The first pattern that matches a request wins, so the order sets the precedence.",
             "items": {
               "type": "object",
               "required": [
@@ -995,7 +995,7 @@
                 },
                 {
                   "type": "Group",
-                  "label": "Default behavior — everything no path matches",
+                  "label": "Default behavior",
                   "rule": {
                     "effect": "HIDE",
                     "condition": {
@@ -1014,22 +1014,7 @@
                     },
                     {
                       "type": "Control",
-                      "scope": "#/properties/distribution/properties/default_invocations",
-                      "options": {
-                        "detail": {
-                          "type": "HorizontalLayout",
-                          "elements": [
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/event_type"
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/function_arn"
-                            }
-                          ]
-                        }
-                      }
+                      "scope": "#/properties/distribution/properties/default_invocations"
                     },
                     {
                       "type": "Control",
@@ -1107,111 +1092,6 @@
                 {
                   "type": "Control",
                   "scope": "#/properties/distribution/properties/behaviors",
-                  "options": {
-                    "detail": {
-                      "type": "VerticalLayout",
-                      "elements": [
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/path_pattern"
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/viewer_protocol_policy"
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/invocations",
-                          "options": {
-                            "detail": {
-                              "type": "HorizontalLayout",
-                              "elements": [
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/event_type"
-                                },
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/function_arn"
-                                }
-                              ]
-                            }
-                          }
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/configure_caching"
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/cache_policy",
-                          "rule": {
-                            "effect": "SHOW",
-                            "condition": {
-                              "scope": "#/properties/configure_caching",
-                              "schema": {
-                                "const": true
-                              }
-                            }
-                          }
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/cache_policy_id",
-                          "rule": {
-                            "effect": "SHOW",
-                            "condition": {
-                              "scope": "#/properties/configure_caching",
-                              "schema": {
-                                "const": true
-                              }
-                            }
-                          }
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/origin_request_policy",
-                          "rule": {
-                            "effect": "SHOW",
-                            "condition": {
-                              "scope": "#/properties/configure_caching",
-                              "schema": {
-                                "const": true
-                              }
-                            }
-                          }
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/response_headers_policy",
-                          "rule": {
-                            "effect": "SHOW",
-                            "condition": {
-                              "scope": "#/properties/configure_caching",
-                              "schema": {
-                                "const": true
-                              }
-                            }
-                          }
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/compress",
-                          "options": {
-                            "toggle": true
-                          }
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/allowed_methods"
-                        },
-                        {
-                          "type": "Control",
-                          "scope": "#/properties/cached_methods"
-                        }
-                      ]
-                    }
-                  },
                   "rule": {
                     "effect": "HIDE",
                     "condition": {
@@ -1278,26 +1158,7 @@
                       "elements": [
                         {
                           "type": "Control",
-                          "scope": "#/properties/distribution/properties/custom_error_responses",
-                          "options": {
-                            "detail": {
-                              "type": "VerticalLayout",
-                              "elements": [
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/error_code"
-                                },
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/response_code"
-                                },
-                                {
-                                  "type": "Control",
-                                  "scope": "#/properties/response_page_path"
-                                }
-                              ]
-                            }
-                          }
+                          "scope": "#/properties/distribution/properties/custom_error_responses"
                         }
                       ]
                     }
