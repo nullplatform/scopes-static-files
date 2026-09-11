@@ -825,24 +825,6 @@
                       }
                     }
                   },
-                  "type": "Label",
-                  "text": "### Cache behaviors\n\nOne block per path pattern. The first pattern that matches a request wins, so the order sets the precedence.",
-                  "options": {
-                    "format": "markdown"
-                  }
-                },
-                {
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": {
-                        "not": {
-                          "const": "aws"
-                        }
-                      }
-                    }
-                  },
                   "type": "Control",
                   "scope": "#/properties/distribution/properties/behaviors",
                   "options": {
@@ -873,6 +855,7 @@
                   }
                 },
                 {
+                  "type": "Categorization",
                   "rule": {
                     "effect": "HIDE",
                     "condition": {
@@ -884,86 +867,52 @@
                       }
                     }
                   },
-                  "type": "Label",
-                  "text": "### Advanced",
                   "options": {
-                    "format": "markdown"
-                  }
-                },
-                {
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": {
-                        "not": {
-                          "const": "aws"
-                        }
-                      }
+                    "collapsable": {
+                      "label": "ADVANCED",
+                      "collapsed": true
                     }
                   },
-                  "type": "Control",
-                  "scope": "#/properties/distribution/properties/price_class"
-                },
-                {
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": {
-                        "not": {
-                          "const": "aws"
+                  "elements": [
+                    {
+                      "type": "Category",
+                      "label": "General",
+                      "elements": [
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/price_class"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_root_object"
                         }
-                      }
-                    }
-                  },
-                  "type": "Control",
-                  "scope": "#/properties/distribution/properties/default_root_object"
-                },
-                {
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": {
-                        "not": {
-                          "const": "aws"
+                      ]
+                    },
+                    {
+                      "type": "Category",
+                      "label": "Geographic restriction",
+                      "elements": [
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/geo_restriction/properties/restriction_type"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/geo_restriction/properties/locations"
                         }
-                      }
-                    }
-                  },
-                  "type": "Control",
-                  "scope": "#/properties/distribution/properties/geo_restriction/properties/restriction_type"
-                },
-                {
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": {
-                        "not": {
-                          "const": "aws"
+                      ]
+                    },
+                    {
+                      "type": "Category",
+                      "label": "Custom error responses",
+                      "elements": [
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/custom_error_responses"
                         }
-                      }
+                      ]
                     }
-                  },
-                  "type": "Control",
-                  "scope": "#/properties/distribution/properties/geo_restriction/properties/locations"
-                },
-                {
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": {
-                        "not": {
-                          "const": "aws"
-                        }
-                      }
-                    }
-                  },
-                  "type": "Control",
-                  "scope": "#/properties/distribution/properties/custom_error_responses"
+                  ]
                 }
               ]
             },
