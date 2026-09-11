@@ -314,7 +314,6 @@
                 "type": "array",
                 "title": "Invocations",
                 "description": "Functions CloudFront runs for this behavior. Pick when it runs, then paste the function ARN. CloudFront allows one invocation per event, and a Lambda@Edge and a CloudFront Function cannot share the same event.",
-                "uniqueItems": true,
                 "items": {
                   "type": "object",
                   "required": [
@@ -358,7 +357,8 @@
                       "description": "CloudFront Function ARN, or Lambda ARN including a published version"
                     }
                   }
-                }
+                },
+                "default": []
               },
               "configure_caching": {
                 "type": "boolean",
@@ -448,7 +448,8 @@
                   }
                 ]
               }
-            }
+            },
+            "default": {}
           },
           "behaviors": {
             "type": "array",
@@ -526,7 +527,6 @@
                   "type": "array",
                   "title": "Invocations",
                   "description": "Functions CloudFront runs for this behavior. Pick when it runs, then paste the function ARN. CloudFront allows one invocation per event, and a Lambda@Edge and a CloudFront Function cannot share the same event.",
-                  "uniqueItems": true,
                   "items": {
                     "type": "object",
                     "required": [
@@ -570,7 +570,8 @@
                         "description": "CloudFront Function ARN, or Lambda ARN including a published version"
                       }
                     }
-                  }
+                  },
+                  "default": []
                 },
                 "configure_caching": {
                   "type": "boolean",
@@ -661,7 +662,8 @@
                   ]
                 }
               }
-            }
+            },
+            "default": []
           },
           "price_class": {
             "type": "string",
@@ -720,6 +722,9 @@
                   "type": "string"
                 }
               }
+            },
+            "default": {
+              "restriction_type": "none"
             }
           },
           "custom_error_responses": {
@@ -753,10 +758,15 @@
                   "description": "Seconds CloudFront caches the error response"
                 }
               }
-            }
+            },
+            "default": []
           }
         },
-        "description": "CDN distribution settings"
+        "description": "CDN distribution settings",
+        "required": [
+          "default_behavior",
+          "behaviors"
+        ]
       },
       "network": {
         "type": "object",
@@ -1045,18 +1055,6 @@
                     },
                     {
                       "type": "Control",
-                      "scope": "#/properties/distribution/properties/default_behavior/properties/compress"
-                    },
-                    {
-                      "type": "Control",
-                      "scope": "#/properties/distribution/properties/default_behavior/properties/allowed_methods"
-                    },
-                    {
-                      "type": "Control",
-                      "scope": "#/properties/distribution/properties/default_behavior/properties/cached_methods"
-                    },
-                    {
-                      "type": "Control",
                       "scope": "#/properties/distribution/properties/default_behavior/properties/invocations",
                       "options": {
                         "detail": {
@@ -1129,12 +1127,146 @@
                           }
                         }
                       }
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/default_behavior/properties/compress"
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/default_behavior/properties/allowed_methods"
+                    },
+                    {
+                      "type": "Control",
+                      "scope": "#/properties/distribution/properties/default_behavior/properties/cached_methods"
                     }
                   ]
                 },
                 {
-                  "type": "Group",
-                  "label": "Path behaviors",
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/behaviors",
+                  "options": {
+                    "detail": {
+                      "type": "VerticalLayout",
+                      "elements": [
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/path_pattern"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/viewer_protocol_policy"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/invocations",
+                          "options": {
+                            "detail": {
+                              "type": "HorizontalLayout",
+                              "elements": [
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/type"
+                                },
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/function_arn"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/configure_caching"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/cache_policy",
+                          "rule": {
+                            "effect": "SHOW",
+                            "condition": {
+                              "scope": "#/properties/configure_caching",
+                              "schema": {
+                                "const": true
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/cache_policy_id",
+                          "rule": {
+                            "effect": "SHOW",
+                            "condition": {
+                              "scope": "#/properties/configure_caching",
+                              "schema": {
+                                "const": true
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/origin_request_policy",
+                          "rule": {
+                            "effect": "SHOW",
+                            "condition": {
+                              "scope": "#/properties/configure_caching",
+                              "schema": {
+                                "const": true
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/response_headers_policy",
+                          "rule": {
+                            "effect": "SHOW",
+                            "condition": {
+                              "scope": "#/properties/configure_caching",
+                              "schema": {
+                                "const": true
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/compress"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/allowed_methods"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/cached_methods"
+                        }
+                      ]
+                    }
+                  },
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "Categorization",
+                  "options": {
+                    "collapsable": {
+                      "label": "ADVANCED",
+                      "collapsed": true
+                    }
+                  },
                   "rule": {
                     "effect": "HIDE",
                     "condition": {
@@ -1148,166 +1280,61 @@
                   },
                   "elements": [
                     {
-                      "type": "Control",
-                      "scope": "#/properties/distribution/properties/behaviors",
-                      "options": {
-                        "detail": {
-                          "type": "VerticalLayout",
-                          "elements": [
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/path_pattern"
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/viewer_protocol_policy"
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/compress"
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/allowed_methods"
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/cached_methods"
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/invocations",
-                              "options": {
-                                "detail": {
-                                  "type": "HorizontalLayout",
-                                  "elements": [
-                                    {
-                                      "type": "Control",
-                                      "scope": "#/properties/type"
-                                    },
-                                    {
-                                      "type": "Control",
-                                      "scope": "#/properties/function_arn"
-                                    }
-                                  ]
+                      "type": "Category",
+                      "label": "Distribution",
+                      "elements": [
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/price_class"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_root_object"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "Category",
+                      "label": "Geographic restriction",
+                      "elements": [
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/geo_restriction/properties/restriction_type"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/geo_restriction/properties/locations"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "Category",
+                      "label": "Custom error responses",
+                      "elements": [
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/custom_error_responses",
+                          "options": {
+                            "detail": {
+                              "type": "VerticalLayout",
+                              "elements": [
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/error_code"
+                                },
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/response_code"
+                                },
+                                {
+                                  "type": "Control",
+                                  "scope": "#/properties/response_page_path"
                                 }
-                              }
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/configure_caching"
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/cache_policy",
-                              "rule": {
-                                "effect": "SHOW",
-                                "condition": {
-                                  "scope": "#/properties/configure_caching",
-                                  "schema": {
-                                    "const": true
-                                  }
-                                }
-                              }
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/cache_policy_id",
-                              "rule": {
-                                "effect": "SHOW",
-                                "condition": {
-                                  "scope": "#/properties/configure_caching",
-                                  "schema": {
-                                    "const": true
-                                  }
-                                }
-                              }
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/origin_request_policy",
-                              "rule": {
-                                "effect": "SHOW",
-                                "condition": {
-                                  "scope": "#/properties/configure_caching",
-                                  "schema": {
-                                    "const": true
-                                  }
-                                }
-                              }
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/response_headers_policy",
-                              "rule": {
-                                "effect": "SHOW",
-                                "condition": {
-                                  "scope": "#/properties/configure_caching",
-                                  "schema": {
-                                    "const": true
-                                  }
-                                }
-                              }
+                              ]
                             }
-                          ]
+                          }
                         }
-                      }
-                    }
-                  ]
-                },
-                {
-                  "type": "Group",
-                  "label": "Advanced",
-                  "rule": {
-                    "effect": "HIDE",
-                    "condition": {
-                      "scope": "#/properties/cloud_provider",
-                      "schema": {
-                        "not": {
-                          "const": "aws"
-                        }
-                      }
-                    }
-                  },
-                  "elements": [
-                    {
-                      "type": "Control",
-                      "scope": "#/properties/distribution/properties/price_class"
-                    },
-                    {
-                      "type": "Control",
-                      "scope": "#/properties/distribution/properties/default_root_object"
-                    },
-                    {
-                      "type": "Control",
-                      "scope": "#/properties/distribution/properties/geo_restriction/properties/restriction_type"
-                    },
-                    {
-                      "type": "Control",
-                      "scope": "#/properties/distribution/properties/geo_restriction/properties/locations"
-                    },
-                    {
-                      "type": "Control",
-                      "scope": "#/properties/distribution/properties/custom_error_responses",
-                      "options": {
-                        "detail": {
-                          "type": "HorizontalLayout",
-                          "elements": [
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/error_code"
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/response_code"
-                            },
-                            {
-                              "type": "Control",
-                              "scope": "#/properties/response_page_path"
-                            }
-                          ]
-                        }
-                      }
+                      ]
                     }
                   ]
                 }
