@@ -177,31 +177,45 @@ run_cloudfront_setup() {
   assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_behaviors')" "[]"
 }
 
-@test "Should pass through the configured default_behavior to TOFU_VARIABLES" {
-  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.default_behavior = {
-    "cache_policy": "Managed-CachingOptimized",
-    "lambda_viewer_response": "arn:aws:lambda:us-east-1:123456789012:function:edge-headers:1"
+@test "Should group the flat default_* fields into the default behavior" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution += {
+    "default_viewer_protocol_policy": "https-only",
+    "default_compress": false,
+    "default_invocations": [
+      {"event_type": "Lambda@Edge - viewer response", "function_arn": "arn:aws:lambda:us-east-1:123456789012:function:edge:1"}
+    ]
   }')
 
   run_cloudfront_setup
 
   local expected='{
-    "cache_policy": "Managed-CachingOptimized",
-    "lambda_viewer_response": "arn:aws:lambda:us-east-1:123456789012:function:edge-headers:1"
+    "viewer_protocol_policy": "https-only",
+    "compress": false,
+    "invocations": [
+      {"event_type": "Lambda@Edge - viewer response", "function_arn": "arn:aws:lambda:us-east-1:123456789012:function:edge:1"}
+    ]
   }'
   assert_json_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_default_behavior')" "$expected" "distribution_default_behavior"
 }
 
+@test "Should leave the default behavior empty when only some fields are set" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.default_compress = false')
+
+  run_cloudfront_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_default_behavior')" '{"compress":false}'
+}
+
 @test "Should pass through the configured behaviors keeping their order" {
   export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.behaviors = [
-    {"path_pattern": "/api/*", "cache_policy": "Managed-CachingDisabled"},
+    {"path_pattern": "/api/*", "viewer_protocol_policy": "https-only"},
     {"path_pattern": "/static/*"}
   ]')
 
   run_cloudfront_setup
 
   local expected='[
-    {"path_pattern": "/api/*", "cache_policy": "Managed-CachingDisabled"},
+    {"path_pattern": "/api/*", "viewer_protocol_policy": "https-only"},
     {"path_pattern": "/static/*"}
   ]'
   assert_json_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_behaviors')" "$expected" "distribution_behaviors"
@@ -209,18 +223,17 @@ run_cloudfront_setup() {
 
 @test "Should drop behavior fields left empty by the UI" {
   export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.behaviors = [
-    {"path_pattern": "/api/*", "cache_policy": "Managed-CachingDisabled", "lambda_viewer_request": "", "origin_request_policy": ""}
+    {"path_pattern": "/api/*", "viewer_protocol_policy": ""}
   ]')
 
   run_cloudfront_setup
 
-  local expected='[{"path_pattern": "/api/*", "cache_policy": "Managed-CachingDisabled"}]'
-  assert_json_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_behaviors')" "$expected" "distribution_behaviors"
+  assert_json_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_behaviors')" '[{"path_pattern": "/api/*"}]' "distribution_behaviors"
 }
 
 @test "Should fail when a behavior has no path_pattern" {
   export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.behaviors = [
-    {"cache_policy": "Managed-CachingDisabled"}
+    {"viewer_protocol_policy": "https-only"}
   ]')
 
   run source "$SCRIPT_PATH"

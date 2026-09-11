@@ -13,23 +13,3 @@ data "aws_acm_certificate" "custom_domain" {
   statuses    = ["ISSUED", "PENDING_VALIDATION"]
   most_recent = true
 }
-
-# Cache policies referenced by name (managed policies included). A behavior that
-# carries an explicit *_policy_id skips its lookup.
-data "aws_cloudfront_cache_policy" "by_name" {
-  for_each = local.distribution_cache_policy_names
-
-  name = each.value
-}
-
-data "aws_cloudfront_origin_request_policy" "by_name" {
-  for_each = local.distribution_origin_request_policy_names
-
-  name = each.value
-}
-
-data "aws_cloudfront_response_headers_policy" "by_name" {
-  for_each = local.distribution_response_headers_policy_names
-
-  name = each.value
-}

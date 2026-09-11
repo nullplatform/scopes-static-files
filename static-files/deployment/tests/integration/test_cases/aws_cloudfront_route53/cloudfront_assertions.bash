@@ -98,11 +98,6 @@ assert_cloudfront_configured() {
     assert_contains "$allowed_methods" "HEAD"
   fi
 
-  # Default cache behavior - CachingOptimized (managed policy ids are global constants)
-  local default_cache_policy_id
-  default_cache_policy_id=$(echo "$distribution_json" | jq -r '.DefaultCacheBehavior.CachePolicyId // empty')
-  assert_equal "$default_cache_policy_id" "658327ea-f89d-4fab-a63d-7e88639e58f6"
-
   # Ordered cache behaviors - one per configured behavior, in order
   local behavior_count
   behavior_count=$(echo "$distribution_json" | jq -r '.CacheBehaviors.Quantity // 0')
@@ -112,13 +107,14 @@ assert_cloudfront_configured() {
   path_patterns=$(echo "$distribution_json" | jq -r '[.CacheBehaviors.Items[].PathPattern] | join(",")')
   assert_equal "$path_patterns" "/api/*,/static/*"
 
-  # Each behavior carries its own cache policy: /api/* is CachingDisabled, /static/* is
-  # CachingOptimizedForUncompressedObjects — neither shares the default behavior's policy
-  local api_cache_policy_id static_cache_policy_id
-  api_cache_policy_id=$(echo "$distribution_json" | jq -r '.CacheBehaviors.Items[0].CachePolicyId // empty')
-  static_cache_policy_id=$(echo "$distribution_json" | jq -r '.CacheBehaviors.Items[1].CachePolicyId // empty')
-  assert_equal "$api_cache_policy_id" "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
-  assert_equal "$static_cache_policy_id" "b2884449-e4de-46a7-ac36-70bc7f1ddd6d"
+  # Each behavior carries its own viewer protocol policy
+  local api_viewer_protocol
+  api_viewer_protocol=$(echo "$distribution_json" | jq -r '.CacheBehaviors.Items[0].ViewerProtocolPolicy // empty')
+  assert_equal "$api_viewer_protocol" "https-only"
+
+  local static_viewer_protocol
+  static_viewer_protocol=$(echo "$distribution_json" | jq -r '.CacheBehaviors.Items[1].ViewerProtocolPolicy // empty')
+  assert_equal "$static_viewer_protocol" "redirect-to-https"
 
   # Custom error responses (SPA routing)
   local error_response_count

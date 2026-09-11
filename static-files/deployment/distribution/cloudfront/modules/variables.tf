@@ -25,42 +25,28 @@ variable "distribution_cloudfront_endpoint_url" {
   default     = ""
 }
 
+# =============================================================================
+# Cache behaviors
+#
+# Caching itself is not configurable: every behavior forwards nothing to the
+# origin and keeps the same TTLs the scope has always used. What a behavior
+# does carry is how it answers the viewer, whether it compresses, and the
+# functions it runs.
+#
+# An invocation names the kind of function and the event in one string, the way
+# the scope configuration offers it: "Lambda@Edge - viewer request".
+# =============================================================================
 variable "distribution_default_behavior" {
-  description = <<-EOT
-    Default cache behavior: the one that serves every request no path pattern matches.
-    Caching is expressed with CloudFront cache policies, by name (managed policies included)
-    or by id. Invocations are one field per event type: CloudFront accepts a single
-    Lambda@Edge per event type and a single CloudFront Function per viewer event.
-  EOT
+  description = "Behavior serving every request no path pattern matches. CloudFront always requires it."
   type = object({
-    cache_policy             = optional(string)
-    cache_policy_id          = optional(string)
-    origin_request_policy    = optional(string)
-    response_headers_policy  = optional(string)
-    allowed_methods          = optional(list(string), ["GET", "HEAD", "OPTIONS"])
-    cached_methods           = optional(list(string), ["GET", "HEAD"])
-    viewer_protocol_policy   = optional(string, "redirect-to-https")
-    compress                 = optional(bool, true)
-    lambda_viewer_request    = optional(string)
-    lambda_viewer_response   = optional(string)
-    lambda_origin_request    = optional(string)
-    lambda_origin_response   = optional(string)
-    function_viewer_request  = optional(string)
-    function_viewer_response = optional(string)
+    viewer_protocol_policy = optional(string, "redirect-to-https")
+    compress               = optional(bool, true)
+    invocations = optional(list(object({
+      event_type   = string
+      function_arn = string
+    })), [])
   })
   default = {}
-
-  validation {
-    condition = alltrue([
-      for arn in [
-        var.distribution_default_behavior.lambda_viewer_request,
-        var.distribution_default_behavior.lambda_viewer_response,
-        var.distribution_default_behavior.lambda_origin_request,
-        var.distribution_default_behavior.lambda_origin_response,
-      ] : arn == null || can(regex(":[0-9]+$", coalesce(arn, "")))
-    ])
-    error_message = "Lambda@Edge ARNs must include a published version (they cannot point at $LATEST or an alias)."
-  }
 
   validation {
     condition     = contains(["allow-all", "https-only", "redirect-to-https"], var.distribution_default_behavior.viewer_protocol_policy)
@@ -68,49 +54,50 @@ variable "distribution_default_behavior" {
   }
 
   validation {
-    condition     = !(var.distribution_default_behavior.cache_policy_id != null && var.distribution_default_behavior.cache_policy != null)
-    error_message = "Set either cache_policy (by name) or cache_policy_id, not both."
+    condition = alltrue([
+      for i in var.distribution_default_behavior.invocations :
+      contains([
+        "CloudFront Function - viewer request", "CloudFront Function - viewer response",
+        "Lambda@Edge - viewer request", "Lambda@Edge - viewer response",
+        "Lambda@Edge - origin request", "Lambda@Edge - origin response",
+      ], i.event_type)
+    ])
+    error_message = "Each invocation must name a function kind and an event CloudFront accepts, e.g. 'Lambda@Edge - viewer request'. CloudFront Functions run on viewer events only."
+  }
+
+  validation {
+    condition = alltrue([
+      for i in var.distribution_default_behavior.invocations :
+      startswith(i.event_type, "Lambda@Edge") ? can(regex(":[0-9]+$", i.function_arn)) : true
+    ])
+    error_message = "Lambda@Edge ARNs must include a published version (they cannot point at $LATEST or an alias)."
+  }
+
+  validation {
+    condition     = length(distinct([for i in var.distribution_default_behavior.invocations : i.event_type])) == length(var.distribution_default_behavior.invocations)
+    error_message = "CloudFront runs a single function per event: each invocation of a behavior needs its own event."
   }
 }
 
 variable "distribution_behaviors" {
   description = <<-EOT
-    Ordered cache behaviors, one per path pattern. The list order is the CloudFront
-    precedence: the first pattern that matches a request wins. Same shape as
-    distribution_default_behavior plus the required path_pattern.
+    Ordered cache behaviors, one per path pattern. The list order is the
+    CloudFront precedence: the first pattern that matches a request wins.
   EOT
   type = list(object({
-    path_pattern             = string
-    cache_policy             = optional(string)
-    cache_policy_id          = optional(string)
-    origin_request_policy    = optional(string)
-    response_headers_policy  = optional(string)
-    allowed_methods          = optional(list(string), ["GET", "HEAD", "OPTIONS"])
-    cached_methods           = optional(list(string), ["GET", "HEAD"])
-    viewer_protocol_policy   = optional(string, "redirect-to-https")
-    compress                 = optional(bool, true)
-    lambda_viewer_request    = optional(string)
-    lambda_viewer_response   = optional(string)
-    lambda_origin_request    = optional(string)
-    lambda_origin_response   = optional(string)
-    function_viewer_request  = optional(string)
-    function_viewer_response = optional(string)
+    path_pattern           = string
+    viewer_protocol_policy = optional(string, "redirect-to-https")
+    compress               = optional(bool, true)
+    invocations = optional(list(object({
+      event_type   = string
+      function_arn = string
+    })), [])
   }))
   default = []
 
   validation {
     condition     = length(distinct([for b in var.distribution_behaviors : b.path_pattern])) == length(var.distribution_behaviors)
     error_message = "Each behavior needs its own path_pattern: CloudFront rejects duplicates."
-  }
-
-  validation {
-    condition = alltrue(flatten([
-      for b in var.distribution_behaviors : [
-        for arn in [b.lambda_viewer_request, b.lambda_viewer_response, b.lambda_origin_request, b.lambda_origin_response] :
-        arn == null || can(regex(":[0-9]+$", coalesce(arn, "")))
-      ]
-    ]))
-    error_message = "Lambda@Edge ARNs must include a published version (they cannot point at $LATEST or an alias)."
   }
 
   validation {
@@ -121,14 +108,40 @@ variable "distribution_behaviors" {
   }
 
   validation {
+    condition = alltrue(flatten([
+      for b in var.distribution_behaviors : [
+        for i in b.invocations : contains([
+          "CloudFront Function - viewer request", "CloudFront Function - viewer response",
+          "Lambda@Edge - viewer request", "Lambda@Edge - viewer response",
+          "Lambda@Edge - origin request", "Lambda@Edge - origin response",
+        ], i.event_type)
+      ]
+    ]))
+    error_message = "Each invocation must name a function kind and an event CloudFront accepts, e.g. 'Lambda@Edge - viewer request'. CloudFront Functions run on viewer events only."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for b in var.distribution_behaviors : [
+        for i in b.invocations :
+        startswith(i.event_type, "Lambda@Edge") ? can(regex(":[0-9]+$", i.function_arn)) : true
+      ]
+    ]))
+    error_message = "Lambda@Edge ARNs must include a published version (they cannot point at $LATEST or an alias)."
+  }
+
+  validation {
     condition = alltrue([
       for b in var.distribution_behaviors :
-      !(b.cache_policy_id != null && b.cache_policy != null)
+      length(distinct([for i in b.invocations : i.event_type])) == length(b.invocations)
     ])
-    error_message = "Set either cache_policy (by name) or cache_policy_id on a behavior, not both."
+    error_message = "CloudFront runs a single function per event: each invocation of a behavior needs its own event."
   }
 }
 
+# =============================================================================
+# Distribution-wide settings
+# =============================================================================
 variable "distribution_price_class" {
   description = "CloudFront price class"
   type        = string

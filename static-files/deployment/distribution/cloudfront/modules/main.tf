@@ -24,15 +24,21 @@ resource "aws_cloudfront_distribution" "static" {
   }
 
   default_cache_behavior {
-    allowed_methods  = var.distribution_default_behavior.allowed_methods
-    cached_methods   = var.distribution_default_behavior.cached_methods
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    cached_methods   = ["GET", "HEAD"]
     target_origin_id = local.distribution_origin_id
 
-    cache_policy_id            = local.distribution_default_cache_policy_id
-    origin_request_policy_id   = try(data.aws_cloudfront_origin_request_policy.by_name["default"].id, null)
-    response_headers_policy_id = try(data.aws_cloudfront_response_headers_policy.by_name["default"].id, null)
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
 
     viewer_protocol_policy = var.distribution_default_behavior.viewer_protocol_policy
+    min_ttl                = 0
+    default_ttl            = 3600
+    max_ttl                = 86400
     compress               = var.distribution_default_behavior.compress
 
     dynamic "lambda_function_association" {
@@ -59,15 +65,21 @@ resource "aws_cloudfront_distribution" "static" {
 
     content {
       path_pattern     = ordered_cache_behavior.value.path_pattern
-      allowed_methods  = ordered_cache_behavior.value.allowed_methods
-      cached_methods   = ordered_cache_behavior.value.cached_methods
+      allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+      cached_methods   = ["GET", "HEAD"]
       target_origin_id = local.distribution_origin_id
 
-      cache_policy_id            = local.distribution_behavior_cache_policy_ids[ordered_cache_behavior.key]
-      origin_request_policy_id   = try(data.aws_cloudfront_origin_request_policy.by_name["behavior-${ordered_cache_behavior.key}"].id, null)
-      response_headers_policy_id = try(data.aws_cloudfront_response_headers_policy.by_name["behavior-${ordered_cache_behavior.key}"].id, null)
+      forwarded_values {
+        query_string = false
+        cookies {
+          forward = "none"
+        }
+      }
 
       viewer_protocol_policy = ordered_cache_behavior.value.viewer_protocol_policy
+      min_ttl                = 0
+      default_ttl            = 3600
+      max_ttl                = 86400
       compress               = ordered_cache_behavior.value.compress
 
       dynamic "lambda_function_association" {

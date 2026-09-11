@@ -27,11 +27,11 @@ mock_provider "aws" {
 }
 
 variables {
-  distribution_bucket_name       = "my-static-bucket"
-  distribution_s3_prefix         = "app/scope-1"
-  distribution_app_name          = "my-app-prod"
-  network_full_domain            = ""
-  network_domain                 = ""
+  distribution_bucket_name = "my-static-bucket"
+  distribution_s3_prefix   = "app/scope-1"
+  distribution_app_name    = "my-app-prod"
+  network_full_domain      = ""
+  network_domain           = ""
   distribution_resource_tags_json = {
     Environment = "production"
     Application = "my-app"
@@ -231,9 +231,55 @@ run "cross_module_locals_for_dns" {
 }
 
 # =============================================================================
-# Test: Default cache behavior defaults
+# Test: Default behavior caching is fixed, not configurable
+#
+# Caching is what the scope has always done: nothing forwarded to the origin
+# and the same TTLs. Only the viewer protocol, compression and the invocations
+# are left to configure.
 # =============================================================================
-run "default_behavior_defaults" {
+run "default_behavior_caching_is_fixed" {
+  command = plan
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].min_ttl == 0
+    error_message = "Default behavior should keep its min TTL at 0"
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].default_ttl == 3600
+    error_message = "Default behavior should keep its default TTL at 3600"
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].max_ttl == 86400
+    error_message = "Default behavior should keep its max TTL at 86400"
+  }
+
+  assert {
+    condition     = one(aws_cloudfront_distribution.static.default_cache_behavior[0].forwarded_values).query_string == false
+    error_message = "Default behavior should not forward query strings"
+  }
+
+  assert {
+    condition     = one(one(aws_cloudfront_distribution.static.default_cache_behavior[0].forwarded_values).cookies).forward == "none"
+    error_message = "Default behavior should not forward cookies"
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].allowed_methods == toset(["GET", "HEAD", "OPTIONS"])
+    error_message = "Default behavior should allow GET, HEAD and OPTIONS"
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].cached_methods == toset(["GET", "HEAD"])
+    error_message = "Default behavior should cache GET and HEAD"
+  }
+}
+
+# =============================================================================
+# Test: Default behavior viewer settings
+# =============================================================================
+run "default_behavior_viewer_settings" {
   command = plan
 
   assert {
@@ -243,29 +289,28 @@ run "default_behavior_defaults" {
 
   assert {
     condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].compress == true
-    error_message = "Default behavior should enable compression"
-  }
-
-  assert {
-    condition     = contains(keys(data.aws_cloudfront_cache_policy.by_name), "default")
-    error_message = "Default behavior should look its cache policy up by name"
-  }
-
-  assert {
-    condition     = local.distribution_cache_policy_names["default"] == "Managed-CachingOptimized"
-    error_message = "Default behavior should default to the Managed-CachingOptimized policy"
+    error_message = "Default behavior should compress by default"
   }
 }
 
-# =============================================================================
-# Test: The legacy TTL/forwarded_values model is gone
-# =============================================================================
-run "default_behavior_has_no_legacy_cache_settings" {
+run "default_behavior_viewer_settings_are_configurable" {
   command = plan
 
+  variables {
+    distribution_default_behavior = {
+      viewer_protocol_policy = "https-only"
+      compress               = false
+    }
+  }
+
   assert {
-    condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].forwarded_values) == 0
-    error_message = "Cache policies and forwarded_values are mutually exclusive in CloudFront"
+    condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].viewer_protocol_policy == "https-only"
+    error_message = "Viewer protocol policy should be configurable"
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].compress == false
+    error_message = "Compression should be configurable"
   }
 }
 
@@ -282,7 +327,7 @@ run "no_ordered_behaviors_by_default" {
 }
 
 # =============================================================================
-# Test: No invocations on the default behavior unless configured
+# Test: No invocations unless configured
 # =============================================================================
 run "no_invocations_by_default" {
   command = plan
@@ -299,48 +344,58 @@ run "no_invocations_by_default" {
 }
 
 # =============================================================================
-# Test: Flat invocation fields become associations on the default behavior
+# Test: An invocation names both the kind of function and the event
+#
+# The scope configuration offers one dropdown pairing them, so the module reads
+# which association block to write from the same string.
 # =============================================================================
-run "invocations_applied_to_default_behavior" {
+run "invocations_split_into_lambda_and_function_associations" {
   command = plan
 
   variables {
     distribution_default_behavior = {
-      lambda_viewer_request   = "arn:aws:lambda:us-east-1:123456789012:function:my-fn:1"
-      lambda_origin_response  = "arn:aws:lambda:us-east-1:123456789012:function:other-fn:2"
-      function_viewer_request = "arn:aws:cloudfront::123456789012:function/spa-rewrite"
+      invocations = [
+        { event_type = "Lambda@Edge - viewer request", function_arn = "arn:aws:lambda:us-east-1:123456789012:function:auth:1" },
+        { event_type = "Lambda@Edge - origin response", function_arn = "arn:aws:lambda:us-east-1:123456789012:function:headers:2" },
+        { event_type = "CloudFront Function - viewer response", function_arn = "arn:aws:cloudfront::123456789012:function/rewrite" },
+      ]
     }
   }
 
   assert {
     condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].lambda_function_association) == 2
-    error_message = "Default behavior should have two Lambda@Edge associations"
+    error_message = "The two Lambda@Edge invocations should become Lambda@Edge associations"
   }
 
   assert {
     condition = length([
       for a in aws_cloudfront_distribution.static.default_cache_behavior[0].lambda_function_association :
-      a if a.event_type == "viewer-request" && a.lambda_arn == "arn:aws:lambda:us-east-1:123456789012:function:my-fn:1"
+      a if a.event_type == "viewer-request" && a.lambda_arn == "arn:aws:lambda:us-east-1:123456789012:function:auth:1"
     ]) == 1
-    error_message = "Should associate my-fn:1 on viewer-request"
+    error_message = "Should translate 'Lambda@Edge - viewer request' into a viewer-request association"
   }
 
   assert {
     condition = length([
       for a in aws_cloudfront_distribution.static.default_cache_behavior[0].lambda_function_association :
-      a if a.event_type == "origin-response" && a.lambda_arn == "arn:aws:lambda:us-east-1:123456789012:function:other-fn:2"
+      a if a.event_type == "origin-response" && a.lambda_arn == "arn:aws:lambda:us-east-1:123456789012:function:headers:2"
     ]) == 1
-    error_message = "Should associate other-fn:2 on origin-response"
+    error_message = "Should translate 'Lambda@Edge - origin response' into an origin-response association"
   }
 
   assert {
     condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].function_association) == 1
-    error_message = "Default behavior should have one CloudFront Function association"
+    error_message = "The CloudFront Function invocation should become a function association"
   }
 
   assert {
-    condition     = one(aws_cloudfront_distribution.static.default_cache_behavior[0].function_association).event_type == "viewer-request"
-    error_message = "CloudFront Function should run on viewer-request"
+    condition     = one(aws_cloudfront_distribution.static.default_cache_behavior[0].function_association).event_type == "viewer-response"
+    error_message = "Should translate 'CloudFront Function - viewer response' into a viewer-response association"
+  }
+
+  assert {
+    condition     = one(aws_cloudfront_distribution.static.default_cache_behavior[0].function_association).function_arn == "arn:aws:cloudfront::123456789012:function/rewrite"
+    error_message = "The CloudFront Function association should carry its ARN"
   }
 }
 
@@ -352,7 +407,7 @@ run "ordered_behaviors_keep_their_order" {
 
   variables {
     distribution_behaviors = [
-      { path_pattern = "/api/*", cache_policy = "Managed-CachingDisabled" },
+      { path_pattern = "/api/*" },
       { path_pattern = "/static/*" },
       { path_pattern = "/assets/*" }
     ]
@@ -372,21 +427,26 @@ run "ordered_behaviors_keep_their_order" {
 }
 
 # =============================================================================
-# Test: Each ordered behavior carries its own invocations and policies
+# Test: Each ordered behavior carries its own invocations and viewer settings
 # =============================================================================
-run "ordered_behaviors_carry_their_own_invocations" {
+run "ordered_behaviors_carry_their_own_settings" {
   command = plan
 
   variables {
     distribution_behaviors = [
       {
-        path_pattern          = "/api/*"
-        cache_policy          = "Managed-CachingDisabled"
-        origin_request_policy = "Managed-AllViewer"
-        lambda_viewer_request = "arn:aws:lambda:us-east-1:123456789012:function:auth:3"
+        path_pattern           = "/api/*"
+        viewer_protocol_policy = "https-only"
+        compress               = false
+        invocations = [
+          { event_type = "Lambda@Edge - viewer request", function_arn = "arn:aws:lambda:us-east-1:123456789012:function:auth:3" }
+        ]
       },
       {
         path_pattern = "/static/*"
+        invocations = [
+          { event_type = "CloudFront Function - viewer response", function_arn = "arn:aws:cloudfront::123456789012:function/headers" }
+        ]
       }
     ]
   }
@@ -402,56 +462,54 @@ run "ordered_behaviors_carry_their_own_invocations" {
   }
 
   assert {
+    condition     = length(aws_cloudfront_distribution.static.ordered_cache_behavior[0].function_association) == 0
+    error_message = "The /api/* behavior has no CloudFront Function"
+  }
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.ordered_cache_behavior[1].function_association) == 1
+    error_message = "The /static/* behavior should carry its own CloudFront Function association"
+  }
+
+  assert {
     condition     = length(aws_cloudfront_distribution.static.ordered_cache_behavior[1].lambda_function_association) == 0
-    error_message = "The /static/* behavior should carry no associations of its own"
+    error_message = "The /static/* behavior has no Lambda@Edge"
   }
 
   assert {
-    condition     = local.distribution_cache_policy_names["behavior-0"] == "Managed-CachingDisabled"
-    error_message = "The /api/* behavior should resolve its own cache policy"
+    condition     = aws_cloudfront_distribution.static.ordered_cache_behavior[0].viewer_protocol_policy == "https-only"
+    error_message = "Each behavior should carry its own viewer protocol policy"
   }
 
   assert {
-    condition     = local.distribution_origin_request_policy_names["behavior-0"] == "Managed-AllViewer"
-    error_message = "The /api/* behavior should look its origin request policy up by name"
+    condition     = aws_cloudfront_distribution.static.ordered_cache_behavior[0].compress == false
+    error_message = "Each behavior should carry its own compression setting"
   }
 
   assert {
-    condition     = !contains(keys(local.distribution_origin_request_policy_names), "behavior-1")
-    error_message = "A behavior without an origin request policy should not look one up"
-  }
-
-  assert {
-    condition     = aws_cloudfront_distribution.static.ordered_cache_behavior[1].origin_request_policy_id == null
-    error_message = "A behavior without an origin request policy should not set one"
+    condition     = aws_cloudfront_distribution.static.ordered_cache_behavior[1].viewer_protocol_policy == "redirect-to-https"
+    error_message = "A behavior that sets nothing should fall back to the defaults"
   }
 }
 
 # =============================================================================
-# Test: A behavior can reference a cache policy by id instead of by name
+# Test: Ordered behaviors cache the same fixed way as the default one
 # =============================================================================
-run "cache_policy_by_id" {
+run "ordered_behaviors_caching_is_fixed" {
   command = plan
 
   variables {
-    distribution_behaviors = [
-      { path_pattern = "/api/*", cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" }
-    ]
+    distribution_behaviors = [{ path_pattern = "/api/*" }]
   }
 
   assert {
-    condition     = aws_cloudfront_distribution.static.ordered_cache_behavior[0].cache_policy_id == "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
-    error_message = "An explicit cache_policy_id should be used as-is"
+    condition     = aws_cloudfront_distribution.static.ordered_cache_behavior[0].default_ttl == 3600
+    error_message = "Ordered behaviors should keep the same fixed TTLs"
   }
 
   assert {
-    condition     = !contains(keys(local.distribution_cache_policy_names), "behavior-0")
-    error_message = "An explicit cache_policy_id should not trigger a lookup by name"
-  }
-
-  assert {
-    condition     = !contains(keys(data.aws_cloudfront_cache_policy.by_name), "behavior-0")
-    error_message = "An explicit cache_policy_id should not create a data source lookup"
+    condition     = one(aws_cloudfront_distribution.static.ordered_cache_behavior[0].forwarded_values).query_string == false
+    error_message = "Ordered behaviors should not forward query strings"
   }
 }
 
@@ -725,7 +783,7 @@ run "rejects_lambda_arn_without_version" {
 
   variables {
     distribution_default_behavior = {
-      lambda_viewer_request = "arn:aws:lambda:us-east-1:123456789012:function:my-fn"
+      invocations = [{ event_type = "Lambda@Edge - viewer request", function_arn = "arn:aws:lambda:us-east-1:123456789012:function:my-fn" }]
     }
   }
 
@@ -733,22 +791,36 @@ run "rejects_lambda_arn_without_version" {
 }
 
 # =============================================================================
-# Test: A behavior cannot set both a cache policy name and a cache policy id
+# Test: An unknown invocation is rejected
 # =============================================================================
-run "rejects_cache_policy_name_and_id_together" {
+run "rejects_unknown_invocation" {
   command = plan
 
   variables {
     distribution_behaviors = [
       {
-        path_pattern    = "/api/*"
-        cache_policy    = "Managed-CachingDisabled"
-        cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+        path_pattern = "/api/*"
+        invocations  = [{ event_type = "Lambda@Edge - whenever", function_arn = "arn:aws:lambda:us-east-1:123456789012:function:fn:1" }]
       }
     ]
   }
 
   expect_failures = [var.distribution_behaviors]
+}
+
+# =============================================================================
+# Test: A CloudFront Function on an origin event is rejected
+# =============================================================================
+run "rejects_cloudfront_function_on_origin_event" {
+  command = plan
+
+  variables {
+    distribution_default_behavior = {
+      invocations = [{ event_type = "CloudFront Function - origin request", function_arn = "arn:aws:cloudfront::123456789012:function/fn" }]
+    }
+  }
+
+  expect_failures = [var.distribution_default_behavior]
 }
 
 # =============================================================================

@@ -20,16 +20,6 @@ TEST_DISTRIBUTION_S3_PREFIX="/tools/automation/v1.0.0"                      # di
 TEST_DISTRIBUTION_APP_NAME="automation-development-tools-7"                 # distribution_app_name
 TEST_DISTRIBUTION_COMMENT="Distribution for automation-development-tools-7" # derived from app_name
 
-# CloudFront managed cache policies (distribution/cloudfront/modules/locals.tf)
-TEST_CACHE_POLICY_OPTIMIZED="658327ea-f89d-4fab-a63d-7e88639e58f6"    # Managed-CachingOptimized
-TEST_CACHE_POLICY_DISABLED="4135ea2d-6df8-44a3-9df3-4b5a84be39ad"     # Managed-CachingDisabled
-TEST_CACHE_POLICY_UNCOMPRESSED="b2884449-e4de-46a7-ac36-70bc7f1ddd6d" # Managed-CachingOptimizedForUncompressedObjects
-
-# Route53 variables (network/route53/modules/variables.tf)
-TEST_NETWORK_DOMAIN="frontend.publicdomain.com"                             # network_domain
-TEST_NETWORK_SUBDOMAIN="automation-development-tools"                       # network_subdomain
-TEST_NETWORK_FULL_DOMAIN="automation-development-tools.frontend.publicdomain.com"  # computed
-
 # =============================================================================
 # Test Setup
 # =============================================================================
@@ -83,14 +73,11 @@ setup() {
   override_context 'providers.scope-configurations.network.aws_hosted_public_zone_id' "$HOSTED_ZONE_ID"
   override_context 'providers.scope-configurations.provider.aws_state_bucket' "tofu-state-bucket"
 
-  # Cache behaviors. moto does not implement ListCachePolicies, so the behaviors
-  # reference the managed policy ids (constants across every AWS account) rather
-  # than their names; resolution by name is covered by the module unit tests.
+  # Cache behaviors: one per path, each with its own invocations.
   CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution += {
-    "default_behavior": {"cache_policy_id": "'"$TEST_CACHE_POLICY_OPTIMIZED"'"},
     "behaviors": [
-      {"path_pattern": "/api/*", "cache_policy_id": "'"$TEST_CACHE_POLICY_DISABLED"'"},
-      {"path_pattern": "/static/*", "cache_policy_id": "'"$TEST_CACHE_POLICY_UNCOMPRESSED"'"}
+      {"path_pattern": "/api/*", "viewer_protocol_policy": "https-only"},
+      {"path_pattern": "/static/*"}
     ],
     "custom_error_responses": [
       {"error_code": 404, "response_code": 200, "response_page_path": "/index.html"},

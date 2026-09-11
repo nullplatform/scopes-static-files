@@ -124,7 +124,15 @@ distribution_config=$(echo "$CONTEXT" | jq -c \
   '(.providers["scope-configurations"].distribution // {})
    | walk(if type == "object" then with_entries(select(.value != "" and .value != null)) else . end)')
 
-distribution_default_behavior=$(echo "$distribution_config" | jq -c '.default_behavior // {}')
+# The form asks for the default behavior as flat default_* fields, since its
+# form only resolves two levels of nesting. The module takes one object.
+distribution_default_behavior=$(echo "$distribution_config" | jq -c '
+  {
+    viewer_protocol_policy: .default_viewer_protocol_policy,
+    compress: .default_compress,
+    invocations: .default_invocations
+  } | with_entries(select(.value != null))')
+
 distribution_behaviors=$(echo "$distribution_config" | jq -c '.behaviors // []')
 distribution_price_class=$(echo "$distribution_config" | jq -r '.price_class // "PriceClass_100"')
 distribution_default_root_object=$(echo "$distribution_config" | jq -r '.default_root_object // "index.html"')
@@ -142,12 +150,12 @@ if [ "$missing_path_pattern" != "0" ]; then
   echo ""
   echo "  🔧 How to fix:"
   echo "    • Set a path pattern on every behavior (e.g. '/api/*'), or remove the empty one"
-  echo "    • The default behavior has no path pattern: configure it under 'default_behavior'"
+  echo "    • The default behavior has no path pattern: configure it under the default fields"
   echo ""
   exit 1
 fi
 
-echo "   ✅ default_behavior.cache_policy=$(echo "$distribution_default_behavior" | jq -r '.cache_policy // .cache_policy_id // "Managed-CachingOptimized (default)"')"
+echo "   ✅ default_behavior=$(echo "$distribution_default_behavior" | jq -r '(.invocations // []) | length') invocation(s)"
 echo "   ✅ behaviors=$(echo "$distribution_behaviors" | jq 'length') behavior(s)$(echo "$distribution_behaviors" | jq -r 'if length > 0 then " [" + (map(.path_pattern) | join(", ")) + "]" else "" end')"
 
 TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
