@@ -1,0 +1,6 @@
+{
+  "results": [
+    { "id": "spec-lambda", "slug": "aws-lambda", "name": "AWS Lambda" },
+    { "id": "spec-static", "slug": "static-files", "name": "Static Files" }
+  ]
+}

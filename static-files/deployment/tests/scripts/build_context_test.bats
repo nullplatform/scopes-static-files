@@ -23,8 +23,13 @@ setup() {
 	CONTEXT=$(cat "$PROJECT_DIR/tests/resources/context.json")
 	SERVICE_PATH="$PROJECT_DIR"
 	TEST_OUTPUT_DIR=$(mktemp -d)
+	NP_MOCKS_DIR="$PROJECT_DIR/tests/resources/np_mocks"
+	SCOPE_CFG_MOCKS="$NP_MOCKS_DIR/scope_configuration"
 
-	export CONTEXT SERVICE_PATH TEST_OUTPUT_DIR
+	export PATH="$NP_MOCKS_DIR:$PATH"
+	export NP_MOCK_SPECIFICATION_LIST="$SCOPE_CFG_MOCKS/specification_list.json"
+	export NP_MOCK_PROVIDER_LIST="$SCOPE_CFG_MOCKS/provider_list.json"
+	export CONTEXT SERVICE_PATH TEST_OUTPUT_DIR SCOPE_CFG_MOCKS
 }
 
 # Teardown - runs after each test
@@ -63,6 +68,7 @@ run_build_context() {
 }
 
 @test "Should fall back to env vars for TOFU_PROVIDER when not in CONTEXT" {
+	export NP_MOCK_PROVIDER_LIST="$SCOPE_CFG_MOCKS/provider_list_empty.json"
 	CONTEXT=$(echo "$CONTEXT" | jq 'del(.providers["scope-configurations"].cloud_provider)')
 	export TOFU_PROVIDER="azure"
 	export NETWORK_LAYER="azure_dns"
@@ -74,6 +80,7 @@ run_build_context() {
 }
 
 @test "Should fall back to env vars for NETWORK_LAYER when not in CONTEXT" {
+	export NP_MOCK_PROVIDER_LIST="$SCOPE_CFG_MOCKS/provider_list_empty.json"
 	CONTEXT=$(echo "$CONTEXT" | jq 'del(.providers["scope-configurations"].network.aws_network)')
 	export NETWORK_LAYER="azure_dns"
 
@@ -83,6 +90,7 @@ run_build_context() {
 }
 
 @test "Should fall back to env vars for DISTRIBUTION_LAYER when not in CONTEXT" {
+	export NP_MOCK_PROVIDER_LIST="$SCOPE_CFG_MOCKS/provider_list_empty.json"
 	CONTEXT=$(echo "$CONTEXT" | jq 'del(.providers["scope-configurations"].distribution.aws_distribution)')
 	export DISTRIBUTION_LAYER="blob-cdn"
 
@@ -92,6 +100,7 @@ run_build_context() {
 }
 
 @test "Should fail when cloud_provider is not configured anywhere" {
+	export NP_MOCK_PROVIDER_LIST="$SCOPE_CFG_MOCKS/provider_list_empty.json"
 	CONTEXT=$(echo "$CONTEXT" | jq 'del(.providers["scope-configurations"].cloud_provider)')
 	unset TOFU_PROVIDER
 
@@ -103,6 +112,7 @@ run_build_context() {
 }
 
 @test "Should fail when network layer is not configured anywhere" {
+	export NP_MOCK_PROVIDER_LIST="$SCOPE_CFG_MOCKS/provider_list_empty.json"
 	CONTEXT=$(echo "$CONTEXT" | jq 'del(.providers["scope-configurations"].network.aws_network)')
 	unset NETWORK_LAYER
 
@@ -113,6 +123,7 @@ run_build_context() {
 }
 
 @test "Should fail when distribution layer is not configured anywhere" {
+	export NP_MOCK_PROVIDER_LIST="$SCOPE_CFG_MOCKS/provider_list_empty.json"
 	CONTEXT=$(echo "$CONTEXT" | jq 'del(.providers["scope-configurations"].distribution.aws_distribution)')
 	unset DISTRIBUTION_LAYER
 
@@ -233,4 +244,37 @@ run_build_context() {
 	}'
 
 	assert_json_equal "$RESOURCE_TAGS_JSON" "$expected" "RESOURCE_TAGS_JSON"
+}
+
+# =============================================================================
+# Test: The scope reads its own configuration
+#
+# Every scope type in an account shares the scope-configurations category and
+# the context carries a single one — whichever provider resolves closest in the
+# NRN hierarchy, which is another scope type's when both sit at the same level.
+# =============================================================================
+@test "Should replace a scope-configuration belonging to another scope type" {
+	export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"] = {"deployment": {"placeholder_image_uri": "lambda-placeholder"}}')
+
+	run_build_context
+
+	assert_equal "$(echo "$CONTEXT" | jq -r '.providers["scope-configurations"].marker')" "static-configuration"
+	assert_equal "$(echo "$CONTEXT" | jq -r '.providers["scope-configurations"].deployment // "gone"')" "gone"
+}
+
+@test "Should pick the configuration closest to the scope when there are several" {
+	export NP_MOCK_PROVIDER_LIST="$SCOPE_CFG_MOCKS/provider_list_nested.json"
+
+	run_build_context
+
+	assert_equal "$(echo "$CONTEXT" | jq -r '.providers["scope-configurations"].marker')" "application-level"
+}
+
+@test "Should keep the context untouched when no configuration is found" {
+	export NP_MOCK_PROVIDER_LIST="$SCOPE_CFG_MOCKS/provider_list_empty.json"
+	export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].marker = "from-context"')
+
+	run_build_context
+
+	assert_equal "$(echo "$CONTEXT" | jq -r '.providers["scope-configurations"].marker')" "from-context"
 }

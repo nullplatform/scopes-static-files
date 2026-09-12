@@ -13,6 +13,42 @@ application_version="$(echo "$CONTEXT" | jq -r .release.semver)"
 env_vars_json=$(echo "$CONTEXT" | jq '(.parameters.results // []) | map({(.variable): .values[0].value}) | add // {}')
 
 # =============================================================================
+# Resolve this scope's own configuration
+#
+# Every scope type in an account shares the scope-configurations category, and
+# the context carries a single configuration for it: the one that resolves
+# closest in the NRN hierarchy. Two scope types configured at the same level
+# tie, and the winner is arbitrary — a static scope can end up reading the
+# Lambda scope's configuration. Ask for ours by its specification instead, and
+# put it back in the context so every setup script keeps reading it from there.
+# =============================================================================
+resolve_scope_configuration() {
+	local nrn spec_id
+	nrn=$(echo "$CONTEXT" | jq -r '.scope.nrn // empty')
+	[ -n "$nrn" ] || return 1
+
+	spec_id=$(np provider specification list --format json 2>/dev/null |
+		jq -r '[.results[]? | select(.slug == "static-files")] | first | .id // empty')
+	[ -n "$spec_id" ] || return 1
+
+	# Deepest NRN wins, which is how the platform resolves providers.
+	np provider list --nrn "$nrn" --categories scope-configurations --show-ascendants --format json 2>/dev/null |
+		jq -c --arg spec "$spec_id" '
+			[.results[]? | select(.specification_id == $spec)]
+			| sort_by(.nrn | split(":") | length)
+			| last
+			| .attributes // empty
+		'
+}
+
+scope_configuration=$(resolve_scope_configuration || true)
+if [ -n "$scope_configuration" ] && [ "$scope_configuration" != "null" ]; then
+	CONTEXT=$(echo "$CONTEXT" | jq -c --argjson configuration "$scope_configuration" \
+		'.providers["scope-configurations"] = $configuration')
+	export CONTEXT
+fi
+
+# =============================================================================
 # Resolve layer routing from scope-configuration provider
 # Priority: provider > env var > (fail)
 # =============================================================================
