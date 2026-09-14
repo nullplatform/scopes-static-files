@@ -27,7 +27,7 @@ resolve_scope_configuration() {
 	nrn=$(echo "$CONTEXT" | jq -r '.scope.nrn // empty')
 	[ -n "$nrn" ] || return 1
 
-	spec_id=$(np provider specification list --format json 2>/dev/null |
+	spec_id=$(np provider specification list --nrn "$nrn" --format json 2>/dev/null |
 		jq -r '[.results[]? | select(.slug == "static-files")] | first | .id // empty')
 	[ -n "$spec_id" ] || return 1
 

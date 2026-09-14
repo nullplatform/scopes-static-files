@@ -12,7 +12,12 @@
 
 case "$*" in
   *"provider specification list"*)
-    [ -n "${NP_MOCK_SPECIFICATION_LIST:-}" ] && { cat "$NP_MOCK_SPECIFICATION_LIST"; exit "${NP_MOCK_EXIT_CODE:-0}"; }
+    # The listing returns nothing without an --nrn, so a caller that forgets it
+    # gets the same empty answer it would get from the real CLI.
+    case "$*" in
+      *--nrn*) [ -n "${NP_MOCK_SPECIFICATION_LIST:-}" ] && { cat "$NP_MOCK_SPECIFICATION_LIST"; exit "${NP_MOCK_EXIT_CODE:-0}"; } ;;
+      *) echo '{"results":[]}'; exit 0 ;;
+    esac
     ;;
   *"provider list"*)
     [ -n "${NP_MOCK_PROVIDER_LIST:-}" ] && { cat "$NP_MOCK_PROVIDER_LIST"; exit "${NP_MOCK_EXIT_CODE:-0}"; }
