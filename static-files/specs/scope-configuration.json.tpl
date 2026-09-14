@@ -288,7 +288,7 @@
                 "event_type": {
                   "type": "string",
                   "title": "Invocation",
-                  "description": "Which function runs and when. CloudFront Functions run on viewer events only, and a Function and a Lambda@Edge cannot share an event on the same behavior.",
+                  "description": "Which function runs and when. A behavior runs CloudFront Functions or Lambda@Edge, never both, and Functions run on viewer events only.",
                   "enum": [
                     "CloudFront Function - viewer request",
                     "CloudFront Function - viewer response",
@@ -359,7 +359,7 @@
                       "event_type": {
                         "type": "string",
                         "title": "Invocation",
-                        "description": "Which function runs and when. CloudFront Functions run on viewer events only, and a Function and a Lambda@Edge cannot share an event on the same behavior.",
+                        "description": "Which function runs and when. A behavior runs CloudFront Functions or Lambda@Edge, never both, and Functions run on viewer events only.",
                         "enum": [
                           "CloudFront Function - viewer request",
                           "CloudFront Function - viewer response",

@@ -77,6 +77,14 @@ variable "distribution_default_behavior" {
     condition     = length(distinct([for i in var.distribution_default_behavior.invocations : i.event_type])) == length(var.distribution_default_behavior.invocations)
     error_message = "CloudFront runs a single function per event: each invocation of a behavior needs its own event."
   }
+
+  validation {
+    condition = (
+      length([for i in var.distribution_default_behavior.invocations : i if startswith(i.event_type, "Lambda@Edge")]) == 0 ||
+      length([for i in var.distribution_default_behavior.invocations : i if startswith(i.event_type, "CloudFront Function")]) == 0
+    )
+    error_message = "A behavior runs CloudFront Functions or Lambda@Edge, never both: CloudFront rejects a behavior carrying the two kinds, even on different events."
+  }
 }
 
 variable "distribution_behaviors" {
@@ -136,6 +144,16 @@ variable "distribution_behaviors" {
       length(distinct([for i in b.invocations : i.event_type])) == length(b.invocations)
     ])
     error_message = "CloudFront runs a single function per event: each invocation of a behavior needs its own event."
+  }
+
+  validation {
+    condition = alltrue([
+      for b in var.distribution_behaviors : (
+        length([for i in b.invocations : i if startswith(i.event_type, "Lambda@Edge")]) == 0 ||
+        length([for i in b.invocations : i if startswith(i.event_type, "CloudFront Function")]) == 0
+      )
+    ])
+    error_message = "A behavior runs CloudFront Functions or Lambda@Edge, never both: CloudFront rejects a behavior carrying the two kinds, even on different events."
   }
 }
 

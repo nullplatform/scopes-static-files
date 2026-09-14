@@ -349,7 +349,7 @@ run "no_invocations_by_default" {
 # The scope configuration offers one dropdown pairing them, so the module reads
 # which association block to write from the same string.
 # =============================================================================
-run "invocations_split_into_lambda_and_function_associations" {
+run "lambda_invocations_become_lambda_associations" {
   command = plan
 
   variables {
@@ -357,14 +357,18 @@ run "invocations_split_into_lambda_and_function_associations" {
       invocations = [
         { event_type = "Lambda@Edge - viewer request", function_arn = "arn:aws:lambda:us-east-1:123456789012:function:auth:1" },
         { event_type = "Lambda@Edge - origin response", function_arn = "arn:aws:lambda:us-east-1:123456789012:function:headers:2" },
-        { event_type = "CloudFront Function - viewer response", function_arn = "arn:aws:cloudfront::123456789012:function/rewrite" },
       ]
     }
   }
 
   assert {
     condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].lambda_function_association) == 2
-    error_message = "The two Lambda@Edge invocations should become Lambda@Edge associations"
+    error_message = "Both Lambda@Edge invocations should become Lambda@Edge associations"
+  }
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].function_association) == 0
+    error_message = "A behavior with only Lambda@Edge carries no CloudFront Function association"
   }
 
   assert {
@@ -382,20 +386,39 @@ run "invocations_split_into_lambda_and_function_associations" {
     ]) == 1
     error_message = "Should translate 'Lambda@Edge - origin response' into an origin-response association"
   }
+}
 
-  assert {
-    condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].function_association) == 1
-    error_message = "The CloudFront Function invocation should become a function association"
+# =============================================================================
+# Test: CloudFront Function invocations become function associations
+# =============================================================================
+run "function_invocations_become_function_associations" {
+  command = plan
+
+  variables {
+    distribution_default_behavior = {
+      invocations = [
+        { event_type = "CloudFront Function - viewer request", function_arn = "arn:aws:cloudfront::123456789012:function/rewrite" },
+        { event_type = "CloudFront Function - viewer response", function_arn = "arn:aws:cloudfront::123456789012:function/headers" },
+      ]
+    }
   }
 
   assert {
-    condition     = one(aws_cloudfront_distribution.static.default_cache_behavior[0].function_association).event_type == "viewer-response"
-    error_message = "Should translate 'CloudFront Function - viewer response' into a viewer-response association"
+    condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].function_association) == 2
+    error_message = "Both CloudFront Function invocations should become function associations"
   }
 
   assert {
-    condition     = one(aws_cloudfront_distribution.static.default_cache_behavior[0].function_association).function_arn == "arn:aws:cloudfront::123456789012:function/rewrite"
-    error_message = "The CloudFront Function association should carry its ARN"
+    condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].lambda_function_association) == 0
+    error_message = "A behavior with only CloudFront Functions carries no Lambda@Edge association"
+  }
+
+  assert {
+    condition = length([
+      for a in aws_cloudfront_distribution.static.default_cache_behavior[0].function_association :
+      a if a.event_type == "viewer-request" && a.function_arn == "arn:aws:cloudfront::123456789012:function/rewrite"
+    ]) == 1
+    error_message = "Should translate 'CloudFront Function - viewer request' into a viewer-request association"
   }
 }
 
@@ -849,4 +872,43 @@ run "rejects_invalid_price_class" {
   }
 
   expect_failures = [var.distribution_price_class]
+}
+
+# =============================================================================
+# Test: A behavior cannot mix CloudFront Functions and Lambda@Edge
+#
+# CloudFront rejects the distribution outright — not only when both land on the
+# same event, but whenever one behavior carries both kinds of function.
+# =============================================================================
+run "rejects_mixing_function_kinds_on_the_default_behavior" {
+  command = plan
+
+  variables {
+    distribution_default_behavior = {
+      invocations = [
+        { event_type = "Lambda@Edge - viewer response", function_arn = "arn:aws:lambda:us-east-1:123456789012:function:headers:1" },
+        { event_type = "CloudFront Function - viewer request", function_arn = "arn:aws:cloudfront::123456789012:function/rewrite" },
+      ]
+    }
+  }
+
+  expect_failures = [var.distribution_default_behavior]
+}
+
+run "rejects_mixing_function_kinds_on_an_ordered_behavior" {
+  command = plan
+
+  variables {
+    distribution_behaviors = [
+      {
+        path_pattern = "/api/*"
+        invocations = [
+          { event_type = "CloudFront Function - viewer request", function_arn = "arn:aws:cloudfront::123456789012:function/rewrite" },
+          { event_type = "Lambda@Edge - origin request", function_arn = "arn:aws:lambda:us-east-1:123456789012:function:auth:2" },
+        ]
+      }
+    ]
+  }
+
+  expect_failures = [var.distribution_behaviors]
 }
