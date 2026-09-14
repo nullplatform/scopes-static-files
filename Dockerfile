@@ -11,7 +11,7 @@ FROM public.ecr.aws/nullplatform/scopes/worker-bridge:1.0.0
 RUN apk add --no-cache aws-cli gomplate
 
 # OpenTofu >= 1.10 — the scope inits its S3 backend with use_lockfile=true.
-ARG TOFU_VERSION=1.10.10
+ARG TOFU_VERSION=1.12.6
 ARG TARGETARCH
 RUN curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_linux_${TARGETARCH}.tar.gz" \
       | tar -xz -C /usr/local/bin tofu \
