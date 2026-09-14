@@ -1,5 +1,5 @@
 locals {
-  distribution_origin_id       = "S3-${var.distribution_bucket_name}"
+  distribution_origin_id              = "S3-${var.distribution_bucket_name}"
   distribution_aws_endpoint_url_param = var.distribution_cloudfront_endpoint_url != "" ? "--endpoint-url ${var.distribution_cloudfront_endpoint_url}" : ""
 
   # Use network_full_domain from network layer (provided via cross-module locals when composed)
@@ -23,6 +23,49 @@ locals {
   # Setting/clearing web_acl_id on aws_cloudfront_distribution triggers an
   # in-place update, not a replacement — the distribution ID stays stable.
   distribution_web_acl_arn = local.security_web_acl_arn
+
+  # ---------------------------------------------------------------------------
+  # Invocations
+  #
+  # An invocation arrives as one string naming the kind of function and the
+  # event ("Lambda@Edge - viewer request"), which is how the scope
+  # configuration asks for it. CloudFront wants them split: Lambda@Edge in
+  # lambda_function_association, CloudFront Functions in function_association,
+  # each with a dashed event name.
+  # ---------------------------------------------------------------------------
+  distribution_lambda_kind = "Lambda@Edge"
+
+  distribution_default_lambda_associations = [
+    for i in var.distribution_default_behavior.invocations : {
+      event_type = replace(trimspace(split(" - ", i.event_type)[1]), " ", "-")
+      lambda_arn = i.function_arn
+    } if startswith(i.event_type, local.distribution_lambda_kind)
+  ]
+
+  distribution_default_function_associations = [
+    for i in var.distribution_default_behavior.invocations : {
+      event_type   = replace(trimspace(split(" - ", i.event_type)[1]), " ", "-")
+      function_arn = i.function_arn
+    } if !startswith(i.event_type, local.distribution_lambda_kind)
+  ]
+
+  distribution_behavior_lambda_associations = [
+    for behavior in var.distribution_behaviors : [
+      for i in behavior.invocations : {
+        event_type = replace(trimspace(split(" - ", i.event_type)[1]), " ", "-")
+        lambda_arn = i.function_arn
+      } if startswith(i.event_type, local.distribution_lambda_kind)
+    ]
+  ]
+
+  distribution_behavior_function_associations = [
+    for behavior in var.distribution_behaviors : [
+      for i in behavior.invocations : {
+        event_type   = replace(trimspace(split(" - ", i.event_type)[1]), " ", "-")
+        function_arn = i.function_arn
+      } if !startswith(i.event_type, local.distribution_lambda_kind)
+    ]
+  ]
 
   # Cross-module references (consumed by network/route53)
   distribution_target_domain  = aws_cloudfront_distribution.static.domain_name

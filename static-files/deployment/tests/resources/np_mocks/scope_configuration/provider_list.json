@@ -1,0 +1,34 @@
+{
+  "results": [
+    {
+      "id": "provider-lambda",
+      "nrn": "organization=1:account=2",
+      "specification_id": "spec-lambda",
+      "attributes": {
+        "deployment": {
+          "placeholder_image_uri": "lambda-placeholder"
+        }
+      }
+    },
+    {
+      "id": "provider-static-account",
+      "nrn": "organization=1:account=2",
+      "specification_id": "spec-static",
+      "attributes": {
+        "cloud_provider": "aws",
+        "provider": {
+          "aws_region": "us-east-1",
+          "aws_state_bucket": "my-org-tofu-state"
+        },
+        "distribution": {
+          "aws_distribution": "cloudfront"
+        },
+        "network": {
+          "aws_network": "route53",
+          "aws_hosted_public_zone_id": "Z1234567890ABC"
+        },
+        "marker": "static-configuration"
+      }
+    }
+  ]
+}

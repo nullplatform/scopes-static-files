@@ -97,6 +97,29 @@ assert_cloudfront_configured() {
     assert_contains "$allowed_methods" "GET"
     assert_contains "$allowed_methods" "HEAD"
   fi
+
+  # Ordered cache behaviors - one per configured behavior, in order
+  local behavior_count
+  behavior_count=$(echo "$distribution_json" | jq -r '.CacheBehaviors.Quantity // 0')
+  assert_equal "$behavior_count" "2"
+
+  local path_patterns
+  path_patterns=$(echo "$distribution_json" | jq -r '[.CacheBehaviors.Items[].PathPattern] | join(",")')
+  assert_equal "$path_patterns" "/api/*,/static/*"
+
+  # Each behavior carries its own viewer protocol policy
+  local api_viewer_protocol
+  api_viewer_protocol=$(echo "$distribution_json" | jq -r '.CacheBehaviors.Items[0].ViewerProtocolPolicy // empty')
+  assert_equal "$api_viewer_protocol" "https-only"
+
+  local static_viewer_protocol
+  static_viewer_protocol=$(echo "$distribution_json" | jq -r '.CacheBehaviors.Items[1].ViewerProtocolPolicy // empty')
+  assert_equal "$static_viewer_protocol" "redirect-to-https"
+
+  # Custom error responses (SPA routing)
+  local error_response_count
+  error_response_count=$(echo "$distribution_json" | jq -r '.CustomErrorResponses.Quantity // 0')
+  assert_equal "$error_response_count" "2"
 }
 
 # =============================================================================

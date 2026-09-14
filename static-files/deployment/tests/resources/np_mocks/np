@@ -4,6 +4,25 @@
 # Usage:
 #   Set NP_MOCK_RESPONSE to the path of the mock JSON file to return
 #   Set NP_MOCK_EXIT_CODE to the exit code (default: 0)
+#
+# Subcommand-specific responses take precedence, so a script that calls np more
+# than once can get a different answer per call:
+#   NP_MOCK_SPECIFICATION_LIST  -> "np provider specification list"
+#   NP_MOCK_PROVIDER_LIST       -> "np provider list"
+
+case "$*" in
+  *"provider specification list"*)
+    # The listing returns nothing without an --nrn, so a caller that forgets it
+    # gets the same empty answer it would get from the real CLI.
+    case "$*" in
+      *--nrn*) [ -n "${NP_MOCK_SPECIFICATION_LIST:-}" ] && { cat "$NP_MOCK_SPECIFICATION_LIST"; exit "${NP_MOCK_EXIT_CODE:-0}"; } ;;
+      *) echo '{"results":[]}'; exit 0 ;;
+    esac
+    ;;
+  *"provider list"*)
+    [ -n "${NP_MOCK_PROVIDER_LIST:-}" ] && { cat "$NP_MOCK_PROVIDER_LIST"; exit "${NP_MOCK_EXIT_CODE:-0}"; }
+    ;;
+esac
 
 MOCK_RESPONSE="$NP_MOCK_RESPONSE"
 MOCK_EXIT_CODE="${NP_MOCK_EXIT_CODE:-0}"

@@ -1,0 +1,28 @@
+#!/bin/bash
+# Resolve the distribution this scope owns.
+#
+# The distribution layer names it "<application>-<scope>-<scope id>", so the
+# same three fields identify it when listing instances.
+
+set -uo pipefail
+
+application_slug=$(echo "$CONTEXT" | jq -r '.application.slug // empty')
+scope_slug=$(echo "$CONTEXT" | jq -r '.scope.slug // empty')
+scope_id=$(echo "$CONTEXT" | jq -r '.scope.id // empty')
+
+if [ -z "$scope_slug" ] || [ -z "$scope_id" ] || [ -z "$application_slug" ]; then
+	echo "   ❌ Could not resolve the scope from the context" >&2
+	echo "" >&2
+	echo "  💡 Possible causes:" >&2
+	echo "    • The context is missing application.slug, scope.slug or scope.id" >&2
+	echo "" >&2
+	echo "  🔧 How to fix:" >&2
+	echo "    • Check that the action was built with --build-context" >&2
+	echo "" >&2
+	exit 1
+fi
+
+DISTRIBUTION_APP_NAME="$application_slug-$scope_slug-$scope_id"
+SCOPE_ID="$scope_id"
+
+export DISTRIBUTION_APP_NAME SCOPE_ID

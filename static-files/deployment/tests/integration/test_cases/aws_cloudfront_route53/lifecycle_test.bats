@@ -20,11 +20,6 @@ TEST_DISTRIBUTION_S3_PREFIX="/tools/automation/v1.0.0"                      # di
 TEST_DISTRIBUTION_APP_NAME="automation-development-tools-7"                 # distribution_app_name
 TEST_DISTRIBUTION_COMMENT="Distribution for automation-development-tools-7" # derived from app_name
 
-# Route53 variables (network/route53/modules/variables.tf)
-TEST_NETWORK_DOMAIN="frontend.publicdomain.com"                             # network_domain
-TEST_NETWORK_SUBDOMAIN="automation-development-tools"                       # network_subdomain
-TEST_NETWORK_FULL_DOMAIN="automation-development-tools.frontend.publicdomain.com"  # computed
-
 # =============================================================================
 # Test Setup
 # =============================================================================
@@ -77,6 +72,19 @@ setup() {
   override_context "providers.cloud-providers.networking.hosted_public_zone_id" "$HOSTED_ZONE_ID"
   override_context 'providers.scope-configurations.network.aws_hosted_public_zone_id' "$HOSTED_ZONE_ID"
   override_context 'providers.scope-configurations.provider.aws_state_bucket' "tofu-state-bucket"
+
+  # Cache behaviors: one per path, each with its own invocations.
+  CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution += {
+    "behaviors": [
+      {"path_pattern": "/api/*", "viewer_protocol_policy": "https-only"},
+      {"path_pattern": "/static/*"}
+    ],
+    "custom_error_responses": [
+      {"error_code": 404, "response_code": 200, "response_page_path": "/index.html"},
+      {"error_code": 403, "response_code": 200, "response_page_path": "/index.html"}
+    ]
+  }')
+  export CONTEXT
 
   # Export environment variables
   export NETWORK_LAYER="route53"
