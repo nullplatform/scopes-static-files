@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.0.0](https://github.com/nullplatform/scopes-static-files/compare/v0.5.0...v1.0.0) (2026-09-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* distribution.lambda_associations is gone; attach functions through default_behavior or a behavior instead. The /static/* behavior and the SPA error responses are no longer created implicitly: declare them under behaviors and custom_error_responses.
+
+### Features
+
+* add Azure install reference for the static files scope ([632c34e](https://github.com/nullplatform/scopes-static-files/commit/632c34e105a998e3eda5a60c1b7351abb0ae69bc))
+* configurable cache behaviors on the AWS distribution layer ([#28](https://github.com/nullplatform/scopes-static-files/issues/28)) ([ed5b2ce](https://github.com/nullplatform/scopes-static-files/commit/ed5b2ce1d99c4a431ed8bb326bc504905ea7fd73))
+* **requirements/aws:** output CloudFront OAC bucket-policy statement ([d6e8157](https://github.com/nullplatform/scopes-static-files/commit/d6e8157b3ab7400eb7482196e9c35ce7f559948f))
+
+
+### Bug Fixes
+
+* declare the nullplatform provider source in the install example ([ed22cc1](https://github.com/nullplatform/scopes-static-files/commit/ed22cc19fc98f7b802eb9b8f406096abfb050ae8))
+* **deps:** bump OpenTofu to 1.12.6 ([#29](https://github.com/nullplatform/scopes-static-files/issues/29)) ([c5630e4](https://github.com/nullplatform/scopes-static-files/commit/c5630e4e4a710135d711f14ba64d7898d4b5f0a7))
+* **scripts:** generate the tofu test inside the module directory ([#27](https://github.com/nullplatform/scopes-static-files/issues/27)) ([ca4edd7](https://github.com/nullplatform/scopes-static-files/commit/ca4edd75784830d5c57b16eb1455d4cd25262c16))
+
 ## [0.5.0](https://github.com/nullplatform/scopes-static-files/compare/v0.4.0...v0.5.0) (2026-09-01)
 
 
