@@ -1,0 +1,45 @@
+#!/bin/bash
+# List the scope's instances.
+#
+# A static scope runs no pods: what serves traffic is the CloudFront
+# distribution, so that is the single instance it reports. The platform reads
+# this list to show the scope's instances and to tell whether a blue/green
+# deployment is healthy enough to switch traffic onto it.
+
+set -uo pipefail
+
+if [ -z "${DISTRIBUTION_APP_NAME:-}" ]; then
+	echo "   ❌ Application name is not available" >&2
+	echo "" >&2
+	echo "  💡 Possible causes:" >&2
+	echo "    • build_context did not run or failed to export DISTRIBUTION_APP_NAME" >&2
+	echo "" >&2
+	echo "  🔧 How to fix:" >&2
+	echo "    • Check that the build_context step ran before this one" >&2
+	echo "" >&2
+	exit 1
+fi
+
+distributions=$(aws cloudfront list-distributions 2>/dev/null || echo '{}')
+
+# The distribution carries the scope in its comment, which is how the
+# distribution layer names it: "Distribution for <app>-<scope>-<scope id>".
+echo "$distributions" | jq \
+	--arg comment "Distribution for ${DISTRIBUTION_APP_NAME}" \
+	'{
+		results: [
+			(.DistributionList.Items // [])[]
+			| select(.Comment == $comment)
+			| {
+				id: .Id,
+				selector: { distribution_id: .Id },
+				state: (if .Status == "Deployed" then "Running" else "Pending" end),
+				launch_time: .LastModifiedTime,
+				details: {
+					domain: .DomainName,
+					aliases: ((.Aliases.Items) // []),
+					origin: ((.Origins.Items // [])[0] | "\(.DomainName)\(.OriginPath // "")")
+				}
+			}
+		]
+	}'

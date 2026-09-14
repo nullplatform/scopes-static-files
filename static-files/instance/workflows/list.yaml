@@ -1,0 +1,24 @@
+include:
+  - "$SERVICE_PATH/values.yaml"
+steps:
+  - name: assume role
+    type: script
+    file: "$SERVICE_PATH/utils/assume_role_step"
+    output:
+      - name: AWS_ACCESS_KEY_ID
+        type: environment
+      - name: AWS_SECRET_ACCESS_KEY
+        type: environment
+      - name: AWS_SESSION_TOKEN
+        type: environment
+  - name: build_context
+    type: script
+    file: "$SERVICE_PATH/deployment/instance/build_context"
+    output:
+      - name: DISTRIBUTION_APP_NAME
+        type: environment
+      - name: SCOPE_ID
+        type: environment
+  - name: list_instances
+    type: script
+    file: "$SERVICE_PATH/deployment/instance/list_instances"
