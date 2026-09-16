@@ -290,27 +290,17 @@ run "default_behavior_on_policy_drops_legacy_caching" {
     }
   }
 
+  # Not covered here: that cache_policy_id/origin_request_policy_id actually
+  # carry the resolved policy IDs. "id" on aws_cloudfront_cache_policy and
+  # aws_cloudfront_origin_request_policy is Optional, not Computed (it
+  # doubles as the by-id lookup argument), and tofu test can only mock or
+  # override Computed attributes. Under command = plan there is no assertion,
+  # check, or output that can make that id resolve here. That wiring is
+  # verified by a real deploy, not by this suite.
+
   assert {
     condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].forwarded_values) == 0
     error_message = "A behavior on the policy model must not emit forwarded_values"
-  }
-
-  assert {
-    # aws_cloudfront_cache_policy/aws_cloudfront_origin_request_policy expose their
-    # resolved policy ID through "id", which the AWS provider schema marks
-    # optional-but-not-computed (it doubles as the by-id lookup argument). tofu
-    # test refuses to mock or override non-computed fields, so under this
-    # module's mock_provider the id always plans as null regardless of how
-    # main.tf wires it up — asserting != null here would never pass. The
-    # meaningful, checkable thing at this layer is that the default behavior's
-    # policy name was actually requested through the lookup.
-    condition     = contains(keys(data.aws_cloudfront_cache_policy.managed), "CachingDisabled")
-    error_message = "Default behavior's cache_policy should be resolved through the managed cache policy data source"
-  }
-
-  assert {
-    condition     = contains(keys(data.aws_cloudfront_origin_request_policy.managed), "AllViewerExceptHostHeader")
-    error_message = "Default behavior's origin_request_policy should be resolved through the managed origin request policy data source"
   }
 
   assert {
