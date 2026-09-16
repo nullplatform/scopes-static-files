@@ -143,8 +143,8 @@ dynamic "forwarded_values" {
   }
 }
 
-cache_policy_id          = local.default_behavior_cache_policy_id
-origin_request_policy_id = local.default_behavior_origin_request_policy_id
+cache_policy_id          = local.distribution_default_cache_policy_id
+origin_request_policy_id = local.distribution_default_origin_request_policy_id
 
 min_ttl     = var.distribution_default_behavior.cache_mode == "legacy" ? 0 : null
 default_ttl = var.distribution_default_behavior.cache_mode == "legacy" ? 3600 : null
