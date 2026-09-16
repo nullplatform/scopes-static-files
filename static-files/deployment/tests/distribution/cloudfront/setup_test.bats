@@ -224,11 +224,14 @@ run_cloudfront_setup() {
 }
 
 @test "Should drop cache fields left empty by the UI" {
-  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.default_cache_mode = ""')
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution += {
+    "default_cache_mode": "",
+    "default_cache_policy": "CachingDisabled"
+  }')
 
   run_cloudfront_setup
 
-  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_default_behavior')" "{}"
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_default_behavior')" '{"cache_policy":"CachingDisabled"}'
 }
 
 @test "Should pass through the configured behaviors keeping their order" {
