@@ -191,9 +191,40 @@ The agent to target is the local one, whose tags are the match key for the insta
 Its worker image is built locally under the ECR name and never pushed, so the agent
 resolves it from the local Docker daemon.
 
+### Response headers policy
+
+A fourth field, `default_response_headers_policy` on the default behavior and
+`response_headers_policy` inside `behaviors[]`, carrying the managed security and CORS
+policies:
+
+```jsonc
+{
+  "type": "string",
+  "title": "Response headers policy",
+  "default": "",
+  "oneOf": [
+    { "const": "",                                          "title": "None" },
+    { "const": "SecurityHeadersPolicy",                     "title": "Security headers" },
+    { "const": "CORS-and-SecurityHeadersPolicy",            "title": "CORS and security headers" },
+    { "const": "SimpleCORS",                                "title": "Simple CORS" },
+    { "const": "CORS-With-Preflight",                       "title": "CORS with preflight" },
+    { "const": "CORS-with-preflight-and-SecurityHeadersPolicy", "title": "CORS with preflight and security headers" }
+  ]
+}
+```
+
+**It is not gated behind `cache_mode`.** The AWS console groups the three policy fields
+under one heading, but that is a UI grouping, not the resource's shape:
+`response_headers_policy_id` is not mutually exclusive with `forwarded_values` — only the
+cache key and the TTLs are. Gating it would force anyone who wants HSTS to also change
+their caching model. The field is always visible, and it sits in the CACHE section beside
+`cache_mode` rather than inside the pair that `cache_mode` reveals.
+
+`""` is the default and means no policy: the module emits `response_headers_policy_id =
+null`, which is what every distribution does today.
+
 ## Out of scope
 
-- **Response headers policy.** It sits on the same console screen but was not asked for.
 - **Custom (non-managed) policies.** See the schema section.
 - **Azure.** The `blob-cdn` distribution has no equivalent model; these fields stay under
   the AWS branch of the form, as the rest of the CloudFront settings already do.

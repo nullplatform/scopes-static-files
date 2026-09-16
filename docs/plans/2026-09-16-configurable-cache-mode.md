@@ -20,6 +20,9 @@
 - Cache policy enum: `CachingOptimized`, `CachingDisabled`, `CachingOptimizedForUncompressedObjects`, `Amplify`. Default `CachingOptimized`.
 - Origin request policy enum: `AllViewerExceptHostHeader`, `AllViewer`, `CORS-S3Origin`, `CORS-CustomOrigin`, `UserAgentRefererHeaders`. Default `AllViewerExceptHostHeader`.
 - These fields live under the AWS branch of the form only. Azure (`blob-cdn`) is untouched.
+- Response headers policy enum: `""` (None, the default), `SecurityHeadersPolicy`, `CORS-and-SecurityHeadersPolicy`, `SimpleCORS`, `CORS-With-Preflight`, `CORS-with-preflight-and-SecurityHeadersPolicy`.
+- `response_headers_policy` is NOT gated behind `cache_mode`. It is always visible and works in both modes — it is not mutually exclusive with `forwarded_values`.
+- Array controls in the uiSchema carry `elementLabelProp` so each item is labelled by a field that identifies it, not by whatever the renderer picks.
 
 ---
 
@@ -650,6 +653,239 @@ Expected: PASS
 ```bash
 git add static-files/deployment/distribution/cloudfront/modules/main.tf static-files/deployment/distribution/cloudfront/modules/cloudfront.tftest.hcl
 git commit -m "feat(cloudfront): honour the cache mode on ordered behaviors"
+```
+
+---
+
+### Task 7: Response headers policy — schema and uiSchema
+
+Runs BEFORE Task 2, so the form can be reviewed in the UI before any code is wired.
+
+**Files:**
+- Modify: `static-files/specs/scope-configuration.json.tpl`
+
+**Interfaces:**
+- Consumes: the CACHE section built in Task 1.
+- Produces: `distribution.default_response_headers_policy` and, inside each `distribution.behaviors[]` item, `response_headers_policy`. Task 8 reads both names.
+
+- [ ] **Step 1: Add the field to the default behavior**
+
+In the `distribution` properties block, after `default_origin_request_policy`, add:
+
+```jsonc
+"default_response_headers_policy": {
+  "type": "string",
+  "title": "Response headers policy",
+  "description": "Managed policy adding security or CORS headers to every response. Independent of the cache settings.",
+  "default": "",
+  "oneOf": [
+    { "const": "", "title": "None" },
+    { "const": "SecurityHeadersPolicy", "title": "Security headers" },
+    { "const": "CORS-and-SecurityHeadersPolicy", "title": "CORS and security headers" },
+    { "const": "SimpleCORS", "title": "Simple CORS" },
+    { "const": "CORS-With-Preflight", "title": "CORS with preflight" },
+    { "const": "CORS-with-preflight-and-SecurityHeadersPolicy", "title": "CORS with preflight and security headers" }
+  ]
+}
+```
+
+Expand the `oneOf` entries one key per line, matching the surrounding file style.
+
+- [ ] **Step 2: Add the unprefixed field to the behaviors item**
+
+In `behaviors.items.properties`, after `origin_request_policy`, add `response_headers_policy` — the identical body with the `default_` dropped from the key name only.
+
+- [ ] **Step 3: Add the control to the CACHE section**
+
+In the CACHE `Categorization` added by Task 1, append a control after the two policy controls:
+
+```jsonc
+{
+  "type": "Control",
+  "scope": "#/properties/distribution/properties/default_response_headers_policy"
+}
+```
+
+**It carries NO `rule`.** The two controls above it are hidden when `cache_mode` is not `policy`; this one is not, because a response headers policy works in either cache mode. Adding a rule here is a defect, not a consistency fix.
+
+- [ ] **Step 4: Add the control to the behaviors detail**
+
+In the behaviors `detail`, after the `origin_request_policy` control, add the same control with the relative scope `#/properties/response_headers_policy`, again with no `rule`.
+
+- [ ] **Step 5: Verify**
+
+Run: `grep -c '"default_response_headers_policy"' static-files/specs/scope-configuration.json.tpl`
+Expected: `1`
+
+Run: `python3 -c "import json; s=open('static-files/specs/scope-configuration.json.tpl').read().replace('{{ env.Getenv \"NRN\" }}', 'organization=1'); json.loads(s); print('valid JSON')"`
+Expected: `valid JSON`
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add static-files/specs/scope-configuration.json.tpl
+git commit -m "feat(specs): offer a response headers policy per behavior"
+```
+
+---
+
+### Task 8: Response headers policy — wiring
+
+Runs LAST, after Task 6. Threads the field from Task 7 through the same path Tasks 2-6 built for the cache fields.
+
+**Files:**
+- Modify: `static-files/deployment/distribution/cloudfront/setup` (the `distribution_default_behavior` jq object)
+- Modify: `static-files/deployment/distribution/cloudfront/modules/variables.tf` (both behavior objects)
+- Modify: `static-files/deployment/distribution/cloudfront/modules/data.tf`
+- Modify: `static-files/deployment/distribution/cloudfront/modules/locals.tf`
+- Modify: `static-files/deployment/distribution/cloudfront/modules/main.tf` (both behavior blocks)
+- Test: `static-files/deployment/tests/distribution/cloudfront/setup_test.bats`, `static-files/deployment/distribution/cloudfront/modules/cloudfront.tftest.hcl`
+
+**Interfaces:**
+- Consumes: the schema keys from Task 7; the locals and data-source conventions established in Task 4.
+- Produces: nothing downstream — this is the last task.
+
+- [ ] **Step 1: Write the failing tests**
+
+Add to `setup_test.bats`:
+
+```bash
+@test "Should group the response headers policy into the default behavior" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution += {
+    "default_response_headers_policy": "SecurityHeadersPolicy"
+  }')
+
+  run_cloudfront_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_default_behavior.response_headers_policy')" "SecurityHeadersPolicy"
+}
+```
+
+Add to `cloudfront.tftest.hcl`:
+
+```hcl
+run "response_headers_policy_works_in_legacy_mode" {
+  command = plan
+
+  variables {
+    distribution_default_behavior = {
+      cache_mode              = "legacy"
+      response_headers_policy = "SecurityHeadersPolicy"
+    }
+  }
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].forwarded_values) == 1
+    error_message = "A response headers policy must not disturb legacy caching"
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].response_headers_policy_id != null
+    error_message = "Default behavior should carry the resolved response headers policy id"
+  }
+}
+
+run "no_response_headers_policy_by_default" {
+  command = plan
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].response_headers_policy_id == null
+    error_message = "A behavior that names no response headers policy must not carry an id"
+  }
+}
+```
+
+- [ ] **Step 2: Run them to verify they fail**
+
+Run: `./testing/run_bats_tests.sh static-files && ./testing/run_tofu_tests.sh static-files`
+Expected: FAIL on both — the key is not mapped and the argument is not set.
+
+- [ ] **Step 3: Map it in setup**
+
+Add `response_headers_policy: .default_response_headers_policy` to the `distribution_default_behavior` jq object, as a sibling of `origin_request_policy`. The existing `with_entries(select(.value != null))` drops it when unset.
+
+- [ ] **Step 4: Add the variable attribute and validation**
+
+Add to both behavior object types:
+
+```hcl
+    response_headers_policy = optional(string, "")
+```
+
+and to each variable, the matching validation:
+
+```hcl
+  validation {
+    condition = contains([
+      "", "SecurityHeadersPolicy", "CORS-and-SecurityHeadersPolicy",
+      "SimpleCORS", "CORS-With-Preflight",
+      "CORS-with-preflight-and-SecurityHeadersPolicy",
+    ], var.distribution_default_behavior.response_headers_policy)
+    error_message = "response_headers_policy must name a managed CloudFront response headers policy, or be empty."
+  }
+```
+
+For `distribution_behaviors`, wrap the same `contains(...)` in `alltrue([for b in var.distribution_behaviors : ...])` with `b.response_headers_policy`, matching how the other list validations are written.
+
+- [ ] **Step 5: Add the data source**
+
+Append to `data.tf`:
+
+```hcl
+data "aws_cloudfront_response_headers_policy" "managed" {
+  for_each = local.distribution_requested_response_headers_policies
+  name     = "Managed-${each.key}"
+}
+```
+
+- [ ] **Step 6: Add the locals**
+
+Append to the cache policies block in `locals.tf`. Note the selection differs from the cache policies: every behavior contributes, regardless of `cache_mode`, and the empty string is what excludes one.
+
+```hcl
+  distribution_requested_response_headers_policies = toset([
+    for b in concat([var.distribution_default_behavior], var.distribution_behaviors) :
+    b.response_headers_policy if b.response_headers_policy != ""
+  ])
+
+  distribution_default_response_headers_policy_id = (
+    var.distribution_default_behavior.response_headers_policy != ""
+    ? data.aws_cloudfront_response_headers_policy.managed[var.distribution_default_behavior.response_headers_policy].id
+    : null
+  )
+
+  distribution_behavior_response_headers_policy_ids = [
+    for b in var.distribution_behaviors :
+    b.response_headers_policy != "" ? data.aws_cloudfront_response_headers_policy.managed[b.response_headers_policy].id : null
+  ]
+```
+
+- [ ] **Step 7: Set the argument on both behaviors**
+
+In `default_cache_behavior`, beside `cache_policy_id`:
+
+```hcl
+    response_headers_policy_id = local.distribution_default_response_headers_policy_id
+```
+
+In the `ordered_cache_behavior` dynamic block, beside its `cache_policy_id`:
+
+```hcl
+      response_headers_policy_id = local.distribution_behavior_response_headers_policy_ids[ordered_cache_behavior.key]
+```
+
+Neither is inside the `cache_mode` conditional.
+
+- [ ] **Step 8: Run the full suite**
+
+Run: `make test-unit && make test-tofu`
+Expected: PASS
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add static-files/deployment/distribution/cloudfront/setup static-files/deployment/distribution/cloudfront/modules static-files/deployment/tests/distribution/cloudfront/setup_test.bats
+git commit -m "feat(cloudfront): apply the response headers policy in both cache modes"
 ```
 
 ---
