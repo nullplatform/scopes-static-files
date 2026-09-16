@@ -41,6 +41,9 @@ variable "distribution_default_behavior" {
   type = object({
     viewer_protocol_policy = optional(string, "redirect-to-https")
     compress               = optional(bool, true)
+    cache_mode             = optional(string, "legacy")
+    cache_policy           = optional(string, "CachingOptimized")
+    origin_request_policy  = optional(string, "AllViewerExceptHostHeader")
     invocations = optional(list(object({
       event_type   = string
       function_arn = string
@@ -51,6 +54,27 @@ variable "distribution_default_behavior" {
   validation {
     condition     = contains(["allow-all", "https-only", "redirect-to-https"], var.distribution_default_behavior.viewer_protocol_policy)
     error_message = "viewer_protocol_policy must be one of: allow-all, https-only, redirect-to-https."
+  }
+
+  validation {
+    condition     = contains(["legacy", "policy"], var.distribution_default_behavior.cache_mode)
+    error_message = "cache_mode must be one of: legacy, policy."
+  }
+
+  validation {
+    condition = contains([
+      "CachingOptimized", "CachingDisabled",
+      "CachingOptimizedForUncompressedObjects", "Amplify",
+    ], var.distribution_default_behavior.cache_policy)
+    error_message = "cache_policy must name a managed CloudFront cache policy."
+  }
+
+  validation {
+    condition = contains([
+      "AllViewerExceptHostHeader", "AllViewer",
+      "CORS-S3Origin", "CORS-CustomOrigin", "UserAgentRefererHeaders",
+    ], var.distribution_default_behavior.origin_request_policy)
+    error_message = "origin_request_policy must name a managed CloudFront origin request policy."
   }
 
   validation {
@@ -96,6 +120,9 @@ variable "distribution_behaviors" {
     path_pattern           = string
     viewer_protocol_policy = optional(string, "redirect-to-https")
     compress               = optional(bool, true)
+    cache_mode             = optional(string, "legacy")
+    cache_policy           = optional(string, "CachingOptimized")
+    origin_request_policy  = optional(string, "AllViewerExceptHostHeader")
     invocations = optional(list(object({
       event_type   = string
       function_arn = string
@@ -144,6 +171,31 @@ variable "distribution_behaviors" {
       length(distinct([for i in b.invocations : i.event_type])) == length(b.invocations)
     ])
     error_message = "CloudFront runs a single function per event: each invocation of a behavior needs its own event."
+  }
+
+  validation {
+    condition     = alltrue([for b in var.distribution_behaviors : contains(["legacy", "policy"], b.cache_mode)])
+    error_message = "cache_mode must be one of: legacy, policy."
+  }
+
+  validation {
+    condition = alltrue([
+      for b in var.distribution_behaviors : contains([
+        "CachingOptimized", "CachingDisabled",
+        "CachingOptimizedForUncompressedObjects", "Amplify",
+      ], b.cache_policy)
+    ])
+    error_message = "cache_policy must name a managed CloudFront cache policy."
+  }
+
+  validation {
+    condition = alltrue([
+      for b in var.distribution_behaviors : contains([
+        "AllViewerExceptHostHeader", "AllViewer",
+        "CORS-S3Origin", "CORS-CustomOrigin", "UserAgentRefererHeaders",
+      ], b.origin_request_policy)
+    ])
+    error_message = "origin_request_policy must name a managed CloudFront origin request policy."
   }
 
   validation {

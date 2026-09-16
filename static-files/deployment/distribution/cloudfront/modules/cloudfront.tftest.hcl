@@ -912,3 +912,18 @@ run "rejects_mixing_function_kinds_on_an_ordered_behavior" {
 
   expect_failures = [var.distribution_behaviors]
 }
+
+# =============================================================================
+# Test: An unknown cache_mode is rejected
+# =============================================================================
+run "cache_mode_rejects_unknown_values" {
+  command = plan
+
+  variables {
+    distribution_default_behavior = {
+      cache_mode = "policies"
+    }
+  }
+
+  expect_failures = [var.distribution_default_behavior]
+}
