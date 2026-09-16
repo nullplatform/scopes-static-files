@@ -967,6 +967,7 @@
                   "type": "Control",
                   "scope": "#/properties/distribution/properties/behaviors",
                   "options": {
+                    "elementLabelProp": "path_pattern",
                     "detail": {
                       "type": "VerticalLayout",
                       "elements": [
