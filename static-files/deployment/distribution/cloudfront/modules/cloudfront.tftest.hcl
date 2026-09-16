@@ -965,3 +965,53 @@ run "cache_mode_rejects_unknown_values" {
 
   expect_failures = [var.distribution_default_behavior]
 }
+
+# =============================================================================
+# Test: Each ordered behavior keeps its own cache mode
+# =============================================================================
+run "each_behavior_keeps_its_own_cache_mode" {
+  command = plan
+
+  variables {
+    distribution_default_behavior = {
+      cache_mode = "legacy"
+    }
+    distribution_behaviors = [
+      {
+        path_pattern          = "/api/*"
+        cache_mode            = "policy"
+        cache_policy          = "CachingDisabled"
+        origin_request_policy = "AllViewerExceptHostHeader"
+      },
+      {
+        path_pattern = "/static/*"
+      },
+    ]
+  }
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].forwarded_values) == 1
+    error_message = "The default behavior was left on legacy and should keep forwarded_values"
+  }
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.ordered_cache_behavior[0].forwarded_values) == 0
+    error_message = "The /api/* behavior is on the policy model and should drop forwarded_values"
+  }
+
+  # Not covered here: that cache_policy_id actually carries the resolved policy
+  # id. "id" on aws_cloudfront_cache_policy is Optional, not Computed, and
+  # tofu test can only mock or override Computed attributes, so under
+  # command = plan it stays null regardless of mode. See the identical note on
+  # "default_behavior_on_policy_drops_legacy_caching" above.
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.ordered_cache_behavior[1].forwarded_values) == 1
+    error_message = "The /static/* behavior set no mode and should default to legacy"
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.ordered_cache_behavior[1].cache_policy_id == null
+    error_message = "A legacy behavior must not carry a cache policy id"
+  }
+}

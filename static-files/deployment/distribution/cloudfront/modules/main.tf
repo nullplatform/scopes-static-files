@@ -76,17 +76,24 @@ resource "aws_cloudfront_distribution" "static" {
       cached_methods   = ["GET", "HEAD"]
       target_origin_id = local.distribution_origin_id
 
-      forwarded_values {
-        query_string = false
-        cookies {
-          forward = "none"
+      dynamic "forwarded_values" {
+        for_each = ordered_cache_behavior.value.cache_mode == "legacy" ? [1] : []
+        content {
+          query_string = false
+          cookies {
+            forward = "none"
+          }
         }
       }
 
+      cache_policy_id          = local.distribution_behavior_cache_policy_ids[ordered_cache_behavior.key]
+      origin_request_policy_id = local.distribution_behavior_origin_request_policy_ids[ordered_cache_behavior.key]
+
+      min_ttl     = ordered_cache_behavior.value.cache_mode == "legacy" ? 0 : null
+      default_ttl = ordered_cache_behavior.value.cache_mode == "legacy" ? 3600 : null
+      max_ttl     = ordered_cache_behavior.value.cache_mode == "legacy" ? 86400 : null
+
       viewer_protocol_policy = ordered_cache_behavior.value.viewer_protocol_policy
-      min_ttl                = 0
-      default_ttl            = 3600
-      max_ttl                = 86400
       compress               = ordered_cache_behavior.value.compress
 
       dynamic "lambda_function_association" {
