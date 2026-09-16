@@ -130,7 +130,10 @@ distribution_default_behavior=$(echo "$distribution_config" | jq -c '
   {
     viewer_protocol_policy: .default_viewer_protocol_policy,
     compress: .default_compress,
-    invocations: .default_invocations
+    invocations: .default_invocations,
+    cache_mode: .default_cache_mode,
+    cache_policy: .default_cache_policy,
+    origin_request_policy: .default_origin_request_policy
   } | with_entries(select(.value != null))')
 
 distribution_behaviors=$(echo "$distribution_config" | jq -c '.behaviors // []')

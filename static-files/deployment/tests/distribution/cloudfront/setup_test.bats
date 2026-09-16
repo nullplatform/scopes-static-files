@@ -206,6 +206,31 @@ run_cloudfront_setup() {
   assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_default_behavior')" '{"compress":false}'
 }
 
+@test "Should group the flat cache fields into the default behavior" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution += {
+    "default_cache_mode": "policy",
+    "default_cache_policy": "CachingDisabled",
+    "default_origin_request_policy": "AllViewerExceptHostHeader"
+  }')
+
+  run_cloudfront_setup
+
+  local expected='{
+    "cache_mode": "policy",
+    "cache_policy": "CachingDisabled",
+    "origin_request_policy": "AllViewerExceptHostHeader"
+  }'
+  assert_json_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_default_behavior')" "$expected" "distribution_default_behavior"
+}
+
+@test "Should drop cache fields left empty by the UI" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.default_cache_mode = ""')
+
+  run_cloudfront_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_default_behavior')" "{}"
+}
+
 @test "Should pass through the configured behaviors keeping their order" {
   export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.behaviors = [
     {"path_pattern": "/api/*", "viewer_protocol_policy": "https-only"},
