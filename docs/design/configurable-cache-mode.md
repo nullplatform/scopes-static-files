@@ -54,11 +54,18 @@ There is no cache policy anywhere in the module: `main.tf`, `locals.tf`, `data.t
 
 ### Schema
 
-Three fields, added to the default behavior (`distribution.*`) and to each item of
+Three fields, added to the default behavior and to each item of
 `distribution.behaviors[]`. The two models are discriminated by an explicit field rather
 than inferred from whether a policy is set — inference reads as a shortcut, does not map
 onto the console screen the customer referenced, and leaves no natural place to express
 the preselected origin request policy.
+
+On the default behavior they carry the `default_` prefix — `default_cache_mode`,
+`default_cache_policy`, `default_origin_request_policy` — because the form resolves only
+two levels of nesting, which is why `default_viewer_protocol_policy`, `default_compress`
+and `default_invocations` are already flat. `setup` folds them back into the single
+object the module takes. Inside `behaviors[]` there is no prefix: the nesting is one
+level there, so the names are `cache_mode`, `cache_policy` and `origin_request_policy`.
 
 ```jsonc
 "cache_mode": {
