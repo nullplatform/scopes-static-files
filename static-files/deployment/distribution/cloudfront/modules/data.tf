@@ -26,3 +26,8 @@ data "aws_cloudfront_origin_request_policy" "managed" {
   for_each = local.distribution_requested_origin_request_policies
   name     = "Managed-${each.key}"
 }
+
+data "aws_cloudfront_response_headers_policy" "managed" {
+  for_each = local.distribution_requested_response_headers_policies
+  name     = "Managed-${each.key}"
+}

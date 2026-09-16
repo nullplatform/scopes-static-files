@@ -1015,3 +1015,38 @@ run "each_behavior_keeps_its_own_cache_mode" {
     error_message = "A legacy behavior must not carry a cache policy id"
   }
 }
+
+# =============================================================================
+# Test: A response headers policy works in either cache mode
+# =============================================================================
+run "response_headers_policy_works_in_legacy_mode" {
+  command = plan
+
+  variables {
+    distribution_default_behavior = {
+      cache_mode              = "legacy"
+      response_headers_policy = "SecurityHeadersPolicy"
+    }
+  }
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].forwarded_values) == 1
+    error_message = "A response headers policy must not disturb legacy caching"
+  }
+
+  # Not covered here: that response_headers_policy_id actually carries the
+  # resolved policy id. "id" on aws_cloudfront_response_headers_policy is
+  # Optional, not Computed, and tofu test can only mock or override Computed
+  # attributes, so under command = plan it stays null regardless of mode. See
+  # the identical note on "default_behavior_on_policy_drops_legacy_caching"
+  # above.
+}
+
+run "no_response_headers_policy_by_default" {
+  command = plan
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].response_headers_policy_id == null
+    error_message = "A behavior that names no response headers policy must not carry an id"
+  }
+}

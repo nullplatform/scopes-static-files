@@ -223,6 +223,16 @@ run_cloudfront_setup() {
   assert_json_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_default_behavior')" "$expected" "distribution_default_behavior"
 }
 
+@test "Should group the response headers policy into the default behavior" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution += {
+    "default_response_headers_policy": "SecurityHeadersPolicy"
+  }')
+
+  run_cloudfront_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_default_behavior.response_headers_policy')" "SecurityHeadersPolicy"
+}
+
 @test "Should drop cache fields left empty by the UI" {
   export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution += {
     "default_cache_mode": "",

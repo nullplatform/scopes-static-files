@@ -39,11 +39,12 @@ variable "distribution_cloudfront_endpoint_url" {
 variable "distribution_default_behavior" {
   description = "Behavior serving every request no path pattern matches. CloudFront always requires it."
   type = object({
-    viewer_protocol_policy = optional(string, "redirect-to-https")
-    compress               = optional(bool, true)
-    cache_mode             = optional(string, "legacy")
-    cache_policy           = optional(string, "CachingOptimized")
-    origin_request_policy  = optional(string, "AllViewerExceptHostHeader")
+    viewer_protocol_policy  = optional(string, "redirect-to-https")
+    compress                = optional(bool, true)
+    cache_mode              = optional(string, "legacy")
+    cache_policy            = optional(string, "CachingOptimized")
+    origin_request_policy   = optional(string, "AllViewerExceptHostHeader")
+    response_headers_policy = optional(string, "")
     invocations = optional(list(object({
       event_type   = string
       function_arn = string
@@ -75,6 +76,15 @@ variable "distribution_default_behavior" {
       "CORS-S3Origin", "CORS-CustomOrigin", "UserAgentRefererHeaders",
     ], var.distribution_default_behavior.origin_request_policy)
     error_message = "origin_request_policy must name a managed CloudFront origin request policy."
+  }
+
+  validation {
+    condition = contains([
+      "", "SecurityHeadersPolicy", "CORS-and-SecurityHeadersPolicy",
+      "SimpleCORS", "CORS-With-Preflight",
+      "CORS-with-preflight-and-SecurityHeadersPolicy",
+    ], var.distribution_default_behavior.response_headers_policy)
+    error_message = "response_headers_policy must name a managed CloudFront response headers policy, or be empty."
   }
 
   validation {
@@ -117,12 +127,13 @@ variable "distribution_behaviors" {
     CloudFront precedence: the first pattern that matches a request wins.
   EOT
   type = list(object({
-    path_pattern           = string
-    viewer_protocol_policy = optional(string, "redirect-to-https")
-    compress               = optional(bool, true)
-    cache_mode             = optional(string, "legacy")
-    cache_policy           = optional(string, "CachingOptimized")
-    origin_request_policy  = optional(string, "AllViewerExceptHostHeader")
+    path_pattern            = string
+    viewer_protocol_policy  = optional(string, "redirect-to-https")
+    compress                = optional(bool, true)
+    cache_mode              = optional(string, "legacy")
+    cache_policy            = optional(string, "CachingOptimized")
+    origin_request_policy   = optional(string, "AllViewerExceptHostHeader")
+    response_headers_policy = optional(string, "")
     invocations = optional(list(object({
       event_type   = string
       function_arn = string
@@ -196,6 +207,17 @@ variable "distribution_behaviors" {
       ], b.origin_request_policy)
     ])
     error_message = "origin_request_policy must name a managed CloudFront origin request policy."
+  }
+
+  validation {
+    condition = alltrue([
+      for b in var.distribution_behaviors : contains([
+        "", "SecurityHeadersPolicy", "CORS-and-SecurityHeadersPolicy",
+        "SimpleCORS", "CORS-With-Preflight",
+        "CORS-with-preflight-and-SecurityHeadersPolicy",
+      ], b.response_headers_policy)
+    ])
+    error_message = "response_headers_policy must name a managed CloudFront response headers policy, or be empty."
   }
 
   validation {

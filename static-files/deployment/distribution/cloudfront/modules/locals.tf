@@ -108,6 +108,26 @@ locals {
     b.cache_mode == "policy" ? data.aws_cloudfront_origin_request_policy.managed[b.origin_request_policy].id : null
   ]
 
+  # Response headers policy: unlike cache_policy/origin_request_policy, this
+  # is not part of the cache-mode split. It applies in both legacy and policy
+  # mode, so every behavior contributes here regardless of cache_mode — only
+  # an empty string (no policy chosen) excludes one.
+  distribution_requested_response_headers_policies = toset([
+    for b in concat([var.distribution_default_behavior], var.distribution_behaviors) :
+    b.response_headers_policy if b.response_headers_policy != ""
+  ])
+
+  distribution_default_response_headers_policy_id = (
+    var.distribution_default_behavior.response_headers_policy != ""
+    ? data.aws_cloudfront_response_headers_policy.managed[var.distribution_default_behavior.response_headers_policy].id
+    : null
+  )
+
+  distribution_behavior_response_headers_policy_ids = [
+    for b in var.distribution_behaviors :
+    b.response_headers_policy != "" ? data.aws_cloudfront_response_headers_policy.managed[b.response_headers_policy].id : null
+  ]
+
   # Cross-module references (consumed by network/route53)
   distribution_target_domain  = aws_cloudfront_distribution.static.domain_name
   distribution_target_zone_id = aws_cloudfront_distribution.static.hosted_zone_id

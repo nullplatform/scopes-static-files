@@ -38,8 +38,9 @@ resource "aws_cloudfront_distribution" "static" {
       }
     }
 
-    cache_policy_id          = local.distribution_default_cache_policy_id
-    origin_request_policy_id = local.distribution_default_origin_request_policy_id
+    cache_policy_id            = local.distribution_default_cache_policy_id
+    origin_request_policy_id   = local.distribution_default_origin_request_policy_id
+    response_headers_policy_id = local.distribution_default_response_headers_policy_id
 
     min_ttl     = var.distribution_default_behavior.cache_mode == "legacy" ? 0 : null
     default_ttl = var.distribution_default_behavior.cache_mode == "legacy" ? 3600 : null
@@ -86,8 +87,9 @@ resource "aws_cloudfront_distribution" "static" {
         }
       }
 
-      cache_policy_id          = local.distribution_behavior_cache_policy_ids[ordered_cache_behavior.key]
-      origin_request_policy_id = local.distribution_behavior_origin_request_policy_ids[ordered_cache_behavior.key]
+      cache_policy_id            = local.distribution_behavior_cache_policy_ids[ordered_cache_behavior.key]
+      origin_request_policy_id   = local.distribution_behavior_origin_request_policy_ids[ordered_cache_behavior.key]
+      response_headers_policy_id = local.distribution_behavior_response_headers_policy_ids[ordered_cache_behavior.key]
 
       min_ttl     = ordered_cache_behavior.value.cache_mode == "legacy" ? 0 : null
       default_ttl = ordered_cache_behavior.value.cache_mode == "legacy" ? 3600 : null
