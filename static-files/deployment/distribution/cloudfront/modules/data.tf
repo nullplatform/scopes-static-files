@@ -13,3 +13,16 @@ data "aws_acm_certificate" "custom_domain" {
   statuses    = ["ISSUED", "PENDING_VALIDATION"]
   most_recent = true
 }
+
+# Managed cache and origin request policies, looked up by name. Only the names
+# the variables accept are ever requested, and only when a behavior asks for the
+# policy model — a legacy-only distribution reads neither.
+data "aws_cloudfront_cache_policy" "managed" {
+  for_each = local.distribution_requested_cache_policies
+  name     = "Managed-${each.key}"
+}
+
+data "aws_cloudfront_origin_request_policy" "managed" {
+  for_each = local.distribution_requested_origin_request_policies
+  name     = "Managed-${each.key}"
+}

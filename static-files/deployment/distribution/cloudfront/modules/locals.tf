@@ -67,6 +67,47 @@ locals {
     ]
   ]
 
+  # ---------------------------------------------------------------------------
+  # Cache policies
+  #
+  # Only behaviors on the policy model contribute a name to look up, so a
+  # distribution left on legacy reads no data source at all.
+  # ---------------------------------------------------------------------------
+  distribution_policy_behaviors = [
+    for b in concat([var.distribution_default_behavior], var.distribution_behaviors) : b
+    if b.cache_mode == "policy"
+  ]
+
+  distribution_requested_cache_policies = toset([
+    for b in local.distribution_policy_behaviors : b.cache_policy
+  ])
+
+  distribution_requested_origin_request_policies = toset([
+    for b in local.distribution_policy_behaviors : b.origin_request_policy
+  ])
+
+  distribution_default_cache_policy_id = (
+    var.distribution_default_behavior.cache_mode == "policy"
+    ? data.aws_cloudfront_cache_policy.managed[var.distribution_default_behavior.cache_policy].id
+    : null
+  )
+
+  distribution_default_origin_request_policy_id = (
+    var.distribution_default_behavior.cache_mode == "policy"
+    ? data.aws_cloudfront_origin_request_policy.managed[var.distribution_default_behavior.origin_request_policy].id
+    : null
+  )
+
+  distribution_behavior_cache_policy_ids = [
+    for b in var.distribution_behaviors :
+    b.cache_mode == "policy" ? data.aws_cloudfront_cache_policy.managed[b.cache_policy].id : null
+  ]
+
+  distribution_behavior_origin_request_policy_ids = [
+    for b in var.distribution_behaviors :
+    b.cache_mode == "policy" ? data.aws_cloudfront_origin_request_policy.managed[b.origin_request_policy].id : null
+  ]
+
   # Cross-module references (consumed by network/route53)
   distribution_target_domain  = aws_cloudfront_distribution.static.domain_name
   distribution_target_zone_id = aws_cloudfront_distribution.static.hosted_zone_id
