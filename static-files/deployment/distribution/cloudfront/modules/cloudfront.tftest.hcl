@@ -237,7 +237,7 @@ run "cross_module_locals_for_dns" {
 # and the same TTLs. Only the viewer protocol, compression and the invocations
 # are left to configure.
 # =============================================================================
-run "default_behavior_caching_is_fixed" {
+run "default_behavior_defaults_to_legacy_caching" {
   command = plan
 
   assert {
@@ -273,6 +273,54 @@ run "default_behavior_caching_is_fixed" {
   assert {
     condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].cached_methods == toset(["GET", "HEAD"])
     error_message = "Default behavior should cache GET and HEAD"
+  }
+}
+
+# =============================================================================
+# Test: Default behavior on the policy model drops legacy caching
+# =============================================================================
+run "default_behavior_on_policy_drops_legacy_caching" {
+  command = plan
+
+  variables {
+    distribution_default_behavior = {
+      cache_mode            = "policy"
+      cache_policy          = "CachingDisabled"
+      origin_request_policy = "AllViewerExceptHostHeader"
+    }
+  }
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].forwarded_values) == 0
+    error_message = "A behavior on the policy model must not emit forwarded_values"
+  }
+
+  assert {
+    # aws_cloudfront_cache_policy/aws_cloudfront_origin_request_policy expose their
+    # resolved policy ID through "id", which the AWS provider schema marks
+    # optional-but-not-computed (it doubles as the by-id lookup argument). tofu
+    # test refuses to mock or override non-computed fields, so under this
+    # module's mock_provider the id always plans as null regardless of how
+    # main.tf wires it up — asserting != null here would never pass. The
+    # meaningful, checkable thing at this layer is that the default behavior's
+    # policy name was actually requested through the lookup.
+    condition     = contains(keys(data.aws_cloudfront_cache_policy.managed), "CachingDisabled")
+    error_message = "Default behavior's cache_policy should be resolved through the managed cache policy data source"
+  }
+
+  assert {
+    condition     = contains(keys(data.aws_cloudfront_origin_request_policy.managed), "AllViewerExceptHostHeader")
+    error_message = "Default behavior's origin_request_policy should be resolved through the managed origin request policy data source"
+  }
+
+  assert {
+    # default_ttl is optional+computed on this resource (no schema default), unlike
+    # min_ttl (optional, schema default 0) or cache_policy_id/origin_request_policy_id
+    # (plain optional). Omitting it (our null ternary) makes both the real provider
+    # and the mock provider coerce it to the type's zero value, so it settles at 0
+    # rather than remaining null in the plan.
+    condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].default_ttl == 0
+    error_message = "TTLs cannot be set alongside a cache policy"
   }
 }
 
