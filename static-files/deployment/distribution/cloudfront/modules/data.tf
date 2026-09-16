@@ -14,9 +14,12 @@ data "aws_acm_certificate" "custom_domain" {
   most_recent = true
 }
 
-# Managed cache and origin request policies, looked up by name. Only the names
-# the variables accept are ever requested, and only when a behavior asks for the
-# policy model — a legacy-only distribution reads neither.
+# Managed cache, origin request and response headers policies, looked up by
+# name. Only the names the variables accept are ever requested. The cache
+# policy and origin request policy are read only when a behavior asks for the
+# policy model — a legacy-only distribution reads neither. The response
+# headers policy is gated on response_headers_policy != "", not on cache_mode:
+# a legacy-only distribution still reads it whenever a behavior names one.
 data "aws_cloudfront_cache_policy" "managed" {
   for_each = local.distribution_requested_cache_policies
   name     = "Managed-${each.key}"

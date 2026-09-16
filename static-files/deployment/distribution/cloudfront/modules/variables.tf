@@ -28,9 +28,12 @@ variable "distribution_cloudfront_endpoint_url" {
 # =============================================================================
 # Cache behaviors
 #
-# Caching itself is not configurable: every behavior forwards nothing to the
-# origin and keeps the same TTLs the scope has always used. What a behavior
-# does carry is how it answers the viewer, whether it compresses, and the
+# Caching is configurable per behavior via cache_mode: "legacy" forwards
+# nothing to the origin and keeps the same fixed TTLs the scope has always
+# used, while "policy" hands the cache key and the TTLs to a named cache
+# policy and origin request policy instead. A response headers policy runs
+# independently of cache_mode, in either mode. What a behavior carries, then,
+# is how it caches, how it answers the viewer, whether it compresses, and the
 # functions it runs.
 #
 # An invocation names the kind of function and the event in one string, the way
@@ -185,7 +188,9 @@ variable "distribution_behaviors" {
   }
 
   validation {
-    condition     = alltrue([for b in var.distribution_behaviors : contains(["legacy", "policy"], b.cache_mode)])
+    condition = alltrue([
+      for b in var.distribution_behaviors : contains(["legacy", "policy"], b.cache_mode)
+    ])
     error_message = "cache_mode must be one of: legacy, policy."
   }
 

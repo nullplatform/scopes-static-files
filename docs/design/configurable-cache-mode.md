@@ -3,7 +3,7 @@
 Design for making CloudFront's cache configuration part of the scope configuration,
 instead of the fixed legacy settings the module hardcodes today.
 
-Status: design only. Nothing here is implemented.
+Status: implemented, on branch `feat/configurable-cache-mode`.
 
 Driven by a customer running several front-end scopes who needs some of them to bypass
 the CDN cache entirely, and who asked for the choice to be presented the way the AWS
@@ -163,34 +163,6 @@ existing distribution is empty. No migration of stored provider data is required
 is the point of the premise above, and the difference between this change and the one
 that renamed `lambda_associations`.
 
-## Testing
-
-`cloudfront.tftest.hcl` covers behaviors already. The cases this adds:
-
-- legacy behavior emits `forwarded_values` and the three TTLs
-- policy behavior emits neither, and carries both policy ids
-- a distribution whose default behavior is legacy while an ordered behavior is on policy,
-  proving the choice is per behavior
-- an unset `cache_mode` produces the same plan as an explicit `legacy`
-
-BATS covers `build_context` reading the new fields out of the scope configuration.
-
-## Local validation
-
-The spec is registered by the tofu module in `static-files/specs/install/aws`, so the
-form can be iterated without publishing an image: apply, reload the UI, read the rendered
-form. Only the deployment phase needs the worker image.
-
-The agent to target is the local one, whose tags are the match key for the install's
-`tags` variable:
-
-```
--tags environment:local,owner:agustin
-```
-
-Its worker image is built locally under the ECR name and never pushed, so the agent
-resolves it from the local Docker daemon.
-
 ### Response headers policy
 
 A fourth field, `default_response_headers_policy` on the default behavior and
@@ -222,6 +194,34 @@ their caching model. The field is always visible, and it sits in the CACHE secti
 
 `""` is the default and means no policy: the module emits `response_headers_policy_id =
 null`, which is what every distribution does today.
+
+## Testing
+
+`cloudfront.tftest.hcl` covers behaviors already. The cases this adds:
+
+- legacy behavior emits `forwarded_values` and the three TTLs
+- policy behavior emits neither, and carries both policy ids
+- a distribution whose default behavior is legacy while an ordered behavior is on policy,
+  proving the choice is per behavior
+- an unset `cache_mode` produces the same plan as an explicit `legacy`
+
+BATS covers `build_context` reading the new fields out of the scope configuration.
+
+## Local validation
+
+The spec is registered by the tofu module in `static-files/specs/install/aws`, so the
+form can be iterated without publishing an image: apply, reload the UI, read the rendered
+form. Only the deployment phase needs the worker image.
+
+The agent to target is the local one, whose tags are the match key for the install's
+`tags` variable:
+
+```
+-tags environment:local,owner:agustin
+```
+
+Its worker image is built locally under the ECR name and never pushed, so the agent
+resolves it from the local Docker daemon.
 
 ## Out of scope
 

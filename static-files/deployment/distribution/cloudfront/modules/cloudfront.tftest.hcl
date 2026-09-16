@@ -12,6 +12,12 @@ mock_provider "aws" {
       bucket_regional_domain_name = "my-static-bucket.s3.us-east-1.amazonaws.com"
     }
   }
+
+  mock_data "aws_cloudfront_response_headers_policy" {
+    defaults = {
+      id = "mocked-rhp-id"
+    }
+  }
 }
 
 # ACM certificates for CloudFront must be in us-east-1
@@ -231,11 +237,12 @@ run "cross_module_locals_for_dns" {
 }
 
 # =============================================================================
-# Test: Default behavior caching is fixed, not configurable
+# Test: Default behavior defaults to legacy caching
 #
-# Caching is what the scope has always done: nothing forwarded to the origin
-# and the same TTLs. Only the viewer protocol, compression and the invocations
-# are left to configure.
+# cache_mode is now configurable, but a behavior that sets none of it must
+# still plan exactly as it always has: nothing forwarded to the origin and
+# the same fixed TTLs. This is the regression guard for every distribution
+# that predates cache_mode.
 # =============================================================================
 run "default_behavior_defaults_to_legacy_caching" {
   command = plan
@@ -554,9 +561,12 @@ run "ordered_behaviors_carry_their_own_settings" {
 }
 
 # =============================================================================
-# Test: Ordered behaviors cache the same fixed way as the default one
+# Test: Ordered behaviors default to legacy caching, same as the default one
+#
+# An ordered behavior that sets no cache_mode must plan the same fixed legacy
+# caching it always has.
 # =============================================================================
-run "ordered_behaviors_caching_is_fixed" {
+run "ordered_behaviors_default_to_legacy_caching" {
   command = plan
 
   variables {
@@ -967,6 +977,26 @@ run "cache_mode_rejects_unknown_values" {
 }
 
 # =============================================================================
+# Test: An unknown cache_mode on an ordered behavior is rejected
+#
+# distribution_behaviors validates cache_mode with alltrue([for b in ...]),
+# not the bare contains() the default behavior uses. alltrue([]) == true, so
+# a broken comprehension would pass silently on every other test here unless
+# this path gets its own negative case.
+# =============================================================================
+run "behaviors_cache_mode_rejects_unknown_values" {
+  command = plan
+
+  variables {
+    distribution_behaviors = [
+      { path_pattern = "/api/*", cache_mode = "policies" }
+    ]
+  }
+
+  expect_failures = [var.distribution_behaviors]
+}
+
+# =============================================================================
 # Test: Each ordered behavior keeps its own cache mode
 # =============================================================================
 run "each_behavior_keeps_its_own_cache_mode" {
@@ -1018,6 +1048,13 @@ run "each_behavior_keeps_its_own_cache_mode" {
 
 # =============================================================================
 # Test: A response headers policy works in either cache mode
+#
+# Unlike cache_policy_id/origin_request_policy_id (see the note on
+# "default_behavior_on_policy_drops_legacy_caching" above), "id" on
+# aws_cloudfront_response_headers_policy IS Optional AND Computed, so tofu
+# test can mock it. That means these runs can and do assert
+# response_headers_policy_id directly, proving the field is wired in and is
+# not gated behind cache_mode.
 # =============================================================================
 run "response_headers_policy_works_in_legacy_mode" {
   command = plan
@@ -1034,12 +1071,31 @@ run "response_headers_policy_works_in_legacy_mode" {
     error_message = "A response headers policy must not disturb legacy caching"
   }
 
-  # Not covered here: that response_headers_policy_id actually carries the
-  # resolved policy id. "id" on aws_cloudfront_response_headers_policy is
-  # Optional, not Computed, and tofu test can only mock or override Computed
-  # attributes, so under command = plan it stays null regardless of mode. See
-  # the identical note on "default_behavior_on_policy_drops_legacy_caching"
-  # above.
+  assert {
+    condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].response_headers_policy_id == "mocked-rhp-id"
+    error_message = "response_headers_policy_id must resolve in legacy mode: the field is not gated behind cache_mode"
+  }
+}
+
+run "response_headers_policy_works_in_policy_mode" {
+  command = plan
+
+  variables {
+    distribution_default_behavior = {
+      cache_mode              = "policy"
+      response_headers_policy = "SecurityHeadersPolicy"
+    }
+  }
+
+  assert {
+    condition     = length(aws_cloudfront_distribution.static.default_cache_behavior[0].forwarded_values) == 0
+    error_message = "A behavior on the policy model must still not emit forwarded_values"
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].response_headers_policy_id == "mocked-rhp-id"
+    error_message = "response_headers_policy_id must resolve in policy mode too"
+  }
 }
 
 run "no_response_headers_policy_by_default" {
@@ -1048,5 +1104,33 @@ run "no_response_headers_policy_by_default" {
   assert {
     condition     = aws_cloudfront_distribution.static.default_cache_behavior[0].response_headers_policy_id == null
     error_message = "A behavior that names no response headers policy must not carry an id"
+  }
+}
+
+# =============================================================================
+# Test: The per-behavior response headers policy id list is indexed correctly
+#
+# Proves the positional index into distribution_behavior_response_headers_policy_ids
+# lines up with each ordered_cache_behavior: the first behavior names a policy,
+# the second names none.
+# =============================================================================
+run "ordered_behaviors_response_headers_policy_id_is_indexed_correctly" {
+  command = plan
+
+  variables {
+    distribution_behaviors = [
+      { path_pattern = "/api/*", response_headers_policy = "SecurityHeadersPolicy" },
+      { path_pattern = "/static/*" },
+    ]
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.ordered_cache_behavior[0].response_headers_policy_id == "mocked-rhp-id"
+    error_message = "The /api/* behavior named a response headers policy and should carry its id"
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.static.ordered_cache_behavior[1].response_headers_policy_id == null
+    error_message = "The /static/* behavior named no response headers policy and must carry no id"
   }
 }

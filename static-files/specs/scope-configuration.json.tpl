@@ -312,8 +312,14 @@
             "description": "Legacy settings forward nothing to the origin and cache for one hour. A cache policy replaces both the cache key and the TTLs.",
             "default": "legacy",
             "oneOf": [
-              { "const": "legacy", "title": "Legacy cache settings" },
-              { "const": "policy", "title": "Cache policy and origin request policy" }
+              {
+                "const": "legacy",
+                "title": "Legacy cache settings"
+              },
+              {
+                "const": "policy",
+                "title": "Cache policy and origin request policy"
+              }
             ]
           },
           "default_cache_policy": {
@@ -450,8 +456,14 @@
                   "description": "Legacy settings forward nothing to the origin and cache for one hour. A cache policy replaces both the cache key and the TTLs.",
                   "default": "legacy",
                   "oneOf": [
-                    { "const": "legacy", "title": "Legacy cache settings" },
-                    { "const": "policy", "title": "Cache policy and origin request policy" }
+                    {
+                      "const": "legacy",
+                      "title": "Legacy cache settings"
+                    },
+                    {
+                      "const": "policy",
+                      "title": "Cache policy and origin request policy"
+                    }
                   ]
                 },
                 "cache_policy": {
@@ -970,7 +982,9 @@
                         {
                           "type": "Control",
                           "scope": "#/properties/distribution/properties/default_cache_mode",
-                          "options": { "format": "radio-cards" }
+                          "options": {
+                            "format": "radio-cards"
+                          }
                         },
                         {
                           "type": "Control",
@@ -979,7 +993,11 @@
                             "effect": "HIDE",
                             "condition": {
                               "scope": "#/properties/distribution/properties/default_cache_mode",
-                              "schema": { "not": { "const": "policy" } }
+                              "schema": {
+                                "not": {
+                                  "const": "policy"
+                                }
+                              }
                             }
                           }
                         },
@@ -990,7 +1008,11 @@
                             "effect": "HIDE",
                             "condition": {
                               "scope": "#/properties/distribution/properties/default_cache_mode",
-                              "schema": { "not": { "const": "policy" } }
+                              "schema": {
+                                "not": {
+                                  "const": "policy"
+                                }
+                              }
                             }
                           }
                         },
@@ -1061,7 +1083,9 @@
                         {
                           "type": "Control",
                           "scope": "#/properties/cache_mode",
-                          "options": { "format": "radio-cards" }
+                          "options": {
+                            "format": "radio-cards"
+                          }
                         },
                         {
                           "type": "Control",
@@ -1070,7 +1094,11 @@
                             "effect": "HIDE",
                             "condition": {
                               "scope": "#/properties/cache_mode",
-                              "schema": { "not": { "const": "policy" } }
+                              "schema": {
+                                "not": {
+                                  "const": "policy"
+                                }
+                              }
                             }
                           }
                         },
@@ -1081,7 +1109,11 @@
                             "effect": "HIDE",
                             "condition": {
                               "scope": "#/properties/cache_mode",
-                              "schema": { "not": { "const": "policy" } }
+                              "schema": {
+                                "not": {
+                                  "const": "policy"
+                                }
+                              }
                             }
                           }
                         },
