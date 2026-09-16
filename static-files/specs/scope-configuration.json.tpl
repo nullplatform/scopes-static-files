@@ -341,6 +341,38 @@
               "UserAgentRefererHeaders"
             ]
           },
+          "default_response_headers_policy": {
+            "type": "string",
+            "title": "Response headers policy",
+            "description": "Managed policy adding security or CORS headers to every response. Independent of the cache settings.",
+            "default": "",
+            "oneOf": [
+              {
+                "const": "",
+                "title": "None"
+              },
+              {
+                "const": "SecurityHeadersPolicy",
+                "title": "Security headers"
+              },
+              {
+                "const": "CORS-and-SecurityHeadersPolicy",
+                "title": "CORS and security headers"
+              },
+              {
+                "const": "SimpleCORS",
+                "title": "Simple CORS"
+              },
+              {
+                "const": "CORS-With-Preflight",
+                "title": "CORS with preflight"
+              },
+              {
+                "const": "CORS-with-preflight-and-SecurityHeadersPolicy",
+                "title": "CORS with preflight and security headers"
+              }
+            ]
+          },
           "behaviors": {
             "type": "array",
             "items": {
@@ -445,6 +477,38 @@
                     "CORS-S3Origin",
                     "CORS-CustomOrigin",
                     "UserAgentRefererHeaders"
+                  ]
+                },
+                "response_headers_policy": {
+                  "type": "string",
+                  "title": "Response headers policy",
+                  "description": "Managed policy adding security or CORS headers to every response. Independent of the cache settings.",
+                  "default": "",
+                  "oneOf": [
+                    {
+                      "const": "",
+                      "title": "None"
+                    },
+                    {
+                      "const": "SecurityHeadersPolicy",
+                      "title": "Security headers"
+                    },
+                    {
+                      "const": "CORS-and-SecurityHeadersPolicy",
+                      "title": "CORS and security headers"
+                    },
+                    {
+                      "const": "SimpleCORS",
+                      "title": "Simple CORS"
+                    },
+                    {
+                      "const": "CORS-With-Preflight",
+                      "title": "CORS with preflight"
+                    },
+                    {
+                      "const": "CORS-with-preflight-and-SecurityHeadersPolicy",
+                      "title": "CORS with preflight and security headers"
+                    }
                   ]
                 }
               }
@@ -929,6 +993,10 @@
                               "schema": { "not": { "const": "policy" } }
                             }
                           }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_response_headers_policy"
                         }
                       ]
                     }
@@ -1016,6 +1084,10 @@
                               "schema": { "not": { "const": "policy" } }
                             }
                           }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/response_headers_policy"
                         }
                       ]
                     }
