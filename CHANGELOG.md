@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.0](https://github.com/nullplatform/scopes-static-files/compare/v1.0.0...v1.1.0) (2026-09-17)
+
+
+### Features
+
+* configurable cache mode and response headers policy per behavior ([#34](https://github.com/nullplatform/scopes-static-files/issues/34)) ([b359498](https://github.com/nullplatform/scopes-static-files/commit/b3594981290321f3f23418f9e9e28f0cdc17c81a))
+* dependabot for base image bumps ([b563b08](https://github.com/nullplatform/scopes-static-files/commit/b563b086dd67e85cd8676132146fcf8445ca91ff))
+* dependabot for base image bumps ([86a22d9](https://github.com/nullplatform/scopes-static-files/commit/86a22d9675aef01784559318304152ad8ad4ec4c))
+
 ## [1.0.0](https://github.com/nullplatform/scopes-static-files/compare/v0.5.0...v1.0.0) (2026-09-14)
 
 
