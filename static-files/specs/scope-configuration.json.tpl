@@ -306,6 +306,79 @@
               }
             }
           },
+          "default_cache_mode": {
+            "type": "string",
+            "title": "Cache key and origin requests",
+            "description": "Legacy settings forward nothing to the origin and cache for one hour. A cache policy replaces both the cache key and the TTLs.",
+            "default": "legacy",
+            "oneOf": [
+              {
+                "const": "legacy",
+                "title": "Legacy cache settings"
+              },
+              {
+                "const": "policy",
+                "title": "Cache policy and origin request policy"
+              }
+            ]
+          },
+          "default_cache_policy": {
+            "type": "string",
+            "title": "Cache policy",
+            "description": "Managed cache policy deciding the cache key and the TTLs.",
+            "default": "CachingOptimized",
+            "enum": [
+              "CachingOptimized",
+              "CachingDisabled",
+              "CachingOptimizedForUncompressedObjects",
+              "Amplify"
+            ]
+          },
+          "default_origin_request_policy": {
+            "type": "string",
+            "title": "Origin request policy",
+            "description": "Managed origin request policy deciding what CloudFront forwards to the origin.",
+            "default": "AllViewerExceptHostHeader",
+            "enum": [
+              "AllViewerExceptHostHeader",
+              "AllViewer",
+              "CORS-S3Origin",
+              "CORS-CustomOrigin",
+              "UserAgentRefererHeaders"
+            ]
+          },
+          "default_response_headers_policy": {
+            "type": "string",
+            "title": "Response headers policy",
+            "description": "Managed policy adding security or CORS headers to every response. Independent of the cache settings.",
+            "default": "",
+            "oneOf": [
+              {
+                "const": "",
+                "title": "None"
+              },
+              {
+                "const": "SecurityHeadersPolicy",
+                "title": "Security headers"
+              },
+              {
+                "const": "CORS-and-SecurityHeadersPolicy",
+                "title": "CORS and security headers"
+              },
+              {
+                "const": "SimpleCORS",
+                "title": "Simple CORS"
+              },
+              {
+                "const": "CORS-With-Preflight",
+                "title": "CORS with preflight"
+              },
+              {
+                "const": "CORS-with-preflight-and-SecurityHeadersPolicy",
+                "title": "CORS with preflight and security headers"
+              }
+            ]
+          },
           "behaviors": {
             "type": "array",
             "items": {
@@ -376,6 +449,79 @@
                       }
                     }
                   }
+                },
+                "cache_mode": {
+                  "type": "string",
+                  "title": "Cache key and origin requests",
+                  "description": "Legacy settings forward nothing to the origin and cache for one hour. A cache policy replaces both the cache key and the TTLs.",
+                  "default": "legacy",
+                  "oneOf": [
+                    {
+                      "const": "legacy",
+                      "title": "Legacy cache settings"
+                    },
+                    {
+                      "const": "policy",
+                      "title": "Cache policy and origin request policy"
+                    }
+                  ]
+                },
+                "cache_policy": {
+                  "type": "string",
+                  "title": "Cache policy",
+                  "description": "Managed cache policy deciding the cache key and the TTLs.",
+                  "default": "CachingOptimized",
+                  "enum": [
+                    "CachingOptimized",
+                    "CachingDisabled",
+                    "CachingOptimizedForUncompressedObjects",
+                    "Amplify"
+                  ]
+                },
+                "origin_request_policy": {
+                  "type": "string",
+                  "title": "Origin request policy",
+                  "description": "Managed origin request policy deciding what CloudFront forwards to the origin.",
+                  "default": "AllViewerExceptHostHeader",
+                  "enum": [
+                    "AllViewerExceptHostHeader",
+                    "AllViewer",
+                    "CORS-S3Origin",
+                    "CORS-CustomOrigin",
+                    "UserAgentRefererHeaders"
+                  ]
+                },
+                "response_headers_policy": {
+                  "type": "string",
+                  "title": "Response headers policy",
+                  "description": "Managed policy adding security or CORS headers to every response. Independent of the cache settings.",
+                  "default": "",
+                  "oneOf": [
+                    {
+                      "const": "",
+                      "title": "None"
+                    },
+                    {
+                      "const": "SecurityHeadersPolicy",
+                      "title": "Security headers"
+                    },
+                    {
+                      "const": "CORS-and-SecurityHeadersPolicy",
+                      "title": "CORS and security headers"
+                    },
+                    {
+                      "const": "SimpleCORS",
+                      "title": "Simple CORS"
+                    },
+                    {
+                      "const": "CORS-With-Preflight",
+                      "title": "CORS with preflight"
+                    },
+                    {
+                      "const": "CORS-with-preflight-and-SecurityHeadersPolicy",
+                      "title": "CORS with preflight and security headers"
+                    }
+                  ]
                 }
               }
             },
@@ -810,6 +956,75 @@
                   "scope": "#/properties/distribution/properties/default_invocations"
                 },
                 {
+                  "type": "Categorization",
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "aws"
+                        }
+                      }
+                    }
+                  },
+                  "options": {
+                    "collapsable": {
+                      "label": "CACHE",
+                      "collapsed": true
+                    }
+                  },
+                  "elements": [
+                    {
+                      "type": "Category",
+                      "label": "Cache key and origin requests",
+                      "elements": [
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_cache_mode",
+                          "options": {
+                            "format": "radio-cards"
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_cache_policy",
+                          "rule": {
+                            "effect": "HIDE",
+                            "condition": {
+                              "scope": "#/properties/distribution/properties/default_cache_mode",
+                              "schema": {
+                                "not": {
+                                  "const": "policy"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_origin_request_policy",
+                          "rule": {
+                            "effect": "HIDE",
+                            "condition": {
+                              "scope": "#/properties/distribution/properties/default_cache_mode",
+                              "schema": {
+                                "not": {
+                                  "const": "policy"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/distribution/properties/default_response_headers_policy"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
                   "rule": {
                     "effect": "HIDE",
                     "condition": {
@@ -842,6 +1057,7 @@
                   "type": "Control",
                   "scope": "#/properties/distribution/properties/behaviors",
                   "options": {
+                    "elementLabelProp": "path_pattern",
                     "detail": {
                       "type": "VerticalLayout",
                       "elements": [
@@ -863,6 +1079,47 @@
                         {
                           "type": "Control",
                           "scope": "#/properties/invocations"
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/cache_mode",
+                          "options": {
+                            "format": "radio-cards"
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/cache_policy",
+                          "rule": {
+                            "effect": "HIDE",
+                            "condition": {
+                              "scope": "#/properties/cache_mode",
+                              "schema": {
+                                "not": {
+                                  "const": "policy"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/origin_request_policy",
+                          "rule": {
+                            "effect": "HIDE",
+                            "condition": {
+                              "scope": "#/properties/cache_mode",
+                              "schema": {
+                                "not": {
+                                  "const": "policy"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "Control",
+                          "scope": "#/properties/response_headers_policy"
                         }
                       ]
                     }
