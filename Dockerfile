@@ -4,7 +4,7 @@
 # gRPC worker bridge. The bridge dials over gRPC and runs the bash entrypoint
 # on each package-exec action; this image adds the cloud tooling the scope's
 # steps need and bakes the scope in.
-FROM public.ecr.aws/nullplatform/scopes/worker-bridge:1.0.0
+FROM public.ecr.aws/nullplatform/scopes/worker-bridge:1.1.1
 
 # Tooling the static-files workflows call: aws + gomplate from apk.
 # bash, jq, np, base64 and curl ship in the base.
