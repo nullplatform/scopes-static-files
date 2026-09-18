@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.1](https://github.com/nullplatform/scopes-static-files/compare/v1.1.0...v1.1.1) (2026-09-18)
+
+
+### Bug Fixes
+
+* **ci:** auto-merge the release PR from workflow_run; Dependabot commits as fix(deps) ([7ad9f2d](https://github.com/nullplatform/scopes-static-files/commit/7ad9f2d9fe3402bceef6ee39eb916f99bfa11a5f))
+* **ci:** merge the release PR from workflow_run instead of the gated pull_request trigger ([d113c24](https://github.com/nullplatform/scopes-static-files/commit/d113c2425ecfdda9f75c77ff0014d83a3e24022b))
+* **deps:** dependabot commits as fix(deps) so the base image bump gets released ([0d2ccd2](https://github.com/nullplatform/scopes-static-files/commit/0d2ccd2a8179ec242c977a9b38a07f2c950c0a15))
+
 ## [1.1.0](https://github.com/nullplatform/scopes-static-files/compare/v1.0.0...v1.1.0) (2026-09-17)
 
 
