@@ -78,6 +78,19 @@ resource "aws_iam_policy" "nullplatform_static_files" {
         Resource = "*"
       },
       {
+        # A behavior on the policy cache mode, or one naming a response headers
+        # policy, resolves the managed policy by name. The data sources that do
+        # that lookup call these List operations.
+        Sid    = "CloudFrontManagedPolicyLookup"
+        Effect = "Allow"
+        Action = [
+          "cloudfront:ListCachePolicies",
+          "cloudfront:ListOriginRequestPolicies",
+          "cloudfront:ListResponseHeadersPolicies"
+        ]
+        Resource = "*"
+      },
+      {
         Sid    = "ACMCertificates"
         Effect = "Allow"
         Action = [
