@@ -86,7 +86,10 @@ resource "aws_iam_policy" "nullplatform_static_files" {
         Action = [
           "cloudfront:ListCachePolicies",
           "cloudfront:ListOriginRequestPolicies",
-          "cloudfront:ListResponseHeadersPolicies"
+          "cloudfront:ListResponseHeadersPolicies",
+          "cloudfront:GetCachePolicy",
+          "cloudfront:GetOriginRequestPolicy",
+          "cloudfront:GetResponseHeadersPolicy"
         ]
         Resource = "*"
       },
