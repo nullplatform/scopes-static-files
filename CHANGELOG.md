@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.3](https://github.com/nullplatform/scopes-static-files/compare/v1.1.2...v1.1.3) (2026-09-18)
+
+
+### Bug Fixes
+
+* **requirements:** grant the agent read access to CloudFront policies ([#40](https://github.com/nullplatform/scopes-static-files/issues/40)) ([61c260b](https://github.com/nullplatform/scopes-static-files/commit/61c260b3b2a73ecd784f3ab0877b8abedec291e0))
+
 ## [1.1.2](https://github.com/nullplatform/scopes-static-files/compare/v1.1.1...v1.1.2) (2026-09-18)
 
 
