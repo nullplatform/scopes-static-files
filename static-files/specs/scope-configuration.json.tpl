@@ -737,7 +737,7 @@
                     }
                   },
                   "type": "Label",
-                  "text": "> **ℹ️ Agent Credentials (IRSA)**\n\nThe nullplatform agent must run with an IAM role attached to its Kubernetes service account (IRSA). The role needs permissions for:\n\n- **S3** — state backend and asset bucket access\n- **Route 53** — DNS record management on the public hosted zone\n- **CloudFront** — distribution lifecycle and cache invalidation\n- **ACM** — certificate lookup for custom domains\n- **WAF** — WebACL lookup (only if you attach a WAF in the Security tab)\n- **STS** — caller identity",
+                  "text": "> **ℹ️ Agent Credentials (IRSA)**\n\nThe nullplatform agent must run with an IAM role attached to its Kubernetes service account (IRSA). The role needs permissions for:\n\n- **S3** — state backend and asset bucket access\n- **Route 53** — DNS record management on the public hosted zone\n- **CloudFront** — distribution lifecycle, cache invalidation, and read access to the managed cache, origin request and response headers policies\n- **ACM** — certificate lookup for custom domains\n- **WAF** — WebACL lookup (only if you attach a WAF in the Security tab)\n- **STS** — caller identity",
                   "options": {
                     "format": "markdown"
                   }

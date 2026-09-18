@@ -45,6 +45,16 @@
       "Resource": "*"
     },
     {
+      "Sid": "CloudFrontManagedPolicyLookup",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:ListCachePolicies",
+        "cloudfront:ListOriginRequestPolicies",
+        "cloudfront:ListResponseHeadersPolicies"
+      ],
+      "Resource": "*"
+    },
+    {
       "Sid": "S3BucketAccess",
       "Effect": "Allow",
       "Action": [
