@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.4](https://github.com/nullplatform/scopes-static-files/compare/v1.1.3...v1.1.4) (2026-09-18)
+
+
+### Bug Fixes
+
+* **requirements:** the policy data sources also need Get, not just List ([#42](https://github.com/nullplatform/scopes-static-files/issues/42)) ([e06bd37](https://github.com/nullplatform/scopes-static-files/commit/e06bd376d03bf5941ff6c9c81de58e15cb4e7283))
+
 ## [1.1.3](https://github.com/nullplatform/scopes-static-files/compare/v1.1.2...v1.1.3) (2026-09-18)
 
 
