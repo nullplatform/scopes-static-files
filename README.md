@@ -11,6 +11,7 @@ This module provides infrastructure-as-code for deploying static files applicati
 - [Cross-Layer Communication](#cross-layer-communication)
 - [Adding New Layer Implementations](#adding-new-layer-implementations)
 - [Setup Script Patterns](#setup-script-patterns)
+- [Run Locally as a Package](#run-locally-as-a-package)
 - [Testing](#testing)
 - [Quick Reference](#quick-reference)
 
@@ -410,6 +411,99 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 ```
+
+---
+
+## Run Locally as a Package
+
+You can run this scope on your machine the way production runs it: a dockerized
+nullplatform agent registers with the platform, spawns this scope's worker
+container, and hands it each action over gRPC. The bash scripts are not changed
+for this. The worker image is built `FROM` the `worker-bridge` base (see the
+`Dockerfile`), which receives the action and runs `entrypoint` exactly as the
+classic agent did.
+
+This repo is a **base package**: it has no `package.json` and no manifest. The
+two tasks in `mise.toml` are the whole contract with the CLI.
+
+| Command | Runs | Does |
+|---------|------|------|
+| `np package build --image` | `mise run build:image` | Builds `scopes-static-files-worker:dev` |
+| `np package run` | `mise run run` | Builds the image, then starts the local agent |
+
+### Prerequisites
+
+- **Docker**, with host networking. On Linux it works as is; on Docker Desktop
+  enable *host networking* in the settings.
+- **[mise](https://mise.jdx.dev)**. Run `mise trust` once in this directory.
+- **`NP_API_KEY`**: an API key the agent registers with.
+- **`np` with the `package` commands.** They are in review in
+  [nullplatform/cli#243](https://github.com/nullplatform/cli/pull/243). Until
+  that ships you lose nothing but environment forwarding: `mise run run` starts
+  the same agent.
+
+### Run it
+
+```bash
+export NP_API_KEY=...
+
+np package run --log-level DEBUG     # Ctrl+C to stop
+# or, without the CLI:
+mise run run
+```
+
+The agent is tagged `package:scopes-static-files` and `local:<your user>`. It
+receives an action only when the scope's notification channel selects those
+tags, so point a channel at `local:<your user>` to route work to your machine.
+
+> **Tags decide who gets the work.** Never start a local agent with tags a
+> production channel selects: it would receive production actions.
+
+### Settings
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `NP_API_KEY` | required | The key the agent registers with. `np package run --api-key` also sets it. |
+| `NP_LOG_LEVEL` | `INFO` | Agent log level. `np package run --log-level` also sets it. |
+| `NP_PACKAGE_SLUG` | `scopes-static-files` | The slug in the `package:<slug>` tag. Set it when your package is published under another slug. |
+| `NP_LOCAL_USER` | `$USER` | The value of the `local:<user>` tag. `np package run` sets it. |
+| `NP_AGENT_IMAGE` | `controlplane-agent:alpha-packages-2.2.0` | The agent image to run. |
+| `NP_PACKAGE_ENV_FLAGS` | empty | Set by `np package run`: the shell variables to forward, as `-e NAME` flags. |
+
+### Cloud credentials and your environment
+
+`np package run` forwards your shell's environment to the agent container. It
+holds back variables that describe your machine rather than the work: `PATH`,
+`HOME`, `DOCKER_*`, `KUBECONFIG`, and the AWS variables that point at files the
+container does not have (`AWS_PROFILE`, `AWS_CONFIG_FILE`,
+`AWS_SHARED_CREDENTIALS_FILE`). So export credentials as variables:
+
+```bash
+eval "$(aws configure export-credentials --format env)"
+np package run
+```
+
+Pass `--no-forward-env` to forward nothing. Every secret in your shell is
+forwarded otherwise, and is readable with `docker inspect` on your machine.
+
+> **Known limitation.** The variables reach the **agent** container, not the
+> **worker** container the agent spawns. The agent's docker worker backend
+> forwards only its own variables (`NP_API_KEY`, `NP_API_URL`, the gRPC and TLS
+> settings); only its Kubernetes backend applies `NP_WORKER_ENV`. Creating a
+> scope works locally, because that workflow is a no-op. The deployment
+> workflows start with an `assume role` step that needs cloud credentials
+> **inside the worker**, so today their cloud calls fail in a local run. This
+> needs a change in `controlplane-agent`, not in this repo.
+
+### Troubleshooting a local run
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| `set NP_API_KEY` | No API key in the environment | `export NP_API_KEY=...`, or pass `--api-key` |
+| "doesn't look like a package" | An `np` build without base package support | Use a build that includes [cli#243](https://github.com/nullplatform/cli/pull/243), or run `mise run run` |
+| `mise` refuses to run the tasks | The config is not trusted yet | `mise trust` |
+| The agent starts but never reaches the worker | No host networking | Enable host networking in Docker Desktop |
+| The agent is up but no action arrives | No channel selects your tags | Add a channel selector for `local:<your user>` |
 
 ---
 
