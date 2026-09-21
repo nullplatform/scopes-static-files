@@ -278,3 +278,22 @@ run_build_context() {
 
 	assert_equal "$(echo "$CONTEXT" | jq -r '.providers["scope-configurations"].marker')" "from-context"
 }
+
+# =============================================================================
+# Test: The scope reads the configuration matching its own dimensions
+#
+# Two static-files configurations can sit at the same NRN level, one per
+# dimension value (e.g. environment=dev and environment=test). The NRN-depth
+# tie-break alone can't tell them apart, so the query must also be scoped by
+# the scope's own dimensions.
+# =============================================================================
+@test "Should pick the configuration matching the scope's own dimensions when several tie on NRN depth" {
+	export CONTEXT=$(echo "$CONTEXT" | jq '.scope.dimensions = {"environment": "test"}')
+	export NP_MOCK_PROVIDER_LIST="$SCOPE_CFG_MOCKS/provider_list_dimension_conflict_unfiltered.json"
+	export NP_MOCK_PROVIDER_LIST_WITH_DIMENSIONS="$SCOPE_CFG_MOCKS/provider_list_dimension_conflict_filtered.json"
+
+	run_build_context
+
+	assert_equal "$(echo "$CONTEXT" | jq -r '.providers["scope-configurations"].marker')" "test-configuration"
+	assert_equal "$(echo "$CONTEXT" | jq -r '.providers["scope-configurations"].provider.aws_state_bucket')" "test-account-tofu-state"
+}

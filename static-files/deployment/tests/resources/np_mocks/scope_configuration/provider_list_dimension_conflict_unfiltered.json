@@ -1,0 +1,46 @@
+{
+  "results": [
+    {
+      "id": "provider-static-test",
+      "nrn": "organization=1:account=2",
+      "specification_id": "spec-static",
+      "dimensions": { "environment": "test" },
+      "attributes": {
+        "cloud_provider": "aws",
+        "provider": {
+          "aws_region": "us-east-1",
+          "aws_state_bucket": "test-account-tofu-state"
+        },
+        "distribution": {
+          "aws_distribution": "cloudfront"
+        },
+        "network": {
+          "aws_network": "route53",
+          "aws_hosted_public_zone_id": "Z_TEST_ZONE"
+        },
+        "marker": "test-configuration"
+      }
+    },
+    {
+      "id": "provider-static-dev",
+      "nrn": "organization=1:account=2",
+      "specification_id": "spec-static",
+      "dimensions": { "environment": "dev" },
+      "attributes": {
+        "cloud_provider": "aws",
+        "provider": {
+          "aws_region": "us-east-1",
+          "aws_state_bucket": "dev-account-tofu-state"
+        },
+        "distribution": {
+          "aws_distribution": "cloudfront"
+        },
+        "network": {
+          "aws_network": "route53",
+          "aws_hosted_public_zone_id": "Z_DEV_ZONE"
+        },
+        "marker": "dev-configuration"
+      }
+    }
+  ]
+}
