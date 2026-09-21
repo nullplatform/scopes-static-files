@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.5](https://github.com/nullplatform/scopes-static-files/compare/v1.1.4...v1.1.5) (2026-09-21)
+
+
+### Bug Fixes
+
+* **deployment:** resolve scope-configuration by the scope's own dimensions ([#47](https://github.com/nullplatform/scopes-static-files/issues/47)) ([0f15714](https://github.com/nullplatform/scopes-static-files/commit/0f15714eada1a9e5061a23449fe7c27ac5ba07c6))
+
 ## [1.1.4](https://github.com/nullplatform/scopes-static-files/compare/v1.1.3...v1.1.4) (2026-09-18)
 
 
