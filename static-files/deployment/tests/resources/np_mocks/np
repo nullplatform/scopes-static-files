@@ -7,8 +7,10 @@
 #
 # Subcommand-specific responses take precedence, so a script that calls np more
 # than once can get a different answer per call:
-#   NP_MOCK_SPECIFICATION_LIST  -> "np provider specification list"
-#   NP_MOCK_PROVIDER_LIST       -> "np provider list"
+#   NP_MOCK_SPECIFICATION_LIST         -> "np provider specification list"
+#   NP_MOCK_PROVIDER_LIST              -> "np provider list" without --dimensions
+#   NP_MOCK_PROVIDER_LIST_WITH_DIMENSIONS -> "np provider list" with --dimensions (falls
+#                                            back to NP_MOCK_PROVIDER_LIST when unset)
 
 case "$*" in
   *"provider specification list"*)
@@ -20,7 +22,15 @@ case "$*" in
     esac
     ;;
   *"provider list"*)
-    [ -n "${NP_MOCK_PROVIDER_LIST:-}" ] && { cat "$NP_MOCK_PROVIDER_LIST"; exit "${NP_MOCK_EXIT_CODE:-0}"; }
+    case "$*" in
+      *--dimensions*)
+        response="${NP_MOCK_PROVIDER_LIST_WITH_DIMENSIONS:-${NP_MOCK_PROVIDER_LIST:-}}"
+        ;;
+      *)
+        response="${NP_MOCK_PROVIDER_LIST:-}"
+        ;;
+    esac
+    [ -n "$response" ] && { cat "$response"; exit "${NP_MOCK_EXIT_CODE:-0}"; }
     ;;
 esac
 

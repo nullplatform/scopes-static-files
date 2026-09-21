@@ -23,7 +23,7 @@ env_vars_json=$(echo "$CONTEXT" | jq '(.parameters.results // []) | map({(.varia
 # put it back in the context so every setup script keeps reading it from there.
 # =============================================================================
 resolve_scope_configuration() {
-	local nrn spec_id
+	local nrn spec_id dims
 	nrn=$(echo "$CONTEXT" | jq -r '.scope.nrn // empty')
 	[ -n "$nrn" ] || return 1
 
@@ -31,8 +31,16 @@ resolve_scope_configuration() {
 		jq -r '[.results[]? | select(.slug == "static-files")] | first | .id // empty')
 	[ -n "$spec_id" ] || return 1
 
+	# Match the scope's own dimensions (e.g. environment=test) so we don't tie
+	# with a same-level provider configured for another dimension value (e.g.
+	# dev) — the API's own tie-break for that case is not dimension-aware.
+	dims=$(echo "$CONTEXT" | jq -r '.scope.dimensions // {} | to_entries | map("\(.key):\(.value)") | join(",")')
+	local -a dims_args=()
+	[ -n "$dims" ] && dims_args=(--dimensions "$dims")
+
 	# Deepest NRN wins, which is how the platform resolves providers.
-	np provider list --nrn "$nrn" --categories scope-configurations --show-ascendants --format json 2>/dev/null |
+	np provider list --nrn "$nrn" --categories scope-configurations --show-ascendants \
+		"${dims_args[@]}" --format json 2>/dev/null |
 		jq -c --arg spec "$spec_id" '
 			[.results[]? | select(.specification_id == $spec)]
 			| sort_by(.nrn | split(":") | length)
