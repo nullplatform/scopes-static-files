@@ -468,6 +468,7 @@ tags, so point a channel at `local:<your user>` to route work to your machine.
 | `NP_PACKAGE_SLUG` | `scopes-static-files` | The slug in the `package:<slug>` tag. Set it when your package is published under another slug. |
 | `NP_LOCAL_USER` | `$USER` | The value of the `local:<user>` tag. `np package run` sets it. |
 | `NP_AGENT_IMAGE` | `controlplane-agent:latest` | The agent image to run. Needs worker rules (0.11.1+). |
+| `STATIC_FILES_ASSUME_ROLE_ARN` | resolved from the IAM provider | `none` = keep the credentials you exported instead of assuming the cluster role (local runs) |
 | `NP_PACKAGE_ENV_FLAGS` | empty | Set by `np package run`: the shell variables to forward, as `-e NAME` flags (agent container). |
 | `NP_PACKAGE_ENV_JSON` | empty | Set by `np package run`: the same variables as JSON, handed to the worker through `NP_WORKER_RULES`. |
 
@@ -504,7 +505,7 @@ forwarded otherwise, and is readable with `docker inspect` on your machine.
 | `mise` refuses to run the tasks | The config is not trusted yet | `mise trust` |
 | The agent starts but never reaches the worker | No host networking | Enable host networking in Docker Desktop |
 | The agent is up but no action arrives | No channel selects your tags | Add a channel selector for `local:<your user>` |
-| `sts:AssumeRole … AccessDenied` for **your** identity | The scope assumes the role from the account's IAM provider, whose trust policy trusts only the cluster's agent role | Add your identity to that role's trust policy, or export `ASSUME_ROLE_ARN` to a role you can assume (it is forwarded like any variable) |
+| `sts:AssumeRole … AccessDenied` for **your** identity | The scope assumes the role from the account's IAM provider, whose trust policy trusts only the cluster's agent role | `export STATIC_FILES_ASSUME_ROLE_ARN=none` to run with the credentials you exported (forwarded like any variable), or set it to a role you can assume |
 
 ---
 

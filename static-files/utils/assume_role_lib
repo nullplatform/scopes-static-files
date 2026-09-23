@@ -35,6 +35,13 @@ arn_for_selector() {
 resolve_assume_role_arn() {
   local iam_json="$1" selector="$2" arn=""
 
+  # A local run (`np package run`) forwards a developer's credentials, and a
+  # developer's identity is not what the cluster role trusts. `none` says: use
+  # those credentials as they are — no provider lookup, no default.
+  if [ "${STATIC_FILES_ASSUME_ROLE_ARN:-}" = "none" ]; then
+    return 0
+  fi
+
   arn="${STATIC_FILES_ASSUME_ROLE_ARN:-}"
 
   if [ -z "$arn" ] && [ -n "$iam_json" ] && [ -n "$selector" ]; then
