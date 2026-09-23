@@ -504,6 +504,7 @@ forwarded otherwise, and is readable with `docker inspect` on your machine.
 | `mise` refuses to run the tasks | The config is not trusted yet | `mise trust` |
 | The agent starts but never reaches the worker | No host networking | Enable host networking in Docker Desktop |
 | The agent is up but no action arrives | No channel selects your tags | Add a channel selector for `local:<your user>` |
+| `sts:AssumeRole … AccessDenied` for **your** identity | The scope assumes the role from the account's IAM provider, whose trust policy trusts only the cluster's agent role | Add your identity to that role's trust policy, or export `ASSUME_ROLE_ARN` to a role you can assume (it is forwarded like any variable) |
 
 ---
 
