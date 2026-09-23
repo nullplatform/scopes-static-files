@@ -496,6 +496,22 @@ forwarded otherwise, and is readable with `docker inspect` on your machine.
 > Worker rules exist in `controlplane-agent` 0.11.1 and newer; `latest` (the
 > default) has them, the old `alpha-packages-*` tags do not.
 
+### When it works: publish it
+
+The local run never changes what the platform runs. To ship the change:
+
+1. Push the image and register it as an artifact revision — CI does it on a
+   release tag (`release.yml`), or from any branch with the `test-image` workflow
+   (Actions → test-image → Run workflow), whose summary prints the artifact and
+   revision ids.
+2. Publish a package version that pins it: `PUT /packages` with `bump: patch`
+   and the `worker-image` component set to that artifact revision (and the
+   `scope` component to the spec's newest snapshot when the spec changed).
+   `merge_components` keeps every other component of the latest BOM.
+3. New scopes bind to the package **default**; existing ones move through a
+   rollout. The exact calls, run live, are in the `np-package-builder` skill
+   (`docs/local-loop.md`, *After it works*).
+
 ### Troubleshooting a local run
 
 | Issue | Cause | Solution |
