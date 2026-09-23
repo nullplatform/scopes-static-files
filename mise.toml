@@ -16,10 +16,13 @@ run = "docker build -t scopes-static-files-worker:dev ."
 # over gRPC/mTLS. --network host so the agent can reach the worker it publishes
 # on the host (Linux; on Docker Desktop enable host networking).
 #
-# $NP_PACKAGE_ENV_FLAGS is set by `np package run`: `-e A -e B …`, the names of
-# the shell variables to forward. It is spliced UNQUOTED on purpose — it holds
-# validated identifiers only, and docker reads each value from the environment.
-# Run without the CLI and it is empty, which is fine.
+# `np package run` sets NP_PACKAGE_ENV_FLAGS (`-e A -e B …`, the names of the
+# shell variables to forward, spliced UNQUOTED on purpose: validated identifiers
+# only, docker reads each value from the environment) and NP_PACKAGE_ENV_JSON
+# (the same variables as a JSON object). The flags put them in the AGENT
+# container; the JSON goes into an NP_WORKER_RULES entry, which is how the agent
+# hands env to the WORKER it spawns — the docker backend applies rule env, not
+# NP_WORKER_ENV. Run without the CLI and both are empty, which is fine.
 [tasks.run]
 description = "Run locally: an agent (docker backend) that spawns this scope's worker"
 depends = ["build:image"]
@@ -27,6 +30,9 @@ run = """
 set -eu
 : "${NP_API_KEY:?set NP_API_KEY}"
 slug="${NP_PACKAGE_SLUG:-scopes-static-files}"
+env_json='{}'
+[ -n "${NP_PACKAGE_ENV_JSON:-}" ] && env_json="$NP_PACKAGE_ENV_JSON"
+worker_rules='[{"match":{"package":"'"$slug"'"},"env":'"$env_json"'}]'
 docker rm -f np-scopes-static-files-agent >/dev/null 2>&1 || true
 # shellcheck disable=SC2086  # NP_PACKAGE_ENV_FLAGS must word-split into `-e NAME` pairs
 docker run --rm --name np-scopes-static-files-agent --network host \
@@ -35,6 +41,7 @@ docker run --rm --name np-scopes-static-files-agent --network host \
   -e NP_API_KEY -e NP_LOG_LEVEL="${NP_LOG_LEVEL:-INFO}" \
   -e NP_WORKER_BACKEND=docker \
   -e NP_WORKER_IMAGE=scopes-static-files-worker:dev \
-  "${NP_AGENT_IMAGE:-public.ecr.aws/nullplatform/controlplane-agent:alpha-packages-2.2.0}" \
+  -e NP_WORKER_RULES="$worker_rules" \
+  "${NP_AGENT_IMAGE:-public.ecr.aws/nullplatform/controlplane-agent:latest}" \
   -runtime=host -tags=package:"$slug",local:"${NP_LOCAL_USER:-$USER}"
 """

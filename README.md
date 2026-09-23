@@ -467,8 +467,9 @@ tags, so point a channel at `local:<your user>` to route work to your machine.
 | `NP_LOG_LEVEL` | `INFO` | Agent log level. `np package run --log-level` also sets it. |
 | `NP_PACKAGE_SLUG` | `scopes-static-files` | The slug in the `package:<slug>` tag. Set it when your package is published under another slug. |
 | `NP_LOCAL_USER` | `$USER` | The value of the `local:<user>` tag. `np package run` sets it. |
-| `NP_AGENT_IMAGE` | `controlplane-agent:alpha-packages-2.2.0` | The agent image to run. |
-| `NP_PACKAGE_ENV_FLAGS` | empty | Set by `np package run`: the shell variables to forward, as `-e NAME` flags. |
+| `NP_AGENT_IMAGE` | `controlplane-agent:latest` | The agent image to run. Needs worker rules (0.11.1+). |
+| `NP_PACKAGE_ENV_FLAGS` | empty | Set by `np package run`: the shell variables to forward, as `-e NAME` flags (agent container). |
+| `NP_PACKAGE_ENV_JSON` | empty | Set by `np package run`: the same variables as JSON, handed to the worker through `NP_WORKER_RULES`. |
 
 ### Cloud credentials and your environment
 
@@ -486,14 +487,13 @@ np package run
 Pass `--no-forward-env` to forward nothing. Every secret in your shell is
 forwarded otherwise, and is readable with `docker inspect` on your machine.
 
-> **Known limitation.** The variables reach the **agent** container, not the
-> **worker** container the agent spawns. The agent's docker worker backend
-> forwards only its own variables (`NP_API_KEY`, `NP_API_URL`, the gRPC and TLS
-> settings); only its Kubernetes backend applies `NP_WORKER_ENV`. Creating a
-> scope works locally, because that workflow is a no-op. The deployment
-> workflows start with an `assume role` step that needs cloud credentials
-> **inside the worker**, so today their cloud calls fail in a local run. This
-> needs a change in `controlplane-agent`, not in this repo.
+> **How the variables reach the worker.** The `-e` flags put them in the
+> **agent** container. The agent gives a **worker** only the env it is
+> configured with, so the `run` task also passes an `NP_WORKER_RULES` entry
+> built from `NP_PACKAGE_ENV_JSON` (`{"match":{"package":"scopes-static-files"},"env":{…}}`),
+> and the agent injects that env into the worker it spawns for this package.
+> Worker rules exist in `controlplane-agent` 0.11.1 and newer; `latest` (the
+> default) has them, the old `alpha-packages-*` tags do not.
 
 ### Troubleshooting a local run
 
