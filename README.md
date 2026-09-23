@@ -437,10 +437,16 @@ two tasks in `mise.toml` are the whole contract with the CLI.
   enable *host networking* in the settings.
 - **[mise](https://mise.jdx.dev)**. Run `mise trust` once in this directory.
 - **`NP_API_KEY`**: an API key the agent registers with.
-- **`np` with the `package` commands.** They are in review in
-  [nullplatform/cli#243](https://github.com/nullplatform/cli/pull/243). Until
-  that ships you lose nothing but environment forwarding: `mise run run` starts
-  the same agent.
+- **`np` from the alpha channel** — it carries `np package run`
+  ([nullplatform/cli#243](https://github.com/nullplatform/cli/pull/243), not on
+  `latest` yet):
+
+  ```bash
+  curl -fsSL https://cli.nullplatform.com/install.sh | VERSION=alpha sh   # installs to ~/.local/bin/np
+  np package run --help                                                   # must list --no-forward-env
+  ```
+
+  Without it, `mise run run` starts the same agent but forwards nothing.
 
 ### Run it
 
@@ -517,7 +523,7 @@ The local run never changes what the platform runs. To ship the change:
 | Issue | Cause | Solution |
 |-------|-------|----------|
 | `set NP_API_KEY` | No API key in the environment | `export NP_API_KEY=...`, or pass `--api-key` |
-| "doesn't look like a package" | An `np` build without base package support | Use a build that includes [cli#243](https://github.com/nullplatform/cli/pull/243), or run `mise run run` |
+| "doesn't look like a package" | An `np` without base package support (`latest`) | Install the alpha channel (see Prerequisites), or run `mise run run` |
 | `mise` refuses to run the tasks | The config is not trusted yet | `mise trust` |
 | The agent starts but never reaches the worker | No host networking | Enable host networking in Docker Desktop |
 | The agent is up but no action arrives | No channel selects your tags | Add a channel selector for `local:<your user>` |
