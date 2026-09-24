@@ -2,14 +2,15 @@
 # Sourceable helper — do NOT execute directly.
 # Reads STATIC_FILES_ASSUME_ROLE_ARN from the environment. If set, calls
 # sts:AssumeRole and exports temporary credentials so all subsequent AWS calls
-# (including tofu) use that role. If empty, does nothing — the agent's
-# credentials (pod IRSA) handle auth.
+# (including tofu) use that role. If empty or `none`, does nothing — the
+# credentials already in the environment (the agent's IRSA, or a developer's
+# exported keys on a local run) are used as is.
 #
 # Requires: aws CLI, jq.
 # Expects:  STATIC_FILES_ASSUME_ROLE_ARN (set by utils/assume_role_step),
 #           SCOPE_ID (optional, used for the session name).
 
-if [ -n "${STATIC_FILES_ASSUME_ROLE_ARN:-}" ]; then
+if [ -n "${STATIC_FILES_ASSUME_ROLE_ARN:-}" ] && [ "$STATIC_FILES_ASSUME_ROLE_ARN" != "none" ]; then
   echo "   🔑 Assuming role: $STATIC_FILES_ASSUME_ROLE_ARN"
 
   _ar_sts_error=$(mktemp)

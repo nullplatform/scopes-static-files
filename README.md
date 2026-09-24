@@ -11,6 +11,7 @@ This module provides infrastructure-as-code for deploying static files applicati
 - [Cross-Layer Communication](#cross-layer-communication)
 - [Adding New Layer Implementations](#adding-new-layer-implementations)
 - [Setup Script Patterns](#setup-script-patterns)
+- [Run Locally as a Package](#run-locally-as-a-package)
 - [Testing](#testing)
 - [Quick Reference](#quick-reference)
 
@@ -410,6 +411,123 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 ```
+
+---
+
+## Run Locally as a Package
+
+You can run this scope on your machine the way production runs it: a dockerized
+nullplatform agent registers with the platform, spawns this scope's worker
+container, and hands it each action over gRPC. The bash scripts are not changed
+for this. The worker image is built `FROM` the `worker-bridge` base (see the
+`Dockerfile`), which receives the action and runs `entrypoint` exactly as the
+classic agent did.
+
+This repo is a **base package**: it has no `package.json` and no manifest. The
+two tasks in `mise.toml` are the whole contract with the CLI.
+
+| Command | Runs | Does |
+|---------|------|------|
+| `np package build --image` | `mise run build:image` | Builds `scopes-static-files-worker:dev` |
+| `np package run` | `mise run run` | Builds the image, then starts the local agent |
+
+### Prerequisites
+
+- **Docker**, with host networking. On Linux it works as is; on Docker Desktop
+  enable *host networking* in the settings.
+- **[mise](https://mise.jdx.dev)**. Run `mise trust` once in this directory.
+- **`NP_API_KEY`**: an API key the agent registers with.
+- **`np` from the alpha channel** — it carries `np package run`
+  ([nullplatform/cli#243](https://github.com/nullplatform/cli/pull/243), not on
+  `latest` yet):
+
+  ```bash
+  curl -fsSL https://cli.nullplatform.com/install.sh | VERSION=alpha sh   # installs to ~/.local/bin/np
+  np package run --help                                                   # must list --no-forward-env
+  ```
+
+  Without it, `mise run run` starts the same agent but forwards nothing.
+
+### Run it
+
+```bash
+export NP_API_KEY=...
+
+np package run --log-level DEBUG     # Ctrl+C to stop
+# or, without the CLI:
+mise run run
+```
+
+The agent is tagged `package:scopes-static-files` and `local:<your user>`. It
+receives an action only when the scope's notification channel selects those
+tags, so point a channel at `local:<your user>` to route work to your machine.
+
+> **Tags decide who gets the work.** Never start a local agent with tags a
+> production channel selects: it would receive production actions.
+
+### Settings
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `NP_API_KEY` | required | The key the agent registers with. `np package run --api-key` also sets it. |
+| `NP_LOG_LEVEL` | `INFO` | Agent log level. `np package run --log-level` also sets it. |
+| `NP_PACKAGE_SLUG` | `scopes-static-files` | The slug in the `package:<slug>` tag. Set it when your package is published under another slug. |
+| `NP_LOCAL_USER` | `$USER` | The value of the `local:<user>` tag. `np package run` sets it. |
+| `NP_AGENT_IMAGE` | `controlplane-agent:latest` | The agent image to run. Needs worker rules (0.11.1+). |
+| `STATIC_FILES_ASSUME_ROLE_ARN` | resolved from the IAM provider | `none` = keep the credentials you exported instead of assuming the cluster role (local runs) |
+| `NP_PACKAGE_ENV_FLAGS` | empty | Set by `np package run`: the shell variables to forward, as `-e NAME` flags (agent container). |
+| `NP_PACKAGE_ENV_JSON` | empty | Set by `np package run`: the same variables as JSON, handed to the worker through `NP_WORKER_RULES`. |
+
+### Cloud credentials and your environment
+
+`np package run` forwards your shell's environment to the agent container. It
+holds back variables that describe your machine rather than the work: `PATH`,
+`HOME`, `DOCKER_*`, `KUBECONFIG`, and the AWS variables that point at files the
+container does not have (`AWS_PROFILE`, `AWS_CONFIG_FILE`,
+`AWS_SHARED_CREDENTIALS_FILE`). So export credentials as variables:
+
+```bash
+eval "$(aws configure export-credentials --format env)"
+np package run
+```
+
+Pass `--no-forward-env` to forward nothing. Every secret in your shell is
+forwarded otherwise, and is readable with `docker inspect` on your machine.
+
+> **How the variables reach the worker.** The `-e` flags put them in the
+> **agent** container. The agent gives a **worker** only the env it is
+> configured with, so the `run` task also passes an `NP_WORKER_RULES` entry
+> built from `NP_PACKAGE_ENV_JSON` (`{"match":{"package":"scopes-static-files"},"env":{…}}`),
+> and the agent injects that env into the worker it spawns for this package.
+> Worker rules exist in `controlplane-agent` 0.11.1 and newer; `latest` (the
+> default) has them, the old `alpha-packages-*` tags do not.
+
+### When it works: publish it
+
+The local run never changes what the platform runs. To ship the change:
+
+1. Push the image and register it as an artifact revision — CI does it on a
+   release tag (`release.yml`), or from any branch with the `test-image` workflow
+   (Actions → test-image → Run workflow), whose summary prints the artifact and
+   revision ids.
+2. Publish a package version that pins it: `PUT /packages` with `bump: patch`
+   and the `worker-image` component set to that artifact revision (and the
+   `scope` component to the spec's newest snapshot when the spec changed).
+   `merge_components` keeps every other component of the latest BOM.
+3. New scopes bind to the package **default**; existing ones move through a
+   rollout. The exact calls, run live, are in the `np-package-builder` skill
+   (`docs/local-loop.md`, *After it works*).
+
+### Troubleshooting a local run
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| `set NP_API_KEY` | No API key in the environment | `export NP_API_KEY=...`, or pass `--api-key` |
+| "doesn't look like a package" | An `np` without base package support (`latest`) | Install the alpha channel (see Prerequisites), or run `mise run run` |
+| `mise` refuses to run the tasks | The config is not trusted yet | `mise trust` |
+| The agent starts but never reaches the worker | No host networking | Enable host networking in Docker Desktop |
+| The agent is up but no action arrives | No channel selects your tags | Add a channel selector for `local:<your user>` |
+| `sts:AssumeRole … AccessDenied` for **your** identity | The scope assumes the role from the account's IAM provider, whose trust policy trusts only the cluster's agent role | `export STATIC_FILES_ASSUME_ROLE_ARN=none` to run with the credentials you exported (forwarded like any variable), or set it to a role you can assume |
 
 ---
 

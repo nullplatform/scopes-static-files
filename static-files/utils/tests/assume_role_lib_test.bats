@@ -73,6 +73,15 @@ teardown() {
   assert_equal "$output" "arn:aws:iam::111:role/agent-default"
 }
 
+@test "resolve_assume_role_arn: STATIC_FILES_ASSUME_ROLE_ARN=none resolves to nothing and stops (no provider, no default)" {
+  export STATIC_FILES_ASSUME_ROLE_ARN=none
+  export STATIC_FILES_ASSUME_ROLE_ARN_DEFAULT="arn:aws:iam::111:role/default"
+  json='{"iam_role_arns":{"arns":[{"selector":"static-files","arn":"arn:aws:iam::111:role/static-role"}]}}'
+  run resolve_assume_role_arn "$json" "static-files"
+  [ "$status" -eq 0 ]
+  assert_equal "$output" ""
+}
+
 @test "resolve_assume_role_arn: empty when nothing is configured" {
   run resolve_assume_role_arn '{}' "static-files"
   [ "$status" -eq 0 ]

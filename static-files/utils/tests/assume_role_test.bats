@@ -43,6 +43,18 @@ teardown() {
   assert_contains "$(cat "$logf")" "   ✅ assume_role=skipped (using agent credentials)"
 }
 
+@test "assume_role: no-op when STATIC_FILES_ASSUME_ROLE_ARN is none (keeps the credentials in the environment)" {
+  export STATIC_FILES_ASSUME_ROLE_ARN=none
+  export AWS_ACCESS_KEY_ID="mine"
+  logf=$(mktemp)
+  source "$HELPER" >"$logf" 2>&1
+  # The mock would have exported AKIAEXAMPLE had sts:AssumeRole been called.
+  assert_equal "$AWS_ACCESS_KEY_ID" "mine"
+  [ -z "${AWS_SESSION_TOKEN:-}" ]
+  grep -q "assume_role=skipped" "$logf"
+  rm -f "$logf"
+}
+
 @test "assume_role: exports AWS_* and logs all messages when ARN is set" {
   export STATIC_FILES_ASSUME_ROLE_ARN="arn:aws:iam::111:role/static-role"
   logf=$(mktemp)
