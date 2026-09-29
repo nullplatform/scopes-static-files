@@ -37,7 +37,7 @@
     "build_id": 612605537,
     "name": "main",
     "type": "bundle",
-    "url": "https://assetsaccount.blob.core.windows.net/assets/tools/automation/v1.0.0",
+    "url": "https://assetsaccount.blob.core.windows.net/$web/tools/automation/v1.0.0",
     "platform": "x86_64",
     "metadata": {},
     "nrn": "organization=1:account=2:namespace=3:application=4:build=5:asset=6"

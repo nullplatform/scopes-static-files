@@ -22,7 +22,7 @@ setup() {
   export CONTEXT='{
     "application": {"slug": "automation"},
     "scope": {"slug": "development-tools", "id": "7", "nrn": "organization=1:account=2:namespace=3:application=4:scope=7"},
-    "asset": {"url": "https://mystaticstorage.blob.core.windows.net/assets/tools/automation/v1.0.0"},
+    "asset": {"url": "https://mystaticstorage.blob.core.windows.net/%24web/tools/automation/v1.0.0"},
     "providers": {
       "scope-configurations": {
         "provider": {
@@ -54,7 +54,7 @@ run_front_door_setup() {
   run_front_door_setup
 
   assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_storage_account')" "mystaticstorage"
-  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_container_name')" "assets"
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_container_name')" '$web'
   assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_blob_prefix')" "/tools/automation/v1.0.0"
 }
 
@@ -67,8 +67,18 @@ run_front_door_setup() {
   assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_blob_prefix')" "/frontends/4/612605537"
 }
 
+@test "Should fail when the container is not \$web" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.asset.url = "https://mystaticstorage.blob.core.windows.net/assets/tools/automation/v1.0.0"')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "❌ Container 'assets' cannot be served by Front Door: the static-website origin only serves the \$web container"
+  assert_contains "$output" "🔧 How to fix:"
+}
+
 @test "Should use root prefix when asset URL has no path after container" {
-  export CONTEXT=$(echo "$CONTEXT" | jq '.asset.url = "https://mystaticstorage.blob.core.windows.net/assets"')
+  export CONTEXT=$(echo "$CONTEXT" | jq '.asset.url = "https://mystaticstorage.blob.core.windows.net/%24web"')
 
   run_front_door_setup
 
@@ -154,7 +164,7 @@ run_front_door_setup() {
   "scope_slug": "development-tools",
   "scope_id": "7",
   "distribution_storage_account": "mystaticstorage",
-  "distribution_container_name": "assets",
+  "distribution_container_name": "$web",
   "distribution_app_name": "automation-development-tools-7",
   "distribution_blob_prefix": "/tools/automation/v1.0.0",
   "distribution_resource_tags_json": {},

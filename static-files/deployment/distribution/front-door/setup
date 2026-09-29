@@ -49,6 +49,19 @@ fi
 
 distribution_container_name=${distribution_container_name:-"\$web"}
 
+if [ "$distribution_container_name" != "\$web" ]; then
+  echo ""
+  echo "   ❌ Container '$distribution_container_name' cannot be served by Front Door: the static-website origin only serves the \$web container"
+  echo ""
+  echo "  💡 Possible causes:"
+  echo "    • CI uploaded the bundle to a regular blob container"
+  echo ""
+  echo "  🔧 How to fix:"
+  echo "    • Upload the bundle to the \$web container and register the asset with 'https://<account>.blob.core.windows.net/\$web/<prefix>'"
+  echo ""
+  exit 1
+fi
+
 echo "   ✅ storage_account=$distribution_storage_account"
 echo "   ✅ container=$distribution_container_name"
 echo "   ✅ blob_prefix=${distribution_blob_prefix:-"(root)"}"
