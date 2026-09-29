@@ -40,3 +40,19 @@ variable "distribution_front_door_resource_group" {
   description = "Resource group that holds the shared Front Door profile"
   type        = string
 }
+
+variable "distribution_cached_path_prefixes" {
+  description = "Path prefixes served with the long cache (StaticCache); every other path is never cached (NoCacheOutsideStatic)"
+  type        = list(string)
+  default     = ["/static/"]
+
+  validation {
+    condition     = length(var.distribution_cached_path_prefixes) >= 1 && length(var.distribution_cached_path_prefixes) <= 10
+    error_message = "distribution_cached_path_prefixes must hold between 1 and 10 prefixes (a Front Door condition accepts at most 10 match values)."
+  }
+
+  validation {
+    condition     = alltrue([for prefix in var.distribution_cached_path_prefixes : startswith(prefix, "/")])
+    error_message = "Every entry in distribution_cached_path_prefixes must start with '/'."
+  }
+}

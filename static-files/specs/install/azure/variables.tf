@@ -84,6 +84,10 @@ variable "provider_configs" {
     `azure_front_door_profile` and `azure_front_door_endpoint` name the Front Door
     profile and endpoint shared by every static-files scope of that environment;
     create them before the first deployment.
+
+    The remaining optional fields tune the Front Door behavior and default to
+    the layer's own defaults (see the Azure section of the README):
+    `azure_front_door_cached_path_prefixes`.
   EOT
   type = list(object({
     nrn                             = string
@@ -94,5 +98,7 @@ variable "provider_configs" {
     azure_front_door_profile        = string
     azure_front_door_endpoint       = string
     azure_front_door_resource_group = optional(string)
+
+    azure_front_door_cached_path_prefixes = optional(list(string), ["/static/"])
   }))
 }

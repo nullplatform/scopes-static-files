@@ -63,7 +63,9 @@ resource "azurerm_cdn_frontdoor_rule" "spa_fallback" {
   }
 }
 
-# Long cache for fingerprinted assets under /static/, as the retired CDN classic layer did.
+# Long cache for fingerprinted assets under the cached path prefixes (default
+# /static/, as the retired CDN classic layer did). Multiple match values are
+# OR'ed.
 resource "azurerm_cdn_frontdoor_rule" "static_cache" {
   depends_on = [azurerm_cdn_frontdoor_origin_group.static, azurerm_cdn_frontdoor_origin.static]
 
@@ -75,7 +77,7 @@ resource "azurerm_cdn_frontdoor_rule" "static_cache" {
   conditions {
     url_path_condition {
       operator     = "BeginsWith"
-      match_values = ["/static/"]
+      match_values = var.distribution_cached_path_prefixes
     }
   }
 
@@ -90,7 +92,8 @@ resource "azurerm_cdn_frontdoor_rule" "static_cache" {
   }
 }
 
-# Never cache HTML or client routes. The purge runs when the route update is
+# Never cache HTML or client routes: every path that starts with none of the
+# cached path prefixes (a negated condition over OR'ed values). The purge runs when the route update is
 # accepted, but the new origin path reaches the edge minutes later; a request
 # in that window re-caches the previous index.html, and the static website
 # sends no Cache-Control, so Front Door would keep it for days.
@@ -105,7 +108,7 @@ resource "azurerm_cdn_frontdoor_rule" "no_cache_outside_static" {
   conditions {
     url_path_condition {
       operator         = "BeginsWith"
-      match_values     = ["/static/"]
+      match_values     = var.distribution_cached_path_prefixes
       negate_condition = true
     }
   }

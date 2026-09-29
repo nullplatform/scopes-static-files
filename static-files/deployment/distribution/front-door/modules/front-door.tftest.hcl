@@ -243,7 +243,7 @@ run "html_is_not_cached_outside_static" {
 
   assert {
     condition     = one(one(azurerm_cdn_frontdoor_rule.no_cache_outside_static.conditions).url_path_condition).negate_condition == true
-    error_message = "NoCacheOutsideStatic must match every path that does NOT begin with /static/"
+    error_message = "NoCacheOutsideStatic must match every path that begins with none of the cached path prefixes"
   }
 
   assert {
@@ -365,5 +365,78 @@ run "fails_without_custom_domain" {
 
   expect_failures = [
     azurerm_cdn_frontdoor_custom_domain.static,
+  ]
+}
+
+run "cached_path_prefixes_default_to_static" {
+  command = plan
+
+  assert {
+    condition     = one(one(azurerm_cdn_frontdoor_rule.static_cache.conditions).url_path_condition).match_values == tolist(["/static/"])
+    error_message = "StaticCache should match /static/ by default"
+  }
+
+  assert {
+    condition     = one(one(azurerm_cdn_frontdoor_rule.no_cache_outside_static.conditions).url_path_condition).match_values == tolist(["/static/"])
+    error_message = "NoCacheOutsideStatic should negate /static/ by default"
+  }
+}
+
+run "cached_path_prefixes_feed_both_cache_rules" {
+  command = plan
+
+  variables {
+    distribution_cached_path_prefixes = ["/assets/", "/fonts/"]
+  }
+
+  assert {
+    condition     = one(one(azurerm_cdn_frontdoor_rule.static_cache.conditions).url_path_condition).match_values == tolist(["/assets/", "/fonts/"])
+    error_message = "StaticCache should match every configured prefix"
+  }
+
+  assert {
+    condition     = one(one(azurerm_cdn_frontdoor_rule.no_cache_outside_static.conditions).url_path_condition).match_values == tolist(["/assets/", "/fonts/"])
+    error_message = "NoCacheOutsideStatic should negate the same prefixes StaticCache matches"
+  }
+
+  assert {
+    condition     = one(one(azurerm_cdn_frontdoor_rule.no_cache_outside_static.conditions).url_path_condition).negate_condition == true
+    error_message = "NoCacheOutsideStatic must stay negated"
+  }
+}
+
+run "rejects_cached_path_prefix_without_leading_slash" {
+  command = plan
+
+  variables {
+    distribution_cached_path_prefixes = ["assets/"]
+  }
+
+  expect_failures = [
+    var.distribution_cached_path_prefixes,
+  ]
+}
+
+run "rejects_empty_cached_path_prefixes" {
+  command = plan
+
+  variables {
+    distribution_cached_path_prefixes = []
+  }
+
+  expect_failures = [
+    var.distribution_cached_path_prefixes,
+  ]
+}
+
+run "rejects_more_than_ten_cached_path_prefixes" {
+  command = plan
+
+  variables {
+    distribution_cached_path_prefixes = ["/a/", "/b/", "/c/", "/d/", "/e/", "/f/", "/g/", "/h/", "/i/", "/j/", "/k/"]
+  }
+
+  expect_failures = [
+    var.distribution_cached_path_prefixes,
   ]
 }

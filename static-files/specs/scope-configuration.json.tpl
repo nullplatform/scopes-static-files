@@ -290,6 +290,20 @@
             "title": "Front Door Resource Group",
             "description": "Resource group that holds the profile. Leave empty to use the provider resource group."
           },
+          "azure_front_door_cached_path_prefixes": {
+            "type": "array",
+            "title": "Cached Path Prefixes",
+            "description": "Paths served with the long cache (fingerprinted assets). Every other path, index.html and client routes included, is never cached. Each prefix must start with '/'.",
+            "default": [
+              "/static/"
+            ],
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^/"
+            }
+          },
           "default_viewer_protocol_policy": {
             "type": "string",
             "title": "Viewer protocol",
@@ -1011,6 +1025,21 @@
                   },
                   "type": "Control",
                   "scope": "#/properties/distribution/properties/azure_front_door_resource_group"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_front_door_cached_path_prefixes"
                 },
                 {
                   "rule": {

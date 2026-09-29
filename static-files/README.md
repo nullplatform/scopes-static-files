@@ -192,6 +192,13 @@ on the first deployment).
 **A DNS zone is mandatory on Azure.** The route is bound to the scope's custom
 domain only; the shared endpoint hostname does not serve any scope.
 
+**Optional behavior.** These scope-configuration fields are optional; an
+unset field keeps the default.
+
+| Field | Default | Effect |
+|-------|---------|--------|
+| `distribution.azure_front_door_cached_path_prefixes` | `["/static/"]` | Paths cached long (fingerprinted assets). Every other path, `index.html` included, is never cached. 1 to 10 prefixes, each starting with `/` |
+
 **Publishing the bundle is CI's job**, the same way it is on AWS. Upload to the
 static-website container and register the asset with the blob URL:
 

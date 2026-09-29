@@ -70,6 +70,15 @@ Environment-variable fallbacks, for local runs and integration tests:
 `AZURE_FRONT_DOOR_PROFILE`, `AZURE_FRONT_DOOR_ENDPOINT`,
 `AZURE_FRONT_DOOR_RESOURCE_GROUP`.
 
+## Configurable behavior
+
+Optional scope-configuration fields; an unset field keeps the default, which
+is the behavior the layer shipped with.
+
+| Field | Default | Effect |
+|-------|---------|--------|
+| `distribution.azure_front_door_cached_path_prefixes` | `["/static/"]` | Paths `StaticCache` caches long; `NoCacheOutsideStatic` disables caching for every path that starts with none of them. 1 to 10 entries, each starting with `/` |
+
 ## Layer contract
 
 The distribution layer keeps the existing cross-layer contract, so

@@ -156,6 +156,48 @@ run_front_door_setup() {
   assert_contains "$output" "az afd endpoint create"
 }
 
+@test "Should default the cached path prefixes to /static/" {
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_cached_path_prefixes')" '["/static/"]'
+}
+
+@test "Should default the cached path prefixes when the list is empty" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.azure_front_door_cached_path_prefixes = []')
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_cached_path_prefixes')" '["/static/"]'
+}
+
+@test "Should read explicit cached path prefixes and drop empty entries" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.azure_front_door_cached_path_prefixes = ["/assets/", "", "/fonts/"]')
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_cached_path_prefixes')" '["/assets/","/fonts/"]'
+}
+
+@test "Should fail when a cached path prefix does not start with a slash" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.azure_front_door_cached_path_prefixes = ["/assets/", "fonts/"]')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "❌ Cached path prefix 'fonts/' must start with '/'"
+  assert_contains "$output" "distribution.azure_front_door_cached_path_prefixes"
+  assert_contains "$output" "🔧 How to fix:"
+}
+
+@test "Should fail when more than 10 cached path prefixes are configured" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.azure_front_door_cached_path_prefixes = ["/a/","/b/","/c/","/d/","/e/","/f/","/g/","/h/","/i/","/j/","/k/"]')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "❌ At most 10 cached path prefixes are allowed, got 11"
+}
+
 @test "Should add distribution variables to TOFU_VARIABLES" {
   run_front_door_setup
 
@@ -170,7 +212,8 @@ run_front_door_setup() {
   "distribution_resource_tags_json": {},
   "distribution_front_door_profile": "shared-afd",
   "distribution_front_door_endpoint": "shared-endpoint",
-  "distribution_front_door_resource_group": "my-resource-group"
+  "distribution_front_door_resource_group": "my-resource-group",
+  "distribution_cached_path_prefixes": ["/static/"]
 }'
 
   assert_json_equal "$TOFU_VARIABLES" "$expected" "TOFU_VARIABLES"

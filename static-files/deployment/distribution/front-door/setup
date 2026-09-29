@@ -120,6 +120,43 @@ subscription_id=$(get_config_value \
   --env AZURE_SUBSCRIPTION_ID)
 
 # =============================================================================
+# Cache behavior
+# =============================================================================
+distribution_cached_path_prefixes=$(echo "$CONTEXT" | jq -c '
+  (.providers["scope-configurations"].distribution.azure_front_door_cached_path_prefixes // [])
+  | [(if type == "array" then .[] else . end) | select(. != "")]
+  | if length == 0 then ["/static/"] else . end')
+
+invalid_prefix=$(echo "$distribution_cached_path_prefixes" | jq -r '[.[] | select((type != "string") or (startswith("/") | not))][0] // empty')
+if [ -n "$invalid_prefix" ]; then
+  echo ""
+  echo "   ❌ Cached path prefix '$invalid_prefix' must start with '/'"
+  echo ""
+  echo "  💡 Possible causes:"
+  echo "    • distribution.azure_front_door_cached_path_prefixes has an entry without the leading slash"
+  echo ""
+  echo "  🔧 How to fix:"
+  echo "    • Write every prefix as an absolute path, e.g. '/static/' or '/assets/'"
+  echo ""
+  exit 1
+fi
+
+prefix_count=$(echo "$distribution_cached_path_prefixes" | jq 'length')
+if [ "$prefix_count" -gt 10 ]; then
+  echo ""
+  echo "   ❌ At most 10 cached path prefixes are allowed, got $prefix_count"
+  echo ""
+  echo "  💡 Possible causes:"
+  echo "    • distribution.azure_front_door_cached_path_prefixes lists more prefixes than a Front Door rule condition accepts"
+  echo ""
+  echo "  🔧 How to fix:"
+  echo "    • Group the cached files under fewer top-level folders"
+  echo ""
+  exit 1
+fi
+echo "   ✅ cached_path_prefixes=$(echo "$distribution_cached_path_prefixes" | jq -r 'join(",")')"
+
+# =============================================================================
 # Preflight: the shared endpoint must already exist
 # =============================================================================
 echo ""
@@ -175,6 +212,7 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
   --arg fd_profile "$distribution_front_door_profile" \
   --arg fd_endpoint "$distribution_front_door_endpoint" \
   --arg fd_resource_group "$distribution_front_door_resource_group" \
+  --argjson cached_path_prefixes "$distribution_cached_path_prefixes" \
   '. + {
     distribution_storage_account: $storage_account,
     distribution_container_name: $container_name,
@@ -183,7 +221,8 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
     distribution_resource_tags_json: $resource_tags_json,
     distribution_front_door_profile: $fd_profile,
     distribution_front_door_endpoint: $fd_endpoint,
-    distribution_front_door_resource_group: $fd_resource_group
+    distribution_front_door_resource_group: $fd_resource_group,
+    distribution_cached_path_prefixes: $cached_path_prefixes
   }')
 
 echo ""
