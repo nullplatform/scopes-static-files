@@ -2627,6 +2627,8 @@ Expected checklist, in order:
 2. `tofu apply` creates origin group, origin, rule set, two rules, route, custom domain, TXT record, association.
 3. Purge succeeds while the domain is still `Pending` (Review Focus 5). If Azure rejects it, change `terraform_data.front_door_purge` in Task 5 to tolerate HTTP 400 with `DomainNotFound` only, document it, and re-run.
 4. Within ~10 minutes `https://<app>-<scope>.<zone>` serves `index.html` with a valid certificate and a client-side route (`/some/path`) also returns `index.html`.
+5. Deep links and the home page serve the deployed version, not `$web/index.html` from the container root: request `/` and `/some/client/route` and compare with the bundle at the current origin path. If Front Door's URL rewrite bypasses the route's origin path, prefix `destination` in `azurerm_cdn_frontdoor_rule.spa_fallback` with `local.distribution_origin_path`.
+6. After the second deploy (Step 4), repeat the request to `/` and to a deep link every minute for ten minutes: no stale content. If stale content appears, add a rule that disables caching for `text/html` (or everything outside `/static/`) so the purge is not the only invalidation mechanism.
 
 - [ ] **Step 4: Deploy a second build and confirm the version switch**
 
