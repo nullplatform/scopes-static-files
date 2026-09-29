@@ -1,0 +1,15 @@
+#!/bin/bash
+# Mock az CLI with no existing session: 'az account show' fails, every other
+# call succeeds. Set AZ_MOCK_LOGIN_FAILS=1 to make 'az login' fail too.
+
+if [ "$1" = "account" ] && [ "$2" = "show" ]; then
+  echo "Please run 'az login' to setup account." >&2
+  exit 1
+fi
+
+if [ "$1" = "login" ] && [ "${AZ_MOCK_LOGIN_FAILS:-0}" = "1" ]; then
+  echo "AADSTS7000215: Invalid client secret provided." >&2
+  exit 1
+fi
+
+exit 0

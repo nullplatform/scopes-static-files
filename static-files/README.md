@@ -170,6 +170,12 @@ deployment if any is missing.
    `CDN Profile Contributor` on the resource group that holds the Front Door
    profile.
 
+   The provider layer logs `az` in from the agent's credentials
+   (`AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET`/`AZURE_TENANT_ID`, or
+   `AZURE_FEDERATED_TOKEN_FILE` for Workload Identity, or the managed identity)
+   and exports the matching `ARM_*` variables for OpenTofu, so both tools use
+   the same identity.
+
    > **`Contributor` on the resource group is not sufficient on its own.** It
    > grants the management plane but not the blob **data** plane, so the agent's
    > state writes still fail.

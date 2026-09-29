@@ -16,7 +16,16 @@ setup() {
 	PROJECT_ROOT="$(cd "$PROJECT_DIR/../.." && pwd)"
 	SCRIPT_PATH="$PROJECT_DIR/provider/azure/setup"
 
+	AZURE_MOCKS_DIR="$PROJECT_DIR/tests/resources/azure_mocks"
+
 	source "$PROJECT_ROOT/testing/assertions.sh"
+
+	# Mock az with an existing session by default
+	export PATH="$AZURE_MOCKS_DIR:$PATH"
+	set_az_mock "$AZURE_MOCKS_DIR/account/show_success.json" 0
+
+	unset AZURE_CLIENT_ID AZURE_CLIENT_SECRET AZURE_TENANT_ID AZURE_FEDERATED_TOKEN_FILE AZ_MOCK_LOGIN_FAILS
+	unset ARM_SUBSCRIPTION_ID ARM_TENANT_ID ARM_CLIENT_ID ARM_CLIENT_SECRET ARM_USE_OIDC ARM_OIDC_TOKEN_FILE ARM_USE_MSI ARM_ACCESS_KEY
 
 	# Env var fallbacks (no CONTEXT in unit tests)
 	export AZURE_SUBSCRIPTION_ID="00000000-0000-0000-0000-000000000000"
@@ -257,4 +266,118 @@ run_azure_setup() {
 	run_azure_setup
 
 	assert_equal "$MODULES_TO_USE" "existing/module,$PROJECT_DIR/provider/azure/modules"
+}
+
+# =============================================================================
+# Test: az CLI session
+# =============================================================================
+use_no_session_az() {
+	export PATH="$AZURE_MOCKS_DIR/no_session:$PATH"
+}
+
+@test "Should reuse an existing az session" {
+	set_az_mock "$AZURE_MOCKS_DIR/account/show_success.json" 0
+
+	run source "$SCRIPT_PATH"
+
+	assert_equal "$status" "0"
+	assert_contains "$output" "az_login=existing session"
+}
+
+@test "Should log in with the service principal when a client secret is set" {
+	use_no_session_az
+	export AZURE_CLIENT_ID="client-id" AZURE_CLIENT_SECRET="secret" AZURE_TENANT_ID="tenant-id"
+
+	run source "$SCRIPT_PATH"
+
+	assert_equal "$status" "0"
+	assert_contains "$output" "az_login=service-principal"
+}
+
+@test "Should log in with the federated token when running with workload identity" {
+	use_no_session_az
+	export AZURE_CLIENT_ID="client-id" AZURE_TENANT_ID="tenant-id"
+	export AZURE_FEDERATED_TOKEN_FILE="$BATS_TEST_TMPDIR/token"
+	echo "federated-token" >"$AZURE_FEDERATED_TOKEN_FILE"
+
+	run source "$SCRIPT_PATH"
+
+	assert_equal "$status" "0"
+	assert_contains "$output" "az_login=workload-identity"
+}
+
+@test "Should log in with the managed identity when there are no credentials" {
+	use_no_session_az
+
+	run source "$SCRIPT_PATH"
+
+	assert_equal "$status" "0"
+	assert_contains "$output" "az_login=managed-identity"
+}
+
+@test "Should fail with guidance when az login fails" {
+	use_no_session_az
+	export AZ_MOCK_LOGIN_FAILS=1
+
+	run source "$SCRIPT_PATH"
+
+	assert_equal "$status" "1"
+	assert_contains "$output" "❌ az login failed"
+	assert_contains "$output" "💡 Possible causes:"
+	assert_contains "$output" "🔧 How to fix:"
+	assert_contains "$output" "AZURE_FEDERATED_TOKEN_FILE"
+}
+
+# =============================================================================
+# Test: ARM_* variables for OpenTofu
+# =============================================================================
+@test "Should export ARM_SUBSCRIPTION_ID from the subscription" {
+	run_azure_setup
+
+	assert_equal "$ARM_SUBSCRIPTION_ID" "00000000-0000-0000-0000-000000000000"
+}
+
+@test "Should copy client id, tenant id and secret to ARM_* variables" {
+	export AZURE_CLIENT_ID="client-id" AZURE_TENANT_ID="tenant-id" AZURE_CLIENT_SECRET="secret"
+
+	run_azure_setup
+
+	assert_equal "$ARM_CLIENT_ID" "client-id"
+	assert_equal "$ARM_TENANT_ID" "tenant-id"
+	assert_equal "$ARM_CLIENT_SECRET" "secret"
+	assert_equal "${ARM_USE_MSI:-}" ""
+}
+
+@test "Should enable OIDC when a federated token file is set" {
+	export AZURE_FEDERATED_TOKEN_FILE="$BATS_TEST_TMPDIR/token"
+	echo "federated-token" >"$AZURE_FEDERATED_TOKEN_FILE"
+
+	run_azure_setup
+
+	assert_equal "$ARM_USE_OIDC" "true"
+	assert_equal "$ARM_OIDC_TOKEN_FILE" "$AZURE_FEDERATED_TOKEN_FILE"
+	assert_equal "${ARM_USE_MSI:-}" ""
+}
+
+@test "Should enable MSI when there is no secret, token or access key" {
+	run_azure_setup
+
+	assert_equal "$ARM_USE_MSI" "true"
+}
+
+@test "Should not enable MSI when ARM_ACCESS_KEY is set" {
+	export ARM_ACCESS_KEY="key"
+
+	run_azure_setup
+
+	assert_equal "${ARM_USE_MSI:-}" ""
+}
+
+@test "Should not override ARM_* variables that are already set" {
+	export AZURE_CLIENT_ID="client-id"
+	export ARM_CLIENT_ID="preset-client-id"
+
+	run_azure_setup
+
+	assert_equal "$ARM_CLIENT_ID" "preset-client-id"
 }
