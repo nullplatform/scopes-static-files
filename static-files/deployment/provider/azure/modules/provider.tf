@@ -25,8 +25,4 @@ provider "azurerm" {
   features {}
 
   subscription_id = var.azure_provider.subscription_id
-
-  default_tags {
-    tags = var.provider_resource_tags_json
-  }
 }
