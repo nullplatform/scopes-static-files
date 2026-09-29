@@ -10,7 +10,7 @@
         "resource_group": "test-resource-group"
       },
       "container": {
-        "name": "assets"
+        "name": "$web"
       }
     }
   }

@@ -29,24 +29,15 @@ install/
   [`../README.md`](../../README.md#registering-and-using-the-scope) for the
   full installation walkthrough, pre-requisites, and agent IAM guidance.
 
-- **Azure** (`azure/`) — complete working example (Blob static website + CDN +
-  Azure DNS). Mirrors the shape of `aws/`: same `scope_definition` and
-  `scope_definition_agent_association` module calls, and a
-  `nullplatform_provider_config` whose `attributes` carry the `azure_*` fields
-  of the [`../scope-configuration.json.tpl`](../scope-configuration.json.tpl)
-  schema. What varies per entry in `provider_configs` is the NRN, the resource
-  group and the DNS zone; the OpenTofu state storage account is shared, the same
-  way `aws_state_bucket` is on AWS.
-
-  **Known limitation:** publishing the frontend bundle to a blob container is
-  not covered by this example. The distribution layer derives the storage
-  account from the asset URL and expects
-  `https://<storage>.blob.core.windows.net/<container>/...`, and nothing on the
-  platform produces such a URL today — the only provider specifications that
-  take the asset-repository role are `ecr` and `docker-server`, both
-  container-registry shaped. So an Azure install can register the scope and
-  create scopes, but cannot yet complete a deployment. See
-  [`../../README.md`](../../README.md) for the full explanation.
+- **Azure** (`azure/`) — complete working example (Blob static website + Front
+  Door + Azure DNS). Mirrors the shape of `aws/`. What varies per entry in
+  `provider_configs` is the NRN, the resource group, the DNS zone and the shared
+  Front Door profile and endpoint; the OpenTofu state storage account is shared,
+  the same way `aws_state_bucket` is on AWS. The bundle is published by CI with
+  `az storage blob upload-batch` + `np asset create`; see the top-level README.
+  The Front Door profile, endpoints, optional WAF policy and the agent's role
+  assignments come from the [`requirements/azure`](../requirements/azure/README.md)
+  module, whose outputs feed each `provider_configs` entry.
 
 ## Not yet provided
 

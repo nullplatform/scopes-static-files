@@ -52,6 +52,12 @@
               "azure_state_storage_account",
               "azure_state_container"
             ]
+          },
+          "distribution": {
+            "required": [
+              "azure_front_door_profile",
+              "azure_front_door_endpoint"
+            ]
           }
         }
       }
@@ -216,6 +222,27 @@
             "type": "string",
             "title": "State Container",
             "description": "Blob container name for OpenTofu state files"
+          },
+          "azure_state_resource_group": {
+            "type": "string",
+            "title": "State Resource Group",
+            "description": "Resource group of the OpenTofu state storage account. Leave empty when it is the same as the scope resource group."
+          },
+          "azure_state_auth": {
+            "type": "string",
+            "title": "State Backend Authentication",
+            "description": "How OpenTofu authenticates to the state storage account. 'azuread' uses the agent identity (needs Storage Blob Data Contributor on the account); 'key' uses the account keys (shared-key access must be enabled).",
+            "default": "azuread",
+            "oneOf": [
+              {
+                "const": "azuread",
+                "title": "Azure AD (agent identity)"
+              },
+              {
+                "const": "key",
+                "title": "Storage account key"
+              }
+            ]
           }
         },
         "description": "Cloud provider settings, credentials, and state backend"
@@ -240,13 +267,62 @@
             "type": "string",
             "title": "Azure Distribution",
             "description": "CDN distribution for serving static files",
-            "default": "blob-cdn",
+            "default": "front-door",
             "oneOf": [
               {
-                "const": "blob-cdn",
-                "title": "Azure CDN (Blob Storage)"
+                "const": "front-door",
+                "title": "Azure Front Door (Standard/Premium)"
               }
             ]
+          },
+          "azure_front_door_profile": {
+            "type": "string",
+            "title": "Front Door Profile",
+            "description": "Name of the shared Front Door profile for this environment. Created once by your platform team; the scope only adds routes to it."
+          },
+          "azure_front_door_endpoint": {
+            "type": "string",
+            "title": "Front Door Endpoint",
+            "description": "Name of the shared endpoint inside the profile. Every scope of this environment gets a route and a custom domain on it."
+          },
+          "azure_front_door_resource_group": {
+            "type": "string",
+            "title": "Front Door Resource Group",
+            "description": "Resource group that holds the profile. Leave empty to use the provider resource group."
+          },
+          "azure_front_door_cached_path_prefixes": {
+            "type": "array",
+            "title": "Cached Path Prefixes",
+            "description": "Paths served with the long cache (fingerprinted assets). Every other path, index.html and client routes included, is never cached. Each prefix must start with '/'.",
+            "default": [
+              "/static/"
+            ],
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^/"
+            }
+          },
+          "azure_front_door_cache_days": {
+            "type": "integer",
+            "title": "Cache Duration (days)",
+            "description": "How long Front Door keeps the files under the cached path prefixes at the edge.",
+            "default": 7,
+            "minimum": 1,
+            "maximum": 365
+          },
+          "azure_front_door_security_headers": {
+            "type": "boolean",
+            "title": "Security Headers",
+            "description": "Add Strict-Transport-Security, X-Content-Type-Options, X-Frame-Options (SAMEORIGIN) and Referrer-Policy to every response.",
+            "default": false
+          },
+          "azure_front_door_content_security_policy": {
+            "type": "string",
+            "title": "Content Security Policy",
+            "description": "Optional Content-Security-Policy header value, sent only when Security Headers is on. Leave empty to send no CSP.",
+            "default": ""
           },
           "default_viewer_protocol_policy": {
             "type": "string",
@@ -696,6 +772,32 @@
             "type": "string",
             "title": "WAF WebACL Name",
             "description": "Name of an existing AWS WAF WebACL with scope=CLOUDFRONT"
+          },
+          "azure_security": {
+            "type": "string",
+            "title": "Azure Security",
+            "description": "Optional WAF attachment for the scope's Front Door custom domain. Choose 'none' to skip, or 'azure_waf' to attach an existing Front Door WAF policy.",
+            "default": "none",
+            "oneOf": [
+              {
+                "const": "none",
+                "title": "None"
+              },
+              {
+                "const": "azure_waf",
+                "title": "Azure Front Door WAF"
+              }
+            ]
+          },
+          "azure_waf_policy_name": {
+            "type": "string",
+            "title": "WAF Policy Name",
+            "description": "Name of an existing Front Door WAF policy (Microsoft.Network/FrontDoorWebApplicationFirewallPolicies) with the same tier as the profile"
+          },
+          "azure_waf_policy_resource_group": {
+            "type": "string",
+            "title": "WAF Policy Resource Group",
+            "description": "Resource group that holds the WAF policy. Leave empty to use the provider resource group."
           }
         },
         "description": "Security settings for the distribution layer (optional)"
@@ -785,7 +887,7 @@
                     }
                   },
                   "type": "Label",
-                  "text": "> **ℹ️ Agent Credentials**\n\nThe nullplatform agent must run with Azure credentials configured. Use one of:\n\n- **Workload Identity** — attach an Azure managed identity to the agent's Kubernetes service account\n- **Service Principal** — set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID as environment variables in the agent Helm installation\n\nThe identity needs the following permissions:\n\n- **Storage Blob Data Contributor** — state backend\n- **DNS Zone Contributor** — DNS record management\n- **CDN Profile Contributor + CDN Endpoint Contributor** — CDN lifecycle\n- **Reader** on the assets storage account",
+                  "text": "> **ℹ️ Agent Credentials**\n\nThe nullplatform agent must run with Azure credentials configured. Use one of:\n\n- **Workload Identity** — attach an Azure managed identity to the agent's Kubernetes service account\n- **Service Principal** — set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID as environment variables in the agent Helm installation (Workload Identity uses AZURE_FEDERATED_TOKEN_FILE)\n\nThe provider layer logs the az CLI in from these same variables (or the managed identity) and exports the matching ARM_* variables for OpenTofu.\n\nThe identity needs the following permissions:\n\n- **Storage Blob Data Contributor** — state backend\n- **DNS Zone Contributor** — CNAME and validation TXT records\n- **CDN Profile Contributor** on the Front Door resource group — routes, origins, custom domains and purge on the shared profile\n- **Reader** on the assets storage account\n\n**Prerequisites per environment:** a Front Door profile (Standard or Premium) and one endpoint in it, an Azure DNS zone, and a storage account with the static website enabled.",
                   "options": {
                     "format": "markdown"
                   }
@@ -849,6 +951,39 @@
                   },
                   "type": "Control",
                   "scope": "#/properties/provider/properties/azure_state_container"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/provider/properties/azure_state_resource_group"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/provider/properties/azure_state_auth",
+                  "options": {
+                    "format": "radio-cards"
+                  }
                 }
               ]
             },
@@ -891,6 +1026,132 @@
                   "options": {
                     "format": "radio-cards"
                   }
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_front_door_profile"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_front_door_endpoint"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_front_door_resource_group"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_front_door_cached_path_prefixes"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_front_door_cache_days"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_front_door_security_headers"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#",
+                      "schema": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "cloud_provider": {
+                                "not": {
+                                  "const": "azure"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "distribution": {
+                                "properties": {
+                                  "azure_front_door_security_headers": {
+                                    "not": {
+                                      "const": true
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_front_door_content_security_policy"
                 },
                 {
                   "rule": {
@@ -1285,7 +1546,10 @@
                     "condition": {
                       "scope": "#/properties/cloud_provider",
                       "schema": {
-                        "const": "aws"
+                        "enum": [
+                          "aws",
+                          "azure"
+                        ]
                       }
                     }
                   },
@@ -1348,6 +1612,114 @@
                   },
                   "type": "Control",
                   "scope": "#/properties/security/properties/aws_web_acl_name"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/security/properties/azure_security",
+                  "options": {
+                    "format": "radio-cards"
+                  }
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Label",
+                  "text": "> ℹ️ The WAF policy is yours: create it once and the scope only associates it with its own custom domain. Standard profiles support custom rules only; managed rule sets need a Premium profile and a Premium policy.",
+                  "options": {
+                    "format": "markdown"
+                  }
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#",
+                      "schema": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "cloud_provider": {
+                                "not": {
+                                  "const": "azure"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "security": {
+                                "properties": {
+                                  "azure_security": {
+                                    "not": {
+                                      "const": "azure_waf"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/security/properties/azure_waf_policy_name"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#",
+                      "schema": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "cloud_provider": {
+                                "not": {
+                                  "const": "azure"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "security": {
+                                "properties": {
+                                  "azure_security": {
+                                    "not": {
+                                      "const": "azure_waf"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/security/properties/azure_waf_policy_resource_group"
                 }
               ]
             }

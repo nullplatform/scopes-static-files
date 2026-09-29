@@ -49,6 +49,23 @@ variable "azure_state_container" {
   type        = string
 }
 
+variable "azure_state_resource_group" {
+  description = "Resource group of the state storage account. Empty means the entry's own `azure_resource_group`."
+  type        = string
+  default     = ""
+}
+
+variable "azure_state_auth" {
+  description = "How OpenTofu authenticates to the state storage account: `azuread` (agent identity, needs Storage Blob Data Contributor) or `key` (account keys, shared-key access must be enabled)."
+  type        = string
+  default     = "azuread"
+
+  validation {
+    condition     = contains(["azuread", "key"], var.azure_state_auth)
+    error_message = "azure_state_auth must be \"azuread\" or \"key\"."
+  }
+}
+
 variable "provider_configs" {
   description = <<-EOT
     One entry per environment/region. Each element creates its own
@@ -61,13 +78,39 @@ variable "provider_configs" {
     `var.azure_subscription_id`. Set it to target a different subscription per
     environment, which is the common Azure landing-zone layout.
 
-    The Azure DNS zone must live in the entry's own `azure_resource_group` — see
-    the comment on `azure_dns_zone_resource_group` in `main.tf`.
+    `azure_dns_zone_resource_group` is the resource group that holds the DNS zone;
+    it may differ from `azure_resource_group`.
+
+    `azure_front_door_profile` and `azure_front_door_endpoint` name the Front Door
+    profile and endpoint shared by every static-files scope of that environment;
+    create them before the first deployment.
+
+    The remaining optional fields tune the Front Door behavior and default to
+    the layer's own defaults (see the Azure section of the README):
+    `azure_front_door_cached_path_prefixes`, `azure_front_door_cache_days`,
+    `azure_front_door_security_headers`, `azure_front_door_content_security_policy`.
+
+    `azure_security = "azure_waf"` attaches the existing Front Door WAF policy
+    `azure_waf_policy_name` (in `azure_waf_policy_resource_group`, default
+    `azure_resource_group`) to every scope's custom domain; `none` skips it.
   EOT
   type = list(object({
-    nrn                   = string
-    azure_subscription_id = optional(string)
-    azure_resource_group  = string
-    azure_dns_zone_name   = string
+    nrn                             = string
+    azure_subscription_id           = optional(string)
+    azure_resource_group            = string
+    azure_dns_zone_name             = string
+    azure_dns_zone_resource_group   = string
+    azure_front_door_profile        = string
+    azure_front_door_endpoint       = string
+    azure_front_door_resource_group = optional(string)
+
+    azure_front_door_cached_path_prefixes    = optional(list(string), ["/static/"])
+    azure_front_door_cache_days              = optional(number, 7)
+    azure_front_door_security_headers        = optional(bool, false)
+    azure_front_door_content_security_policy = optional(string, "")
+
+    azure_security                  = optional(string, "none")
+    azure_waf_policy_name           = optional(string)
+    azure_waf_policy_resource_group = optional(string)
   }))
 }

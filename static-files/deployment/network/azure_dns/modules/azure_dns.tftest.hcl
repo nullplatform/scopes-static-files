@@ -13,9 +13,10 @@ mock_provider "azurerm" {
 }
 
 variables {
-  network_dns_zone_name = "example.com"
-  network_domain        = "example.com"
-  network_subdomain     = "app"
+  network_dns_zone_name           = "example.com"
+  network_domain                  = "example.com"
+  network_subdomain               = "app"
+  network_dns_zone_resource_group = "dns-resource-group"
 
   azure_provider = {
     subscription_id = "00000000-0000-0000-0000-000000000000"
@@ -24,8 +25,8 @@ variables {
     container       = "tfstate"
   }
 
-  # These come from the distribution module (e.g., blob-cdn)
-  distribution_target_domain = "myapp.azureedge.net"
+  # These come from the distribution module (e.g., front-door)
+  distribution_target_domain = "myapp.azurefd.net"
   distribution_record_type   = "CNAME"
 }
 
@@ -125,12 +126,12 @@ run "cname_record_configuration" {
   }
 
   assert {
-    condition     = azurerm_dns_cname_record.main[0].record == "myapp.azureedge.net"
+    condition     = azurerm_dns_cname_record.main[0].record == "myapp.azurefd.net"
     error_message = "CNAME record should point to distribution target domain"
   }
 
   assert {
-    condition     = azurerm_dns_cname_record.main[0].resource_group_name == "my-resource-group"
+    condition     = azurerm_dns_cname_record.main[0].resource_group_name == "dns-resource-group"
     error_message = "CNAME record should be in the correct resource group"
   }
 }
@@ -162,7 +163,7 @@ run "a_record_configuration" {
   }
 
   assert {
-    condition     = azurerm_dns_a_record.main[0].resource_group_name == "my-resource-group"
+    condition     = azurerm_dns_a_record.main[0].resource_group_name == "dns-resource-group"
     error_message = "A record should be in the correct resource group"
   }
 }
@@ -193,5 +194,17 @@ run "dns_zone_variable_configuration" {
   assert {
     condition     = var.network_dns_zone_name == "example.com"
     error_message = "DNS zone name variable should be 'example.com'"
+  }
+}
+
+# =============================================================================
+# Test: Records go to the zone's resource group, not the scope's
+# =============================================================================
+run "records_use_dns_zone_resource_group" {
+  command = plan
+
+  assert {
+    condition     = azurerm_dns_cname_record.main[0].resource_group_name == "dns-resource-group"
+    error_message = "CNAME record should be created in the DNS zone resource group"
   }
 }

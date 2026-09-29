@@ -8,7 +8,7 @@
 # Get DNS zone details
 data "azurerm_dns_zone" "main" {
   name                = var.network_dns_zone_name
-  resource_group_name = var.azure_provider.resource_group
+  resource_group_name = var.network_dns_zone_resource_group
 }
 
 # CNAME record for CDN endpoints
@@ -17,7 +17,7 @@ resource "azurerm_dns_cname_record" "main" {
 
   name                = var.network_subdomain
   zone_name           = var.network_dns_zone_name
-  resource_group_name = var.azure_provider.resource_group
+  resource_group_name = var.network_dns_zone_resource_group
   ttl                 = 300
   record              = local.distribution_target_domain
 }
@@ -28,7 +28,7 @@ resource "azurerm_dns_a_record" "main" {
 
   name                = var.network_subdomain
   zone_name           = var.network_dns_zone_name
-  resource_group_name = var.azure_provider.resource_group
+  resource_group_name = var.network_dns_zone_resource_group
   ttl                 = 300
   records             = [local.distribution_target_domain]
 }

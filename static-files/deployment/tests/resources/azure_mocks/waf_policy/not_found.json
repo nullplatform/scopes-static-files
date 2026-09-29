@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "ResourceNotFound",
+    "message": "The Resource 'Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/sharedwaf' under resource group 'my-resource-group' was not found."
+  }
+}

@@ -3,6 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
 source "$SCRIPT_DIR/../../scripts/get_config_value"
 
 echo "🔍 Validating Azure provider configuration..."
@@ -65,9 +66,88 @@ if [ ${#missing_vars[@]} -gt 0 ]; then
 	exit 1
 fi
 
+TOFU_PROVIDER_RESOURCE_GROUP=$(get_config_value \
+	--provider '.providers["scope-configurations"].provider.azure_state_resource_group' \
+	--env TOFU_PROVIDER_RESOURCE_GROUP \
+	--default "$AZURE_RESOURCE_GROUP")
+echo "   ✅ azure_state_resource_group=$TOFU_PROVIDER_RESOURCE_GROUP"
+
+TOFU_PROVIDER_STATE_AUTH=$(get_config_value \
+	--provider '.providers["scope-configurations"].provider.azure_state_auth' \
+	--env TOFU_PROVIDER_STATE_AUTH \
+	--default "azuread")
+case "$TOFU_PROVIDER_STATE_AUTH" in
+	azuread|key) echo "   ✅ azure_state_auth=$TOFU_PROVIDER_STATE_AUTH" ;;
+	*)
+		echo "   ❌ azure_state_auth must be 'azuread' or 'key', got '$TOFU_PROVIDER_STATE_AUTH'"
+		echo ""
+		echo "  🔧 How to fix:"
+		echo "    • Set provider.azure_state_auth to 'azuread' (identity needs Storage Blob Data Contributor on the state account) or 'key' (shared-key access must be enabled)"
+		echo ""
+		exit 1 ;;
+esac
+
 echo ""
 echo "✨ Azure provider configured successfully"
 echo ""
+
+# =============================================================================
+# az CLI session. Every Azure layer shells out to az (zone lookup, Front Door
+# preflight, purge). Log in with the same identity tofu will use, unless a
+# session already exists (local runs, integration tests).
+# =============================================================================
+az_login_failed() {
+	local details="$1"
+	echo ""
+	echo "   ❌ az login failed"
+	echo ""
+	echo "  💡 Possible causes:"
+	echo "    • Service Principal: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET or AZURE_TENANT_ID are wrong or expired"
+	echo "    • Workload Identity: AZURE_FEDERATED_TOKEN_FILE, AZURE_CLIENT_ID or AZURE_TENANT_ID are missing or the federated credential does not match"
+	echo "    • Managed Identity: the agent has no managed identity assigned"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    Set one of these identity layouts in the agent Helm installation:"
+	echo "      • AZURE_CLIENT_ID + AZURE_CLIENT_SECRET + AZURE_TENANT_ID"
+	echo "      • AZURE_CLIENT_ID + AZURE_TENANT_ID + AZURE_FEDERATED_TOKEN_FILE"
+	echo "      • a managed identity assigned to the agent"
+	if [ -n "$details" ]; then
+		echo ""
+		echo "  📋 Error details:"
+		# shellcheck disable=SC2001
+		echo "$details" | sed 's/^/    /'
+	fi
+	echo ""
+	exit 1
+}
+
+if az account show >/dev/null 2>&1; then
+	echo "   ✅ az_login=existing session"
+elif [ -n "${AZURE_CLIENT_SECRET:-}" ]; then
+	az_error=$(az login --service-principal --username "${AZURE_CLIENT_ID:-}" --password "$AZURE_CLIENT_SECRET" --tenant "${AZURE_TENANT_ID:-}" --output none 2>&1) || az_login_failed "$az_error"
+	echo "   ✅ az_login=service-principal"
+elif [ -n "${AZURE_FEDERATED_TOKEN_FILE:-}" ]; then
+	az_error=$(az login --service-principal --username "${AZURE_CLIENT_ID:-}" --tenant "${AZURE_TENANT_ID:-}" --federated-token "$(cat "$AZURE_FEDERATED_TOKEN_FILE")" --output none 2>&1) || az_login_failed "$az_error"
+	echo "   ✅ az_login=workload-identity"
+else
+	az_error=$(az login --identity --output none 2>&1) || az_login_failed "$az_error"
+	echo "   ✅ az_login=managed-identity"
+fi
+az_error=$(az account set --subscription "$AZURE_SUBSCRIPTION_ID" --output none 2>&1) || az_login_failed "$az_error"
+
+# OpenTofu (azurerm) uses the same identity. ARM_* variables that are already
+# set win, so an environment that configured tofu explicitly is not overridden.
+[ -n "${ARM_SUBSCRIPTION_ID:-}" ] || export ARM_SUBSCRIPTION_ID="$AZURE_SUBSCRIPTION_ID"
+[ -z "${AZURE_TENANT_ID:-}" ] || [ -n "${ARM_TENANT_ID:-}" ] || export ARM_TENANT_ID="$AZURE_TENANT_ID"
+[ -z "${AZURE_CLIENT_ID:-}" ] || [ -n "${ARM_CLIENT_ID:-}" ] || export ARM_CLIENT_ID="$AZURE_CLIENT_ID"
+[ -z "${AZURE_CLIENT_SECRET:-}" ] || [ -n "${ARM_CLIENT_SECRET:-}" ] || export ARM_CLIENT_SECRET="$AZURE_CLIENT_SECRET"
+if [ -n "${AZURE_FEDERATED_TOKEN_FILE:-}" ]; then
+	[ -n "${ARM_USE_OIDC:-}" ] || export ARM_USE_OIDC=true
+	[ -n "${ARM_OIDC_TOKEN_FILE:-}" ] || export ARM_OIDC_TOKEN_FILE="$AZURE_FEDERATED_TOKEN_FILE"
+fi
+if [ -z "${AZURE_CLIENT_SECRET:-}" ] && [ -z "${AZURE_FEDERATED_TOKEN_FILE:-}" ] && [ -z "${ARM_ACCESS_KEY:-}" ] && [ -z "${ARM_USE_MSI:-}" ]; then
+	export ARM_USE_MSI=true
+fi
 
 RESOURCE_TAGS_JSON=${RESOURCE_TAGS_JSON:-"{}"}
 
@@ -81,7 +161,10 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
 
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=storage_account_name=$TOFU_PROVIDER_STORAGE_ACCOUNT"
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=container_name=$TOFU_PROVIDER_CONTAINER"
-TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=resource_group_name=$AZURE_RESOURCE_GROUP"
+TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=resource_group_name=$TOFU_PROVIDER_RESOURCE_GROUP"
+if [ "$TOFU_PROVIDER_STATE_AUTH" = "azuread" ]; then
+	TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=use_azuread_auth=true"
+fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 module_name="${script_dir}/modules"

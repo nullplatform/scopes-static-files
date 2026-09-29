@@ -1,0 +1,114 @@
+#!/bin/bash
+# =============================================================================
+# Security layer: azure_waf
+#
+# Attaches an existing Azure Front Door WAF policy (customer-owned) to the
+# scope's custom domain. Reads the policy name and resource group from the
+# scope-configurations provider, validates that the policy exists, and
+# composes the module that creates the Front Door security policy.
+# =============================================================================
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/../../scripts/get_config_value"
+
+echo "🔍 Validating Azure Front Door WAF policy configuration..."
+echo ""
+
+security_waf_policy_name=$(get_config_value \
+  --provider '.providers["scope-configurations"].security.azure_waf_policy_name')
+
+if [ -z "$security_waf_policy_name" ]; then
+  echo "   ❌ security.azure_waf_policy_name is not set"
+  echo ""
+  echo "  💡 Possible causes:"
+  echo "    • 'security.azure_security' is set to 'azure_waf' but 'azure_waf_policy_name' is empty"
+  echo ""
+  echo "  🔧 How to fix:"
+  echo "    • Set 'security.azure_waf_policy_name' in the scope-configurations provider"
+  echo "    • Or change 'security.azure_security' to 'none' to skip WAF attachment"
+  echo ""
+  exit 1
+fi
+echo "   ✅ waf_policy_name=$security_waf_policy_name"
+
+provider_resource_group=$(get_config_value \
+  --provider '.providers["scope-configurations"].provider.azure_resource_group' \
+  --env AZURE_RESOURCE_GROUP)
+security_waf_policy_resource_group=$(get_config_value \
+  --provider '.providers["scope-configurations"].security.azure_waf_policy_resource_group' \
+  --default "$provider_resource_group")
+echo "   ✅ waf_policy_resource_group=$security_waf_policy_resource_group"
+
+subscription_id=$(get_config_value \
+  --provider '.providers["scope-configurations"].provider.azure_subscription_id' \
+  --env AZURE_SUBSCRIPTION_ID)
+
+# =============================================================================
+# Preflight: the WAF policy must already exist
+# =============================================================================
+echo ""
+echo "   📡 Verifying Front Door WAF policy..."
+
+policy_url="https://management.azure.com/subscriptions/${subscription_id}/resourceGroups/${security_waf_policy_resource_group}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/${security_waf_policy_name}?api-version=2024-02-01"
+
+stderr_file=$(mktemp)
+az_output=$(az rest --method get --url "$policy_url" 2>"$stderr_file") && az_exit_code=0 || az_exit_code=$?
+az_stderr=$(cat "$stderr_file")
+rm -f "$stderr_file"
+
+if [ "$az_exit_code" -ne 0 ]; then
+  echo ""
+  if echo "$az_stderr" | grep -q "ResourceNotFound\|NotFound\|ResourceGroupNotFound"; then
+    echo "   ❌ Front Door WAF policy '$security_waf_policy_name' was not found in resource group '$security_waf_policy_resource_group'"
+    echo ""
+    echo "  💡 Possible causes:"
+    echo "    • The WAF policy has not been created yet"
+    echo "    • The policy name or resource group in the scope configuration has a typo"
+    echo "    • The policy is a classic Front Door or Application Gateway policy, not a Front Door Standard/Premium one"
+    echo ""
+    echo "  🔧 How to fix:"
+    echo "    • Create it once, with the same tier as the Front Door profile:"
+    echo "        az network front-door waf-policy create --resource-group $security_waf_policy_resource_group --name $security_waf_policy_name --sku Standard_AzureFrontDoor --mode Prevention"
+    echo "    • Or set 'security.azure_security' to 'none' to skip WAF attachment"
+  elif echo "$az_stderr" | grep -q "AuthorizationFailed\|Forbidden\|403"; then
+    echo "   🔒 Error: Permission denied when reading the Front Door WAF policy"
+    echo ""
+    echo "  🔧 How to fix:"
+    echo "    • Grant the agent identity read access (e.g. 'Reader') on resource group '$security_waf_policy_resource_group'"
+  else
+    echo "   ❌ Failed to read the Front Door WAF policy"
+    echo ""
+    echo "  📋 Error details:"
+    # shellcheck disable=SC2001
+    echo "$az_stderr" | sed 's/^/    /'
+  fi
+  echo ""
+  exit 1
+fi
+
+policy_sku=$(echo "$az_output" | jq -r '.sku.name // empty')
+echo "   ✅ waf_policy exists${policy_sku:+ (sku=$policy_sku)}"
+
+TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
+  --arg waf_policy_name "$security_waf_policy_name" \
+  --arg waf_policy_resource_group "$security_waf_policy_resource_group" \
+  '. + {
+    security_waf_policy_name: $waf_policy_name,
+    security_waf_policy_resource_group: $waf_policy_resource_group
+  }')
+
+echo ""
+echo "✨ Azure Front Door WAF policy configured successfully"
+echo ""
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+module_name="${script_dir}/modules"
+
+if [[ -n ${MODULES_TO_USE:-} ]]; then
+  MODULES_TO_USE="$MODULES_TO_USE,$module_name"
+else
+  MODULES_TO_USE="$module_name"
+fi

@@ -1,0 +1,9 @@
+{
+  "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-resource-group/providers/Microsoft.Cdn/profiles/shared-afd/afdEndpoints/shared-endpoint",
+  "name": "shared-endpoint",
+  "properties": {
+    "hostName": "shared-endpoint-abcd.z01.azurefd.net",
+    "enabledState": "Enabled",
+    "provisioningState": "Succeeded"
+  }
+}

@@ -261,6 +261,15 @@ run_azure_dns_setup() {
 # =============================================================================
 # Test: TOFU_VARIABLES - verifies the entire JSON structure
 # =============================================================================
+@test "Should add network_dns_zone_resource_group to TOFU_VARIABLES" {
+  set_az_mock "$AZURE_MOCKS_DIR/dns_zone/success.json" 0
+
+  source "$SCRIPT_PATH"
+
+  local rg=$(echo "$TOFU_VARIABLES" | jq -r '.network_dns_zone_resource_group')
+  assert_equal "$rg" "my-resource-group"
+}
+
 @test "Should add network variables to TOFU_VARIABLES" {
   set_az_mock "$AZURE_MOCKS_DIR/dns_zone/success.json"
 
@@ -271,6 +280,7 @@ run_azure_dns_setup() {
   "scope_slug": "development-tools",
   "scope_id": "7",
   "network_dns_zone_name": "example.com",
+  "network_dns_zone_resource_group": "my-resource-group",
   "network_domain": "example.com",
   "network_subdomain": "automation-development-tools"
 }'

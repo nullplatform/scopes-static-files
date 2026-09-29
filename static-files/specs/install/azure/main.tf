@@ -99,21 +99,36 @@ resource "nullplatform_provider_config" "static_files_configuration" {
       azure_resource_group        = each.value.azure_resource_group
       azure_state_storage_account = var.azure_state_storage_account
       azure_state_container       = var.azure_state_container
+      azure_state_resource_group  = var.azure_state_resource_group != "" ? var.azure_state_resource_group : each.value.azure_resource_group
+      azure_state_auth            = var.azure_state_auth
     }
 
     network = {
       azure_network       = "azure_dns"
       azure_dns_zone_name = each.value.azure_dns_zone_name
 
-      # Must equal the scope's resource group: `network/azure_dns/setup` preflight-checks
-      # this value but never forwards it, and the module resolves the zone against
-      # `azure_provider.resource_group`. Pointing it elsewhere passes the preflight and
-      # then reads the wrong resource group, so it is not exposed as a variable.
-      azure_dns_zone_resource_group = each.value.azure_resource_group
+      # Resource group that holds the DNS zone. It may differ from the scope's
+      # resource group: the setup validates the zone there and the module
+      # writes its records there.
+      azure_dns_zone_resource_group = each.value.azure_dns_zone_resource_group
     }
 
     distribution = {
-      azure_distribution = "blob-cdn"
+      azure_distribution              = "front-door"
+      azure_front_door_profile        = each.value.azure_front_door_profile
+      azure_front_door_endpoint       = each.value.azure_front_door_endpoint
+      azure_front_door_resource_group = coalesce(each.value.azure_front_door_resource_group, each.value.azure_resource_group)
+
+      azure_front_door_cached_path_prefixes    = each.value.azure_front_door_cached_path_prefixes
+      azure_front_door_cache_days              = each.value.azure_front_door_cache_days
+      azure_front_door_security_headers        = each.value.azure_front_door_security_headers
+      azure_front_door_content_security_policy = each.value.azure_front_door_content_security_policy
     }
+
+    security = { for k, v in {
+      azure_security                  = each.value.azure_security
+      azure_waf_policy_name           = each.value.azure_waf_policy_name
+      azure_waf_policy_resource_group = each.value.azure_waf_policy_resource_group
+    } : k => v if v != null }
   })
 }

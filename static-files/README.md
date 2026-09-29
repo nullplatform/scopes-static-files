@@ -42,7 +42,7 @@ This module provides infrastructure-as-code for deploying static files applicati
 │                                                                 │
 │  Implementations:   Implementations:   Implementations:         │
 │  • aws              • route53          • cloudfront             │
-│  • azure            • azure_dns        • blob-cdn               │
+│  • azure            • azure_dns        • front-door             │
 │  • gcp              • cloud_dns        • amplify                │
 │                                        • firebase               │
 │                                        • gcs-cdn                │
@@ -134,7 +134,9 @@ deployment if any is missing.
 
 1. **A storage account and a blob container for the OpenTofu state**
    (`azure_state_storage_account` / `azure_state_container`). One state file per
-   scope is written here during the deployment workflow.
+   scope is written here during the deployment workflow. The storage account
+   may live in a different resource group than the scopes; set
+   `azure_state_resource_group` in that case.
 
 2. **A public Azure DNS zone** for the domain the scopes will use
    (`azure_dns_zone_name`). The scope looks the zone up with a data source and
@@ -142,9 +144,8 @@ deployment if any is missing.
 
 3. **A storage account with the static website feature enabled**, where CI
    uploads the frontend bundles. The distribution layer reads it with a data
-   source and uses its `primary_web_host` as the CDN origin — it does not create
-   or configure the account. Set the error document to `index.html` as well as
-   the index document, so client-side routing works:
+   source and uses its `primary_web_host` as the Front Door origin. Set the
+   error document to `index.html` as well as the index document:
 
    ```bash
    az storage blob service-properties update \
@@ -152,43 +153,87 @@ deployment if any is missing.
      --static-website --index-document index.html --404-document index.html
    ```
 
-4. **Azure RBAC role assignments for the agent's service principal:**
+4. **A Front Door profile and one endpoint per environment.** Every
+   static-files scope of that environment adds its own route and custom
+   domain to this endpoint; the scope never creates or deletes the profile or
+   the endpoint. The tier is chosen here, once. The
+   [`specs/requirements/azure`](specs/requirements/azure/README.md) module
+   creates them (and item 5's role assignments) from your infrastructure
+   layer; alternatively, by hand:
+
+   ```bash
+   az afd profile create --resource-group <rg> --profile-name <profile> --sku Standard_AzureFrontDoor
+   az afd endpoint create --resource-group <rg> --profile-name <profile> --endpoint-name <endpoint> --enabled-state Enabled
+   ```
+
+   Standard allows 100 custom domains and 100 routes per profile (Premium:
+   500 and 200), which is the cap of scopes per environment.
+
+5. **Azure RBAC role assignments for the agent's identity:**
    `Storage Blob Data Contributor` on the state storage account, `Reader` on the
-   assets storage account, `DNS Zone Contributor` on the DNS zone, and a role
-   that can manage CDN profiles and endpoints on the resource group (for example
-   `CDN Profile Contributor`, or `Contributor` scoped to the resource group).
+   assets storage account, `DNS Zone Contributor` on the DNS zone, and
+   `CDN Profile Contributor` on the Front Door profile (or its resource
+   group), plus `Reader` on the WAF policy when `azure_waf` is used.
+   [`specs/requirements/azure`](specs/requirements/azure/README.md) assigns
+   them to the agent's object id. The state backend authenticates with the agent identity by default
+   (`azure_state_auth = "azuread"`), so shared-key access can stay disabled on
+   the state account; set `key` to use account keys instead.
+
+   The provider layer logs `az` in from the agent's credentials
+   (`AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET`/`AZURE_TENANT_ID`, or
+   `AZURE_FEDERATED_TOKEN_FILE` for Workload Identity, or the managed identity)
+   and exports the matching `ARM_*` variables for OpenTofu, so both tools use
+   the same identity.
 
    > **`Contributor` on the resource group is not sufficient on its own.** It
    > grants the management plane but not the blob **data** plane, so the agent's
-   > state writes still fail. The `Storage Blob Data Contributor` assignment on
-   > the state account is required in addition to it.
-   >
-   > The assets account only needs `Reader`: the distribution layer reads it
-   > through a data source to resolve `primary_web_host` and never writes to it.
-   > Uploading the bundles is CI's job, with its own credentials.
+   > state writes still fail.
 
-**No certificate pre-requisite.** Unlike the AWS path, which needs an ACM
-certificate in `us-east-1`, the Azure distribution layer requests a CDN-managed
-certificate (`Dedicated`, TLS 1.2) for the custom domain, so there is nothing to
-provision or validate beforehand.
+**No certificate pre-requisite.** The distribution layer requests a Front Door
+managed certificate for the custom domain and writes the `_dnsauth` TXT record
+that validates it. The domain answers once validation completes (a few minutes
+on the first deployment).
 
-**Asset publishing is not solved yet on Azure.** The distribution layer derives
-the storage account, container and prefix from the asset URL and expects
-`https://<storage>.blob.core.windows.net/<container>/...`, and nothing on the
-platform produces such a URL today. Only two provider specifications take the
-asset-repository role — those mapping `repository_provider` to
-`global.asset_repository_provider` — and both are container-registry shaped
-(`ecr` and `docker-server`, verified 2026-09), so `np asset push` yields an
-image URI that the `blob-cdn` setup rejects.
+**A DNS zone is mandatory on Azure.** The route is bound to the scope's custom
+domain only; the shared endpoint hostname does not serve any scope.
 
-`s3-configuration` is not one of them: it maps `bucket.name` to
-`aws.s3_assets_bucket`, which is what makes the AWS path resolve to the
-`s3://...` URL `cloudfront/setup` parses. Closing the gap means adding either an
-Azure Blob asset-repository provider or an `azure-blob-configuration`
-counterpart to `s3-configuration`.
+**Optional behavior.** These scope-configuration fields are optional; an
+unset field keeps the default.
 
-An Azure install can therefore register the scope and create scopes, but a
-deployment cannot complete until that gap is closed on the platform side.
+| Field | Default | Effect |
+|-------|---------|--------|
+| `distribution.azure_front_door_cached_path_prefixes` | `["/static/"]` | Paths cached long (fingerprinted assets). Every other path, `index.html` included, is never cached. 1 to 10 prefixes, each starting with `/` |
+| `distribution.azure_front_door_cache_days` | `7` | Days the cached paths stay at the edge, 1 to 365 |
+| `distribution.azure_front_door_security_headers` | `false` | Adds HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN` and `Referrer-Policy: strict-origin-when-cross-origin` to every response |
+| `distribution.azure_front_door_content_security_policy` | empty | `Content-Security-Policy` value, sent only when the security headers are on |
+| `security.azure_security` | `none` | `azure_waf` attaches an existing Front Door WAF policy to the scope's custom domain |
+| `security.azure_waf_policy_name` | none | WAF policy name, required with `azure_waf` |
+| `security.azure_waf_policy_resource_group` | provider resource group | Resource group of the WAF policy |
+
+**Optional WAF (`security.azure_security = azure_waf`).** Create a Front Door
+WAF policy once, with the same tier as the profile, and name it in
+`security.azure_waf_policy_name`. The scope only creates a security policy
+that associates it with its own custom domain; the agent identity needs read
+access to the policy. Standard profiles support custom rules only; managed
+rule sets need a Premium profile and a Premium policy.
+
+```bash
+az network front-door waf-policy create --resource-group <rg> --name <policy> \
+  --sku Standard_AzureFrontDoor --mode Prevention
+```
+
+**Publishing the bundle is CI's job**, the same way it is on AWS. Upload to the
+static-website container and register the asset with the blob URL:
+
+```bash
+az storage blob upload-batch --account-name "$STORAGE_ACCOUNT" \
+  --destination '$web' --destination-path "frontends/$application_id/$build_id" \
+  --source ./dist --auth-mode login
+np asset create --body "{\"type\":\"bundle\",\"name\":\"main\",\"build_id\":$build_id,
+  \"application_id\":$application_id,
+  \"url\":\"https://$STORAGE_ACCOUNT.blob.core.windows.net/\$web/frontends/$application_id/$build_id\",
+  \"metadata\":{}}"
+```
 
 ### Registration (Terraform)
 
@@ -198,8 +243,7 @@ The reference Terraform for registering the scope lives under
 - [`specs/install/aws/`](specs/install/aws/) — working AWS example
   (S3 + CloudFront + Route 53 + ACM).
 - [`specs/install/azure/`](specs/install/azure/) — working Azure example
-  (Blob static website + CDN + Azure DNS), subject to the asset-publishing
-  limitation described above.
+  (Blob static website + Front Door + Azure DNS).
 
 See [`specs/install/README.md`](specs/install/README.md) for the layout and for
 guidance on contributing the GCP equivalent.
@@ -237,6 +281,8 @@ Minimum inputs (Azure):
 | `azure_subscription_id` | Default subscription where the CDN profile and DNS records are created. Overridable per `provider_configs` entry. |
 | `azure_state_storage_account` | Storage account for OpenTofu state (see Pre-requisites 1). Shared across every `provider_configs` entry. |
 | `azure_state_container` | Blob container inside that storage account |
+| `azure_state_resource_group` | Optional. Resource group of the state storage account when it differs from the scope resource group. Empty means each entry's own `azure_resource_group`. |
+| `azure_state_auth` | Optional. How the state backend authenticates: `azuread` (default, agent identity) or `key` (account keys). |
 | `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each needs `nrn`, `azure_resource_group` and `azure_dns_zone_name`, plus an optional `azure_subscription_id` to override the default. The DNS zone must live in the entry's own `azure_resource_group`. |
 | `tags` | Agent/channel tag selectors (must match `tags` of the agent that should pick up deployments) |
 
@@ -508,7 +554,7 @@ locals {
 }
 ```
 
-**Distribution layer consumes** (`distribution/blob-cdn/modules/locals.tf`):
+**Distribution layer consumes** (`distribution/front-door/modules/locals.tf`):
 ```hcl
 locals {
   # References network layer's local directly
@@ -705,7 +751,7 @@ Test bash setup scripts in isolation using mocked commands.
 **Example files:**
 - Provider: [`tests/provider/azure/setup_test.bats`](deployment/tests/provider/azure/setup_test.bats)
 - Network: [`tests/network/azure_dns/setup_test.bats`](deployment/tests/network/azure_dns/setup_test.bats)
-- Distribution: [`tests/distribution/blob-cdn/setup_test.bats`](deployment/tests/distribution/blob-cdn/setup_test.bats)
+- Distribution: [`tests/distribution/front-door/setup_test.bats`](deployment/tests/distribution/front-door/setup_test.bats)
 
 **Structure:**
 ```bash
@@ -744,7 +790,7 @@ Test Terraform modules using `tofu test` with mock providers.
 **Example files:**
 - Provider: [`provider/azure/modules/provider.tftest.hcl`](deployment/provider/azure/modules/provider.tftest.hcl)
 - Network: [`network/azure_dns/modules/azure_dns.tftest.hcl`](deployment/network/azure_dns/modules/azure_dns.tftest.hcl)
-- Distribution: [`distribution/blob-cdn/modules/blob-cdn.tftest.hcl`](deployment/distribution/blob-cdn/modules/blob-cdn.tftest.hcl)
+- Distribution: [`distribution/front-door/modules/front-door.tftest.hcl`](deployment/distribution/front-door/modules/front-door.tftest.hcl)
 
 **Structure:**
 ```hcl
@@ -791,12 +837,12 @@ Test complete workflows with mocked external dependencies (LocalStack, Azure Moc
 
 **Run:** `make test-integration` or `make test-integration MODULE=static-files`
 
-**Example file:** [`tests/integration/test_cases/azure_blobcdn_azuredns/lifecycle_test.bats`](deployment/tests/integration/test_cases/azure_blobcdn_azuredns/lifecycle_test.bats)
+**Example file:** [`tests/integration/test_cases/azure_frontdoor_azuredns/lifecycle_test.bats`](deployment/tests/integration/test_cases/azure_frontdoor_azuredns/lifecycle_test.bats)
 
 **What's mocked:**
 - **LocalStack**: AWS services (S3, Route53, STS, IAM, ACM)
 - **Moto**: CloudFront (not in LocalStack free tier)
-- **Azure Mock**: Azure ARM APIs (CDN, DNS, Storage) + Blob Storage
+- **Azure Mock**: Azure ARM APIs (Front Door, DNS, Storage) + Blob Storage
 - **Smocker**: nullplatform API
 
 **Structure:**
@@ -823,7 +869,7 @@ setup() {
 
   # Configure layer selection
   export NETWORK_LAYER="azure_dns"
-  export DISTRIBUTION_LAYER="blob-cdn"
+  export DISTRIBUTION_LAYER="front-door"
   export TOFU_PROVIDER="azure"
 
   # Setup API mocks
@@ -833,14 +879,14 @@ setup() {
 @test "create infrastructure deploys resources" {
   run_workflow "static-files/deployment/workflows/initial.yaml"
 
-  assert_azure_cdn_configured "$TEST_DISTRIBUTION_APP_NAME" ...
+  assert_azure_front_door_route_configured "$TEST_DISTRIBUTION_APP_NAME" ...
   assert_azure_dns_configured "$TEST_NETWORK_DOMAIN" ...
 }
 
 @test "destroy infrastructure removes resources" {
   run_workflow "static-files/deployment/workflows/delete.yaml"
 
-  assert_azure_cdn_not_configured ...
+  assert_azure_front_door_route_not_configured ...
   assert_azure_dns_not_configured ...
 }
 ```
@@ -899,7 +945,7 @@ export TOFU_PROVIDER_BUCKET=my-state-bucket
 
 ```bash
 export NETWORK_LAYER=route53        # or: azure_dns, cloud_dns
-export DISTRIBUTION_LAYER=cloudfront # or: blob-cdn, amplify, firebase, etc.
+export DISTRIBUTION_LAYER=cloudfront # or: front-door
 export SECURITY_LAYER=none           # or: waf (CloudFront only)
 ```
 
@@ -993,13 +1039,13 @@ For NETWORK layers, reference:
 - Tofu test: `static-files/deployment/network/azure_dns/modules/azure_dns.tftest.hcl`
 
 For DISTRIBUTION layers, reference:
-- Setup script: `static-files/deployment/distribution/blob-cdn/setup`
-- Terraform module: `static-files/deployment/distribution/blob-cdn/modules/`
-- Unit test (BATS): `static-files/deployment/tests/distribution/blob-cdn/setup_test.bats`
-- Tofu test: `static-files/deployment/distribution/blob-cdn/modules/blob-cdn.tftest.hcl`
+- Setup script: `static-files/deployment/distribution/front-door/setup`
+- Terraform module: `static-files/deployment/distribution/front-door/modules/`
+- Unit test (BATS): `static-files/deployment/tests/distribution/front-door/setup_test.bats`
+- Tofu test: `static-files/deployment/distribution/front-door/modules/front-door.tftest.hcl`
 
 For INTEGRATION tests, reference:
-- `static-files/deployment/tests/integration/test_cases/azure_blobcdn_azuredns/lifecycle_test.bats`
+- `static-files/deployment/tests/integration/test_cases/azure_frontdoor_azuredns/lifecycle_test.bats`
 ````
 
 ---

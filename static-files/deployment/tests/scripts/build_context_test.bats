@@ -72,7 +72,7 @@ run_build_context() {
 	CONTEXT=$(echo "$CONTEXT" | jq 'del(.providers["scope-configurations"].cloud_provider)')
 	export TOFU_PROVIDER="azure"
 	export NETWORK_LAYER="azure_dns"
-	export DISTRIBUTION_LAYER="blob-cdn"
+	export DISTRIBUTION_LAYER="front-door"
 
 	run_build_context
 
@@ -92,11 +92,11 @@ run_build_context() {
 @test "Should fall back to env vars for DISTRIBUTION_LAYER when not in CONTEXT" {
 	export NP_MOCK_PROVIDER_LIST="$SCOPE_CFG_MOCKS/provider_list_empty.json"
 	CONTEXT=$(echo "$CONTEXT" | jq 'del(.providers["scope-configurations"].distribution.aws_distribution)')
-	export DISTRIBUTION_LAYER="blob-cdn"
+	export DISTRIBUTION_LAYER="front-door"
 
 	run_build_context
 
-	assert_equal "$DISTRIBUTION_LAYER" "blob-cdn"
+	assert_equal "$DISTRIBUTION_LAYER" "front-door"
 }
 
 @test "Should fail when cloud_provider is not configured anywhere" {

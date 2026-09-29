@@ -6,9 +6,12 @@
 # steps need and bakes the scope in.
 FROM public.ecr.aws/nullplatform/scopes/worker-bridge:1.1.1
 
-# Tooling the static-files workflows call: aws + gomplate from apk.
-# bash, jq, np, base64 and curl ship in the base.
-RUN apk add --no-cache aws-cli gomplate
+# Tooling the static-files workflows call: aws + gomplate from apk, az from pip
+# (Alpine has no azure-cli package). az is needed by network/azure_dns/setup
+# and by the Front Door purge in distribution/front-door.
+RUN apk add --no-cache aws-cli gomplate py3-pip \
+    && pip3 install --no-cache-dir --break-system-packages azure-cli \
+    && az version
 
 # OpenTofu >= 1.10 — the scope inits its S3 backend with use_lockfile=true.
 ARG TOFU_VERSION=1.12.6

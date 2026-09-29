@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "ResourceNotFound",
+    "message": "The Resource 'Microsoft.Cdn/profiles/shared-afd/afdEndpoints/shared-endpoint' under resource group 'my-resource-group' was not found."
+  }
+}

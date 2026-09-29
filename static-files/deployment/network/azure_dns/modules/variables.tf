@@ -13,3 +13,8 @@ variable "network_subdomain" {
   type        = string
   default     = ""
 }
+
+variable "network_dns_zone_resource_group" {
+  description = "Resource group that holds the Azure DNS zone (may differ from the scope's resource group)"
+  type        = string
+}

@@ -103,3 +103,31 @@ layer_selections() {
 		return 1
 	fi
 }
+
+@test "Should require the Front Door profile and endpoint on the azure branch" {
+	local required
+	required=$(render_schema | jq -r '.schema.else.then.properties.distribution.required[]' | sort | tr '\n' ' ')
+
+	assert_equal "$required" "azure_front_door_endpoint azure_front_door_profile "
+}
+
+@test "Should offer front-door as the only azure distribution" {
+	local values
+	values=$(render_schema | jq -r '.schema.properties.distribution.properties.azure_distribution.oneOf[].const' | tr '\n' ' ')
+
+	assert_equal "$values" "front-door "
+}
+
+@test "Should offer none and azure_waf as azure security layers" {
+	local values
+	values=$(render_schema | jq -r '.schema.properties.security.properties.azure_security.oneOf[].const' | tr '\n' ' ')
+
+	assert_equal "$values" "none azure_waf "
+}
+
+@test "Should default the azure security layer to none" {
+	local value
+	value=$(render_schema | jq -r '.schema.properties.security.properties.azure_security.default')
+
+	assert_equal "$value" "none"
+}

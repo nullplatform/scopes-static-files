@@ -86,11 +86,11 @@ teardown() {
 }
 
 @test "Should normalize the layer name to underscores" {
-	run "$SCRIPT_PATH" --type distribution --name Blob-CDN
+	run "$SCRIPT_PATH" --type distribution --name Front-Door
 
 	assert_equal "$status" "0"
-	assert_directory_exists "$SANDBOX_DIR/distribution/blob_cdn"
-	assert_file_exists "$SANDBOX_DIR/distribution/blob_cdn/modules/blob_cdn.tftest.hcl"
+	assert_directory_exists "$SANDBOX_DIR/distribution/front_door"
+	assert_file_exists "$SANDBOX_DIR/distribution/front_door/modules/front_door.tftest.hcl"
 }
 
 # =============================================================================

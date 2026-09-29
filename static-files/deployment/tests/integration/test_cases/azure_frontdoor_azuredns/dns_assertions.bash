@@ -3,7 +3,7 @@
 # Azure DNS Assertion Functions
 #
 # Provides assertion functions for validating Azure DNS CNAME record
-# configuration in integration tests using the Azure Mock API server.
+# configuration (pointing at Azure Front Door) in integration tests using the Azure Mock API server.
 #
 # Variables validated (from network/azure_dns/modules/variables.tf):
 #   - network_domain          -> DNS zone name
@@ -24,7 +24,7 @@
 # +----------------------------------+----------------------------------------+
 # | CNAME Record exists              | Non-empty ID                           |
 # | Record name                      | expected subdomain                     |
-# | CNAME target                     | Non-empty (points to CDN)              |
+# | CNAME target                     | Non-empty (points to Front Door)       |
 # | TTL                              | > 0                                    |
 # +----------------------------------+----------------------------------------+
 assert_azure_dns_configured() {
@@ -53,8 +53,8 @@ assert_azure_dns_configured() {
   cname_target=$(echo "$record_json" | jq -r '.properties.CNAMERecord.cname // empty')
   assert_not_empty "$cname_target" "Azure DNS CNAME target"
 
-  # The CNAME should point to the Azure CDN endpoint (azureedge.net)
-  assert_contains "$cname_target" "azureedge.net"
+  # The CNAME should point to the shared Front Door endpoint (azurefd.net)
+  assert_contains "$cname_target" "azurefd.net"
 
   # TTL should be positive
   local ttl
