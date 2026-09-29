@@ -12,6 +12,8 @@ azure_state_storage_account = ""
 azure_state_container       = "tfstate"
 # Only when the state storage account lives in a different resource group than the scopes.
 # azure_state_resource_group = ""
+# "azuread" (default, agent identity) or "key" (account keys; needs shared-key access enabled).
+# azure_state_auth = "azuread"
 
 # One entry per environment/region. You can add more entries to register
 # per-environment provider configs (each with its own NRN, resource group, and

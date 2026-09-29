@@ -227,6 +227,22 @@
             "type": "string",
             "title": "State Resource Group",
             "description": "Resource group of the OpenTofu state storage account. Leave empty when it is the same as the scope resource group."
+          },
+          "azure_state_auth": {
+            "type": "string",
+            "title": "State Backend Authentication",
+            "description": "How OpenTofu authenticates to the state storage account. 'azuread' uses the agent identity (needs Storage Blob Data Contributor on the account); 'key' uses the account keys (shared-key access must be enabled).",
+            "default": "azuread",
+            "oneOf": [
+              {
+                "const": "azuread",
+                "title": "Azure AD (agent identity)"
+              },
+              {
+                "const": "key",
+                "title": "Storage account key"
+              }
+            ]
           }
         },
         "description": "Cloud provider settings, credentials, and state backend"
@@ -890,6 +906,24 @@
                   },
                   "type": "Control",
                   "scope": "#/properties/provider/properties/azure_state_resource_group"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/provider/properties/azure_state_auth",
+                  "options": {
+                    "format": "radio-cards"
+                  }
                 }
               ]
             },

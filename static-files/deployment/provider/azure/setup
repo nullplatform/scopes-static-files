@@ -72,6 +72,21 @@ TOFU_PROVIDER_RESOURCE_GROUP=$(get_config_value \
 	--default "$AZURE_RESOURCE_GROUP")
 echo "   ✅ azure_state_resource_group=$TOFU_PROVIDER_RESOURCE_GROUP"
 
+TOFU_PROVIDER_STATE_AUTH=$(get_config_value \
+	--provider '.providers["scope-configurations"].provider.azure_state_auth' \
+	--env TOFU_PROVIDER_STATE_AUTH \
+	--default "azuread")
+case "$TOFU_PROVIDER_STATE_AUTH" in
+	azuread|key) echo "   ✅ azure_state_auth=$TOFU_PROVIDER_STATE_AUTH" ;;
+	*)
+		echo "   ❌ azure_state_auth must be 'azuread' or 'key', got '$TOFU_PROVIDER_STATE_AUTH'"
+		echo ""
+		echo "  🔧 How to fix:"
+		echo "    • Set provider.azure_state_auth to 'azuread' (identity needs Storage Blob Data Contributor on the state account) or 'key' (shared-key access must be enabled)"
+		echo ""
+		exit 1 ;;
+esac
+
 echo ""
 echo "✨ Azure provider configured successfully"
 echo ""
@@ -147,6 +162,9 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=storage_account_name=$TOFU_PROVIDER_STORAGE_ACCOUNT"
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=container_name=$TOFU_PROVIDER_CONTAINER"
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=resource_group_name=$TOFU_PROVIDER_RESOURCE_GROUP"
+if [ "$TOFU_PROVIDER_STATE_AUTH" = "azuread" ]; then
+	TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=use_azuread_auth=true"
+fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 module_name="${script_dir}/modules"

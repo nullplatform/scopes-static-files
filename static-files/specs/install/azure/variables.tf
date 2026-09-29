@@ -55,6 +55,17 @@ variable "azure_state_resource_group" {
   default     = ""
 }
 
+variable "azure_state_auth" {
+  description = "How OpenTofu authenticates to the state storage account: `azuread` (agent identity, needs Storage Blob Data Contributor) or `key` (account keys, shared-key access must be enabled)."
+  type        = string
+  default     = "azuread"
+
+  validation {
+    condition     = contains(["azuread", "key"], var.azure_state_auth)
+    error_message = "azure_state_auth must be \"azuread\" or \"key\"."
+  }
+}
+
 variable "provider_configs" {
   description = <<-EOT
     One entry per environment/region. Each element creates its own

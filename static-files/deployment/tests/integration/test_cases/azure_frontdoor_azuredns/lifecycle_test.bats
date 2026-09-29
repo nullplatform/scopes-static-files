@@ -70,6 +70,8 @@ setup() {
   export AZURE_RESOURCE_GROUP="$TEST_RESOURCE_GROUP"
   export TOFU_PROVIDER_STORAGE_ACCOUNT="devstoreaccount1"
   export TOFU_PROVIDER_CONTAINER="tfstate"
+  # The mock backend is reached with ARM_ACCESS_KEY, not Azure AD
+  export TOFU_PROVIDER_STATE_AUTH="key"
   export AZURE_FRONT_DOOR_PROFILE="$TEST_FRONT_DOOR_PROFILE"
   export AZURE_FRONT_DOOR_ENDPOINT="$TEST_FRONT_DOOR_ENDPOINT"
 

@@ -307,7 +307,55 @@ run_azure_setup() {
 
 	run_azure_setup
 
-	assert_equal "$TOFU_INIT_VARIABLES" "-var=existing=value -backend-config=storage_account_name=mytfstatestorage -backend-config=container_name=tfstate -backend-config=resource_group_name=my-resource-group"
+	assert_equal "$TOFU_INIT_VARIABLES" "-var=existing=value -backend-config=storage_account_name=mytfstatestorage -backend-config=container_name=tfstate -backend-config=resource_group_name=my-resource-group -backend-config=use_azuread_auth=true"
+}
+
+@test "Should authenticate the state backend with Azure AD by default" {
+	run_azure_setup
+
+	assert_contains "$TOFU_INIT_VARIABLES" "-backend-config=use_azuread_auth=true"
+}
+
+@test "Should not enable Azure AD backend auth when azure_state_auth is key" {
+	unset AZURE_SUBSCRIPTION_ID
+	unset AZURE_RESOURCE_GROUP
+	unset TOFU_PROVIDER_STORAGE_ACCOUNT
+	unset TOFU_PROVIDER_CONTAINER
+
+	export CONTEXT='{
+	"providers": {
+		"scope-configurations": {
+		"provider": {
+			"azure_subscription_id": "11111111-1111-1111-1111-111111111111",
+			"azure_resource_group": "provider-rg",
+			"azure_state_storage_account": "providerstate",
+			"azure_state_container": "providercontainer",
+			"azure_state_auth": "key"
+		}
+		}
+	}
+	}'
+
+	run_azure_setup
+
+	[[ "$TOFU_INIT_VARIABLES" != *use_azuread_auth* ]]
+}
+
+@test "Should not enable Azure AD backend auth when TOFU_PROVIDER_STATE_AUTH is key" {
+	export TOFU_PROVIDER_STATE_AUTH="key"
+
+	run_azure_setup
+
+	[[ "$TOFU_INIT_VARIABLES" != *use_azuread_auth* ]]
+}
+
+@test "Should fail when azure_state_auth is not azuread or key" {
+	export TOFU_PROVIDER_STATE_AUTH="sas"
+
+	run source "$SCRIPT_PATH"
+
+	assert_equal "$status" "1"
+	assert_contains "$output" "❌ azure_state_auth must be"
 }
 
 # =============================================================================

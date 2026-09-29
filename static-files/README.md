@@ -170,7 +170,9 @@ deployment if any is missing.
    `Storage Blob Data Contributor` on the state storage account, `Reader` on the
    assets storage account, `DNS Zone Contributor` on the DNS zone, and
    `CDN Profile Contributor` on the resource group that holds the Front Door
-   profile.
+   profile. The state backend authenticates with the agent identity by default
+   (`azure_state_auth = "azuread"`), so shared-key access can stay disabled on
+   the state account; set `key` to use account keys instead.
 
    The provider layer logs `az` in from the agent's credentials
    (`AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET`/`AZURE_TENANT_ID`, or
@@ -250,6 +252,7 @@ Minimum inputs (Azure):
 | `azure_state_storage_account` | Storage account for OpenTofu state (see Pre-requisites 1). Shared across every `provider_configs` entry. |
 | `azure_state_container` | Blob container inside that storage account |
 | `azure_state_resource_group` | Optional. Resource group of the state storage account when it differs from the scope resource group. Empty means each entry's own `azure_resource_group`. |
+| `azure_state_auth` | Optional. How the state backend authenticates: `azuread` (default, agent identity) or `key` (account keys). |
 | `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each needs `nrn`, `azure_resource_group` and `azure_dns_zone_name`, plus an optional `azure_subscription_id` to override the default. The DNS zone must live in the entry's own `azure_resource_group`. |
 | `tags` | Agent/channel tag selectors (must match `tags` of the agent that should pick up deployments) |
 
