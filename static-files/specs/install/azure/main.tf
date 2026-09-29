@@ -99,6 +99,7 @@ resource "nullplatform_provider_config" "static_files_configuration" {
       azure_resource_group        = each.value.azure_resource_group
       azure_state_storage_account = var.azure_state_storage_account
       azure_state_container       = var.azure_state_container
+      azure_state_resource_group  = var.azure_state_resource_group != "" ? var.azure_state_resource_group : each.value.azure_resource_group
     }
 
     network = {

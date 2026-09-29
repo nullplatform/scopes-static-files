@@ -49,6 +49,12 @@ variable "azure_state_container" {
   type        = string
 }
 
+variable "azure_state_resource_group" {
+  description = "Resource group of the state storage account. Empty means the entry's own `azure_resource_group`."
+  type        = string
+  default     = ""
+}
+
 variable "provider_configs" {
   description = <<-EOT
     One entry per environment/region. Each element creates its own

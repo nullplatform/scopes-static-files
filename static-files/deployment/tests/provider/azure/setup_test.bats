@@ -153,6 +153,65 @@ run_azure_setup() {
 	assert_equal "$actual_ct" "providercontainer"
 }
 
+@test "Should default the state resource group to the provider resource group" {
+	unset AZURE_SUBSCRIPTION_ID
+	unset AZURE_RESOURCE_GROUP
+	unset TOFU_PROVIDER_STORAGE_ACCOUNT
+	unset TOFU_PROVIDER_CONTAINER
+
+	export CONTEXT='{
+	"providers": {
+		"scope-configurations": {
+		"provider": {
+			"azure_subscription_id": "11111111-1111-1111-1111-111111111111",
+			"azure_resource_group": "provider-rg",
+			"azure_state_storage_account": "providerstate",
+			"azure_state_container": "providercontainer"
+		}
+		}
+	}
+	}'
+
+	run_azure_setup
+
+	assert_contains "$TOFU_INIT_VARIABLES" "-backend-config=resource_group_name=provider-rg"
+}
+
+@test "Should use azure_state_resource_group for the backend when set" {
+	unset AZURE_SUBSCRIPTION_ID
+	unset AZURE_RESOURCE_GROUP
+	unset TOFU_PROVIDER_STORAGE_ACCOUNT
+	unset TOFU_PROVIDER_CONTAINER
+
+	export CONTEXT='{
+	"providers": {
+		"scope-configurations": {
+		"provider": {
+			"azure_subscription_id": "11111111-1111-1111-1111-111111111111",
+			"azure_resource_group": "provider-rg",
+			"azure_state_storage_account": "providerstate",
+			"azure_state_container": "providercontainer",
+			"azure_state_resource_group": "state-rg"
+		}
+		}
+	}
+	}'
+
+	run_azure_setup
+
+	assert_contains "$TOFU_INIT_VARIABLES" "-backend-config=resource_group_name=state-rg"
+	local actual_rg=$(echo "$TOFU_VARIABLES" | jq -r '.azure_provider.resource_group')
+	assert_equal "$actual_rg" "provider-rg"
+}
+
+@test "Should fall back to TOFU_PROVIDER_RESOURCE_GROUP env" {
+	export TOFU_PROVIDER_RESOURCE_GROUP="env-state-rg"
+
+	run_azure_setup
+
+	assert_contains "$TOFU_INIT_VARIABLES" "-backend-config=resource_group_name=env-state-rg"
+}
+
 @test "Should prefer provider values over env vars" {
 	export AZURE_SUBSCRIPTION_ID="00000000-0000-0000-0000-000000000000"
 	export AZURE_RESOURCE_GROUP="env-rg"

@@ -222,6 +222,11 @@
             "type": "string",
             "title": "State Container",
             "description": "Blob container name for OpenTofu state files"
+          },
+          "azure_state_resource_group": {
+            "type": "string",
+            "title": "State Resource Group",
+            "description": "Resource group of the OpenTofu state storage account. Leave empty when it is the same as the scope resource group."
           }
         },
         "description": "Cloud provider settings, credentials, and state backend"
@@ -870,6 +875,21 @@
                   },
                   "type": "Control",
                   "scope": "#/properties/provider/properties/azure_state_container"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/provider/properties/azure_state_resource_group"
                 }
               ]
             },

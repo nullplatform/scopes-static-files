@@ -134,7 +134,9 @@ deployment if any is missing.
 
 1. **A storage account and a blob container for the OpenTofu state**
    (`azure_state_storage_account` / `azure_state_container`). One state file per
-   scope is written here during the deployment workflow.
+   scope is written here during the deployment workflow. The storage account
+   may live in a different resource group than the scopes; set
+   `azure_state_resource_group` in that case.
 
 2. **A public Azure DNS zone** for the domain the scopes will use
    (`azure_dns_zone_name`). The scope looks the zone up with a data source and
@@ -247,6 +249,7 @@ Minimum inputs (Azure):
 | `azure_subscription_id` | Default subscription where the CDN profile and DNS records are created. Overridable per `provider_configs` entry. |
 | `azure_state_storage_account` | Storage account for OpenTofu state (see Pre-requisites 1). Shared across every `provider_configs` entry. |
 | `azure_state_container` | Blob container inside that storage account |
+| `azure_state_resource_group` | Optional. Resource group of the state storage account when it differs from the scope resource group. Empty means each entry's own `azure_resource_group`. |
 | `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each needs `nrn`, `azure_resource_group` and `azure_dns_zone_name`, plus an optional `azure_subscription_id` to override the default. The DNS zone must live in the entry's own `azure_resource_group`. |
 | `tags` | Agent/channel tag selectors (must match `tags` of the agent that should pick up deployments) |
 

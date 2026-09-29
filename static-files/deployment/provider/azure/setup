@@ -66,6 +66,12 @@ if [ ${#missing_vars[@]} -gt 0 ]; then
 	exit 1
 fi
 
+TOFU_PROVIDER_RESOURCE_GROUP=$(get_config_value \
+	--provider '.providers["scope-configurations"].provider.azure_state_resource_group' \
+	--env TOFU_PROVIDER_RESOURCE_GROUP \
+	--default "$AZURE_RESOURCE_GROUP")
+echo "   ✅ azure_state_resource_group=$TOFU_PROVIDER_RESOURCE_GROUP"
+
 echo ""
 echo "✨ Azure provider configured successfully"
 echo ""
@@ -140,7 +146,7 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
 
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=storage_account_name=$TOFU_PROVIDER_STORAGE_ACCOUNT"
 TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=container_name=$TOFU_PROVIDER_CONTAINER"
-TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=resource_group_name=$AZURE_RESOURCE_GROUP"
+TOFU_INIT_VARIABLES="$TOFU_INIT_VARIABLES -backend-config=resource_group_name=$TOFU_PROVIDER_RESOURCE_GROUP"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 module_name="${script_dir}/modules"
