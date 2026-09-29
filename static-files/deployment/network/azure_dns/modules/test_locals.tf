@@ -2,7 +2,7 @@
 # Test-only locals
 #
 # This file provides the distribution_* locals that are normally defined by the
-# distribution layer (blob-cdn, etc.) when modules are composed.
+# distribution layer (front-door, etc.) when modules are composed.
 # This file is only used for running isolated unit tests.
 #
 # NOTE: Files matching test_*.tf are skipped by compose_modules
@@ -12,7 +12,7 @@
 variable "distribution_target_domain" {
   description = "Test-only: Target domain from distribution provider"
   type        = string
-  default     = "myapp.azureedge.net"
+  default     = "myapp.azurefd.net"
 }
 
 variable "distribution_record_type" {
@@ -32,7 +32,7 @@ variable "azure_provider" {
 }
 
 locals {
-  # These locals are normally provided by distribution modules (e.g., blob-cdn)
+  # These locals are normally provided by distribution modules (e.g., front-door)
   # For testing, we bridge from variables to locals
   distribution_target_domain = var.distribution_target_domain
   distribution_record_type   = var.distribution_record_type

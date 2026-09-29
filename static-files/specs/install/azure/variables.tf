@@ -61,14 +61,21 @@ variable "provider_configs" {
     `var.azure_subscription_id`. Set it to target a different subscription per
     environment, which is the common Azure landing-zone layout.
 
-    The Azure DNS zone must live in the entry's own `azure_resource_group` — see
-    the comment on `azure_dns_zone_resource_group` in `main.tf`.
+    `azure_dns_zone_resource_group` is the resource group that holds the DNS zone;
+    it may differ from `azure_resource_group`.
+
+    `azure_front_door_profile` and `azure_front_door_endpoint` name the Front Door
+    profile and endpoint shared by every static-files scope of that environment;
+    create them before the first deployment.
   EOT
   type = list(object({
-    nrn                   = string
-    azure_subscription_id = optional(string)
-    azure_resource_group  = string
-    azure_dns_zone_name   = string
-    azure_dns_zone_resource_group = string
+    nrn                             = string
+    azure_subscription_id           = optional(string)
+    azure_resource_group            = string
+    azure_dns_zone_name             = string
+    azure_dns_zone_resource_group   = string
+    azure_front_door_profile        = string
+    azure_front_door_endpoint       = string
+    azure_front_door_resource_group = optional(string)
   }))
 }

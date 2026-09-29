@@ -79,7 +79,7 @@ This registers the scope type, service specification, notification channel, and 
 │                                                                 │
 │  Implementations:   Implementations:   Implementations:         │
 │  • aws              • route53          • cloudfront             │
-│  • azure            • azure_dns        • blob-cdn               │
+│  • azure            • azure_dns        • front-door             │
 │  • gcp              • cloud_dns        • amplify                │
 │                                        • firebase               │
 │                                        • gcs-cdn                │
@@ -238,7 +238,7 @@ locals {
 }
 ```
 
-**Distribution layer consumes** (`distribution/blob-cdn/modules/locals.tf`):
+**Distribution layer consumes** (`distribution/front-door/modules/locals.tf`):
 ```hcl
 locals {
   # References network layer's local directly
@@ -559,7 +559,7 @@ Test bash setup scripts in isolation using mocked commands.
 **Example files:**
 - Provider: [`tests/provider/azure/setup_test.bats`](deployment/tests/provider/azure/setup_test.bats)
 - Network: [`tests/network/azure_dns/setup_test.bats`](deployment/tests/network/azure_dns/setup_test.bats)
-- Distribution: [`tests/distribution/blob-cdn/setup_test.bats`](deployment/tests/distribution/blob-cdn/setup_test.bats)
+- Distribution: [`tests/distribution/front-door/setup_test.bats`](deployment/tests/distribution/front-door/setup_test.bats)
 
 **Structure:**
 ```bash
@@ -598,7 +598,7 @@ Test Terraform modules using `tofu test` with mock providers.
 **Example files:**
 - Provider: [`provider/azure/modules/provider.tftest.hcl`](deployment/provider/azure/modules/provider.tftest.hcl)
 - Network: [`network/azure_dns/modules/azure_dns.tftest.hcl`](deployment/network/azure_dns/modules/azure_dns.tftest.hcl)
-- Distribution: [`distribution/blob-cdn/modules/blob-cdn.tftest.hcl`](deployment/distribution/blob-cdn/modules/blob-cdn.tftest.hcl)
+- Distribution: [`distribution/front-door/modules/front-door.tftest.hcl`](deployment/distribution/front-door/modules/front-door.tftest.hcl)
 
 **Structure:**
 ```hcl
@@ -645,12 +645,12 @@ Test complete workflows with mocked external dependencies (LocalStack, Azure Moc
 
 **Run:** `make test-integration` or `make test-integration MODULE=static-files`
 
-**Example file:** [`tests/integration/test_cases/azure_blobcdn_azuredns/lifecycle_test.bats`](deployment/tests/integration/test_cases/azure_blobcdn_azuredns/lifecycle_test.bats)
+**Example file:** [`tests/integration/test_cases/azure_frontdoor_azuredns/lifecycle_test.bats`](deployment/tests/integration/test_cases/azure_frontdoor_azuredns/lifecycle_test.bats)
 
 **What's mocked:**
 - **LocalStack**: AWS services (S3, Route53, STS, IAM, ACM)
 - **Moto**: CloudFront (not in LocalStack free tier)
-- **Azure Mock**: Azure ARM APIs (CDN, DNS, Storage) + Blob Storage
+- **Azure Mock**: Azure ARM APIs (Front Door, DNS, Storage) + Blob Storage
 - **Smocker**: nullplatform API
 
 **Structure:**
@@ -677,7 +677,7 @@ setup() {
 
   # Configure layer selection
   export NETWORK_LAYER="azure_dns"
-  export DISTRIBUTION_LAYER="blob-cdn"
+  export DISTRIBUTION_LAYER="front-door"
   export TOFU_PROVIDER="azure"
 
   # Setup API mocks
@@ -687,14 +687,14 @@ setup() {
 @test "create infrastructure deploys resources" {
   run_workflow "static-files/deployment/workflows/initial.yaml"
 
-  assert_azure_cdn_configured "$TEST_DISTRIBUTION_APP_NAME" ...
+  assert_azure_front_door_route_configured "$TEST_DISTRIBUTION_APP_NAME" ...
   assert_azure_dns_configured "$TEST_NETWORK_DOMAIN" ...
 }
 
 @test "destroy infrastructure removes resources" {
   run_workflow "static-files/deployment/workflows/delete.yaml"
 
-  assert_azure_cdn_not_configured ...
+  assert_azure_front_door_route_not_configured ...
   assert_azure_dns_not_configured ...
 }
 ```
@@ -753,7 +753,7 @@ export TOFU_PROVIDER_BUCKET=my-state-bucket
 
 ```bash
 export NETWORK_LAYER=route53        # or: azure_dns, cloud_dns
-export DISTRIBUTION_LAYER=cloudfront # or: blob-cdn, amplify, firebase, etc.
+export DISTRIBUTION_LAYER=cloudfront # or: front-door
 ```
 
 ---
@@ -804,13 +804,13 @@ For NETWORK layers, reference:
 - Tofu test: `static-files/deployment/network/azure_dns/modules/azure_dns.tftest.hcl`
 
 For DISTRIBUTION layers, reference:
-- Setup script: `static-files/deployment/distribution/blob-cdn/setup`
-- Terraform module: `static-files/deployment/distribution/blob-cdn/modules/`
-- Unit test (BATS): `static-files/deployment/tests/distribution/blob-cdn/setup_test.bats`
-- Tofu test: `static-files/deployment/distribution/blob-cdn/modules/blob-cdn.tftest.hcl`
+- Setup script: `static-files/deployment/distribution/front-door/setup`
+- Terraform module: `static-files/deployment/distribution/front-door/modules/`
+- Unit test (BATS): `static-files/deployment/tests/distribution/front-door/setup_test.bats`
+- Tofu test: `static-files/deployment/distribution/front-door/modules/front-door.tftest.hcl`
 
 For INTEGRATION tests, reference:
-- `static-files/deployment/tests/integration/test_cases/azure_blobcdn_azuredns/lifecycle_test.bats`
+- `static-files/deployment/tests/integration/test_cases/azure_frontdoor_azuredns/lifecycle_test.bats`
 ````
 
 ---

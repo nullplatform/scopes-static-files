@@ -38,7 +38,7 @@ resource "azurerm_cdn_frontdoor_rule_set" "static" {
 }
 
 # SPA routing: a request without a file extension (a client-side route) is
-# served index.html. Same rule blob-cdn carried, in Front Door terms.
+# served index.html. Same rule the retired CDN classic layer carried, in Front Door terms.
 resource "azurerm_cdn_frontdoor_rule" "spa_fallback" {
   depends_on = [azurerm_cdn_frontdoor_origin_group.static, azurerm_cdn_frontdoor_origin.static]
 
@@ -63,7 +63,7 @@ resource "azurerm_cdn_frontdoor_rule" "spa_fallback" {
   }
 }
 
-# Long cache for fingerprinted assets under /static/, as blob-cdn did.
+# Long cache for fingerprinted assets under /static/, as the retired CDN classic layer did.
 resource "azurerm_cdn_frontdoor_rule" "static_cache" {
   depends_on = [azurerm_cdn_frontdoor_origin_group.static, azurerm_cdn_frontdoor_origin.static]
 

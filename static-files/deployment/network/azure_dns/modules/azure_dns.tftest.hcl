@@ -13,9 +13,9 @@ mock_provider "azurerm" {
 }
 
 variables {
-  network_dns_zone_name         = "example.com"
-  network_domain                = "example.com"
-  network_subdomain             = "app"
+  network_dns_zone_name           = "example.com"
+  network_domain                  = "example.com"
+  network_subdomain               = "app"
   network_dns_zone_resource_group = "dns-resource-group"
 
   azure_provider = {
@@ -25,8 +25,8 @@ variables {
     container       = "tfstate"
   }
 
-  # These come from the distribution module (e.g., blob-cdn)
-  distribution_target_domain = "myapp.azureedge.net"
+  # These come from the distribution module (e.g., front-door)
+  distribution_target_domain = "myapp.azurefd.net"
   distribution_record_type   = "CNAME"
 }
 
@@ -126,7 +126,7 @@ run "cname_record_configuration" {
   }
 
   assert {
-    condition     = azurerm_dns_cname_record.main[0].record == "myapp.azureedge.net"
+    condition     = azurerm_dns_cname_record.main[0].record == "myapp.azurefd.net"
     error_message = "CNAME record should point to distribution target domain"
   }
 

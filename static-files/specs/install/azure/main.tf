@@ -112,7 +112,10 @@ resource "nullplatform_provider_config" "static_files_configuration" {
     }
 
     distribution = {
-      azure_distribution = "blob-cdn"
+      azure_distribution              = "front-door"
+      azure_front_door_profile        = each.value.azure_front_door_profile
+      azure_front_door_endpoint       = each.value.azure_front_door_endpoint
+      azure_front_door_resource_group = coalesce(each.value.azure_front_door_resource_group, each.value.azure_resource_group)
     }
   })
 }

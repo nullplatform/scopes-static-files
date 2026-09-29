@@ -13,14 +13,16 @@ azure_state_container       = "tfstate"
 
 # One entry per environment/region. You can add more entries to register
 # per-environment provider configs (each with its own NRN, resource group, and
-# DNS zone). The `nrn` of each entry is used as the for_each key. The DNS zone
-# must live in the entry's own azure_resource_group.
+# DNS zone). The `nrn` of each entry is used as the for_each key.
+# azure_dns_zone_resource_group is the resource group that holds the DNS zone.
 provider_configs = [
   {
     nrn                           = "" # e.g. the account-level NRN (same as `nrn` above) or an env-specific NRN
     azure_resource_group          = ""
     azure_dns_zone_name           = ""
     azure_dns_zone_resource_group = ""
+    azure_front_door_profile  = "" # shared per environment, e.g. "sf-dev-afd"
+    azure_front_door_endpoint = "" # e.g. "sf-dev"
     # Optional: defaults to azure_subscription_id above.
     # azure_subscription_id = ""
   },
@@ -29,6 +31,8 @@ provider_configs = [
   #   azure_resource_group          = ""
   #   azure_dns_zone_name           = ""
   #   azure_dns_zone_resource_group = ""
+  #   azure_front_door_profile  = ""
+  #   azure_front_door_endpoint = ""
   # },
 ]
 
