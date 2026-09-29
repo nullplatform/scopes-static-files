@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/nullplatform/scopes-static-files/compare/v2.0.0...v3.0.0) (2026-09-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* the module now requires azurerm >= 4.15, < 5.0 (was >= 3.117, < 5.0). The identity block on azurerm_cdn_frontdoor_profile only exists from azurerm 4.15, and the schema is checked even while the block is off, so stacks on azurerm 3.x or 4.0-4.14 must upgrade the provider or stay on v2.x of this module.
+
+### Features
+
+* customer certificate from Key Vault for Front Door custom domains ([#52](https://github.com/nullplatform/scopes-static-files/issues/52)) ([c0d6b86](https://github.com/nullplatform/scopes-static-files/commit/c0d6b86ebbde6aaa94c77624e597fd48c180f95e))
+
 ## [2.0.0](https://github.com/nullplatform/scopes-static-files/compare/v1.1.5...v2.0.0) (2026-09-29)
 
 
