@@ -52,6 +52,12 @@
               "azure_state_storage_account",
               "azure_state_container"
             ]
+          },
+          "distribution": {
+            "required": [
+              "azure_front_door_profile",
+              "azure_front_door_endpoint"
+            ]
           }
         }
       }
@@ -240,13 +246,28 @@
             "type": "string",
             "title": "Azure Distribution",
             "description": "CDN distribution for serving static files",
-            "default": "blob-cdn",
+            "default": "front-door",
             "oneOf": [
               {
-                "const": "blob-cdn",
-                "title": "Azure CDN (Blob Storage)"
+                "const": "front-door",
+                "title": "Azure Front Door (Standard/Premium)"
               }
             ]
+          },
+          "azure_front_door_profile": {
+            "type": "string",
+            "title": "Front Door Profile",
+            "description": "Name of the shared Front Door profile for this environment. Created once by your platform team; the scope only adds routes to it."
+          },
+          "azure_front_door_endpoint": {
+            "type": "string",
+            "title": "Front Door Endpoint",
+            "description": "Name of the shared endpoint inside the profile. Every scope of this environment gets a route and a custom domain on it."
+          },
+          "azure_front_door_resource_group": {
+            "type": "string",
+            "title": "Front Door Resource Group",
+            "description": "Resource group that holds the profile. Leave empty to use the provider resource group."
           },
           "default_viewer_protocol_policy": {
             "type": "string",
@@ -785,7 +806,7 @@
                     }
                   },
                   "type": "Label",
-                  "text": "> **ℹ️ Agent Credentials**\n\nThe nullplatform agent must run with Azure credentials configured. Use one of:\n\n- **Workload Identity** — attach an Azure managed identity to the agent's Kubernetes service account\n- **Service Principal** — set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID as environment variables in the agent Helm installation\n\nThe identity needs the following permissions:\n\n- **Storage Blob Data Contributor** — state backend\n- **DNS Zone Contributor** — DNS record management\n- **CDN Profile Contributor + CDN Endpoint Contributor** — CDN lifecycle\n- **Reader** on the assets storage account",
+                  "text": "> **ℹ️ Agent Credentials**\n\nThe nullplatform agent must run with Azure credentials configured. Use one of:\n\n- **Workload Identity** — attach an Azure managed identity to the agent's Kubernetes service account\n- **Service Principal** — set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID as environment variables in the agent Helm installation\n\nThe identity needs the following permissions:\n\n- **Storage Blob Data Contributor** — state backend\n- **DNS Zone Contributor** — CNAME and validation TXT records\n- **CDN Profile Contributor** on the Front Door resource group — routes, origins, custom domains and purge on the shared profile\n- **Reader** on the assets storage account\n\n**Prerequisites per environment:** a Front Door profile (Standard or Premium) and one endpoint in it, an Azure DNS zone, and a storage account with the static website enabled.",
                   "options": {
                     "format": "markdown"
                   }
@@ -891,6 +912,51 @@
                   "options": {
                     "format": "radio-cards"
                   }
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_front_door_profile"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_front_door_endpoint"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_front_door_resource_group"
                 },
                 {
                   "rule": {
