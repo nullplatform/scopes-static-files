@@ -5,9 +5,15 @@ locals {
   distribution_blob_prefix_trimmed = trim(var.distribution_blob_prefix, "/")
   distribution_origin_path         = local.distribution_blob_prefix_trimmed != "" ? "/${local.distribution_blob_prefix_trimmed}" : ""
 
-  # Rule sets and rules only accept letters and digits, and at most 60 chars.
-  # "<app>-<scope>-<id>" has hyphens, so strip them and cap the length.
-  distribution_rule_set_name = substr(replace(var.distribution_app_name, "/[^A-Za-z0-9]/", ""), 0, 60)
+  # Rule set names only accept letters and digits, must start with a letter and
+  # have at most 60 chars. "<app>-<scope>-<id>" is split so the id (last
+  # segment) survives truncation.
+  distribution_name_parts  = split("-", var.distribution_app_name)
+  distribution_scope_id    = element(local.distribution_name_parts, length(local.distribution_name_parts) - 1)
+  distribution_name_prefix = replace(join("", slice(local.distribution_name_parts, 0, length(local.distribution_name_parts) - 1)), "/[^A-Za-z0-9]/", "")
+  # "rs" guarantees a leading letter; the scope id at the end guarantees
+  # uniqueness inside the shared profile; 60 is Azure's limit.
+  distribution_rule_set_name = "rs${substr(local.distribution_name_prefix, 0, 58 - length(local.distribution_scope_id))}${local.distribution_scope_id}"
 
   distribution_compressed_content_types = [
     "application/javascript",

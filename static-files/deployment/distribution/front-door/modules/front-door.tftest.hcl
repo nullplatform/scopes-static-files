@@ -174,16 +174,48 @@ run "origin_path_trims_trailing_slash" {
   }
 }
 
-run "rule_set_name_is_alphanumeric_and_short" {
+run "rule_set_name_truncates_but_keeps_scope_id" {
   command = plan
 
   variables {
-    distribution_app_name = "very-long-application-slug-with-many-words-and-a-long-scope-name-123456"
+    distribution_app_name = "very-long-application-slug-with-many-words-and-a-long-scope-name-with-more-123456"
   }
 
   assert {
-    condition     = can(regex("^[A-Za-z][A-Za-z0-9]{0,59}$", azurerm_cdn_frontdoor_rule_set.static.name))
-    error_message = "Rule set name must be letters and digits only, at most 60 chars, got '${azurerm_cdn_frontdoor_rule_set.static.name}'"
+    condition     = length(azurerm_cdn_frontdoor_rule_set.static.name) == 60
+    error_message = "Rule set name must be capped at 60 chars, got '${azurerm_cdn_frontdoor_rule_set.static.name}'"
+  }
+
+  assert {
+    condition     = endswith(azurerm_cdn_frontdoor_rule_set.static.name, "123456")
+    error_message = "Rule set name must keep the scope id at the end, got '${azurerm_cdn_frontdoor_rule_set.static.name}'"
+  }
+
+  assert {
+    condition     = can(regex("^[A-Za-z][A-Za-z0-9]*$", azurerm_cdn_frontdoor_rule_set.static.name))
+    error_message = "Rule set name must start with a letter and be alphanumeric, got '${azurerm_cdn_frontdoor_rule_set.static.name}'"
+  }
+}
+
+run "rule_set_name_starts_with_letter_for_digit_leading_slug" {
+  command = plan
+
+  variables {
+    distribution_app_name = "1app-scope-7"
+  }
+
+  assert {
+    condition     = azurerm_cdn_frontdoor_rule_set.static.name == "rs1appscope7"
+    error_message = "Expected rs1appscope7, got '${azurerm_cdn_frontdoor_rule_set.static.name}'"
+  }
+}
+
+run "rule_set_name_for_default_input" {
+  command = plan
+
+  assert {
+    condition     = azurerm_cdn_frontdoor_rule_set.static.name == "rsautomationdevelopmenttools7"
+    error_message = "Expected rsautomationdevelopmenttools7, got '${azurerm_cdn_frontdoor_rule_set.static.name}'"
   }
 }
 
