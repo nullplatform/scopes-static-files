@@ -440,3 +440,66 @@ run "rejects_more_than_ten_cached_path_prefixes" {
     var.distribution_cached_path_prefixes,
   ]
 }
+
+run "cache_duration_defaults_to_seven_days" {
+  command = plan
+
+  assert {
+    condition     = one(one(azurerm_cdn_frontdoor_rule.static_cache.actions).route_configuration_override_action).cache_duration == "7.00:00:00"
+    error_message = "StaticCache should cache for 7 days by default"
+  }
+}
+
+run "cache_days_feed_the_static_cache_duration" {
+  command = plan
+
+  variables {
+    distribution_cache_days = 30
+  }
+
+  assert {
+    condition     = one(one(azurerm_cdn_frontdoor_rule.static_cache.actions).route_configuration_override_action).cache_duration == "30.00:00:00"
+    error_message = "StaticCache duration should be '<days>.00:00:00'"
+  }
+
+  assert {
+    condition     = one(one(azurerm_cdn_frontdoor_rule.static_cache.actions).route_configuration_override_action).query_string_caching_behavior == "IgnoreQueryString"
+    error_message = "A custom duration must keep query_string_caching_behavior declared (see the perpetual diff fix)"
+  }
+}
+
+run "rejects_zero_cache_days" {
+  command = plan
+
+  variables {
+    distribution_cache_days = 0
+  }
+
+  expect_failures = [
+    var.distribution_cache_days,
+  ]
+}
+
+run "rejects_cache_days_above_a_year" {
+  command = plan
+
+  variables {
+    distribution_cache_days = 366
+  }
+
+  expect_failures = [
+    var.distribution_cache_days,
+  ]
+}
+
+run "rejects_fractional_cache_days" {
+  command = plan
+
+  variables {
+    distribution_cache_days = 1.5
+  }
+
+  expect_failures = [
+    var.distribution_cache_days,
+  ]
+}

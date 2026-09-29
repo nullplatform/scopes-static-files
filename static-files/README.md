@@ -198,6 +198,7 @@ unset field keeps the default.
 | Field | Default | Effect |
 |-------|---------|--------|
 | `distribution.azure_front_door_cached_path_prefixes` | `["/static/"]` | Paths cached long (fingerprinted assets). Every other path, `index.html` included, is never cached. 1 to 10 prefixes, each starting with `/` |
+| `distribution.azure_front_door_cache_days` | `7` | Days the cached paths stay at the edge, 1 to 365 |
 
 **Publishing the bundle is CI's job**, the same way it is on AWS. Upload to the
 static-website container and register the asset with the blob URL:

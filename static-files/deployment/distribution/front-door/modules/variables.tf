@@ -56,3 +56,14 @@ variable "distribution_cached_path_prefixes" {
     error_message = "Every entry in distribution_cached_path_prefixes must start with '/'."
   }
 }
+
+variable "distribution_cache_days" {
+  description = "Days StaticCache keeps the files under the cached path prefixes at the edge"
+  type        = number
+  default     = 7
+
+  validation {
+    condition     = var.distribution_cache_days >= 1 && var.distribution_cache_days <= 365 && floor(var.distribution_cache_days) == var.distribution_cache_days
+    error_message = "distribution_cache_days must be a whole number of days between 1 and 365."
+  }
+}

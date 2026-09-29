@@ -78,6 +78,7 @@ is the behavior the layer shipped with.
 | Field | Default | Effect |
 |-------|---------|--------|
 | `distribution.azure_front_door_cached_path_prefixes` | `["/static/"]` | Paths `StaticCache` caches long; `NoCacheOutsideStatic` disables caching for every path that starts with none of them. 1 to 10 entries, each starting with `/` |
+| `distribution.azure_front_door_cache_days` | `7` | Edge cache duration of `StaticCache` (`<days>.00:00:00`), 1 to 365. The override keeps `query_string_caching_behavior = IgnoreQueryString` |
 
 ## Layer contract
 

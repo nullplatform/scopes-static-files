@@ -156,6 +156,22 @@ if [ "$prefix_count" -gt 10 ]; then
 fi
 echo "   ✅ cached_path_prefixes=$(echo "$distribution_cached_path_prefixes" | jq -r 'join(",")')"
 
+distribution_cache_days=$(echo "$CONTEXT" | jq -r '.providers["scope-configurations"].distribution.azure_front_door_cache_days // 7')
+if ! [[ "$distribution_cache_days" =~ ^[0-9]+$ ]] || [ "$distribution_cache_days" -lt 1 ] || [ "$distribution_cache_days" -gt 365 ]; then
+  echo ""
+  echo "   ❌ azure_front_door_cache_days must be an integer between 1 and 365, got '$distribution_cache_days'"
+  echo ""
+  echo "  💡 Possible causes:"
+  echo "    • distribution.azure_front_door_cache_days is out of range or not a whole number of days"
+  echo ""
+  echo "  🔧 How to fix:"
+  echo "    • Set distribution.azure_front_door_cache_days to a whole number from 1 to 365, or remove it to use 7"
+  echo ""
+  exit 1
+fi
+distribution_cache_days=$((10#$distribution_cache_days))
+echo "   ✅ cache_days=$distribution_cache_days"
+
 # =============================================================================
 # Preflight: the shared endpoint must already exist
 # =============================================================================
@@ -213,6 +229,7 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
   --arg fd_endpoint "$distribution_front_door_endpoint" \
   --arg fd_resource_group "$distribution_front_door_resource_group" \
   --argjson cached_path_prefixes "$distribution_cached_path_prefixes" \
+  --argjson cache_days "$distribution_cache_days" \
   '. + {
     distribution_storage_account: $storage_account,
     distribution_container_name: $container_name,
@@ -222,7 +239,8 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
     distribution_front_door_profile: $fd_profile,
     distribution_front_door_endpoint: $fd_endpoint,
     distribution_front_door_resource_group: $fd_resource_group,
-    distribution_cached_path_prefixes: $cached_path_prefixes
+    distribution_cached_path_prefixes: $cached_path_prefixes,
+    distribution_cache_days: $cache_days
   }')
 
 echo ""

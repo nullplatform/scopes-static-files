@@ -87,7 +87,7 @@ variable "provider_configs" {
 
     The remaining optional fields tune the Front Door behavior and default to
     the layer's own defaults (see the Azure section of the README):
-    `azure_front_door_cached_path_prefixes`.
+    `azure_front_door_cached_path_prefixes`, `azure_front_door_cache_days`.
   EOT
   type = list(object({
     nrn                             = string
@@ -100,5 +100,6 @@ variable "provider_configs" {
     azure_front_door_resource_group = optional(string)
 
     azure_front_door_cached_path_prefixes = optional(list(string), ["/static/"])
+    azure_front_door_cache_days           = optional(number, 7)
   }))
 }

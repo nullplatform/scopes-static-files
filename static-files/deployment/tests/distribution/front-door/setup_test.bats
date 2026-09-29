@@ -198,6 +198,49 @@ run_front_door_setup() {
   assert_contains "$output" "❌ At most 10 cached path prefixes are allowed, got 11"
 }
 
+@test "Should default the cache duration to 7 days" {
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_cache_days')" "7"
+}
+
+@test "Should read an explicit cache duration as a number" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.azure_front_door_cache_days = 30')
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_cache_days')" "30"
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_cache_days | type')" "number"
+}
+
+@test "Should fail when the cache duration is below 1 day" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.azure_front_door_cache_days = 0')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "❌ azure_front_door_cache_days must be an integer between 1 and 365, got '0'"
+  assert_contains "$output" "🔧 How to fix:"
+}
+
+@test "Should fail when the cache duration is above 365 days" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.azure_front_door_cache_days = 366')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "❌ azure_front_door_cache_days must be an integer between 1 and 365, got '366'"
+}
+
+@test "Should fail when the cache duration is not an integer" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.azure_front_door_cache_days = 1.5')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "❌ azure_front_door_cache_days must be an integer between 1 and 365, got '1.5'"
+}
+
 @test "Should add distribution variables to TOFU_VARIABLES" {
   run_front_door_setup
 
@@ -213,7 +256,8 @@ run_front_door_setup() {
   "distribution_front_door_profile": "shared-afd",
   "distribution_front_door_endpoint": "shared-endpoint",
   "distribution_front_door_resource_group": "my-resource-group",
-  "distribution_cached_path_prefixes": ["/static/"]
+  "distribution_cached_path_prefixes": ["/static/"],
+  "distribution_cache_days": 7
 }'
 
   assert_json_equal "$TOFU_VARIABLES" "$expected" "TOFU_VARIABLES"

@@ -304,6 +304,14 @@
               "pattern": "^/"
             }
           },
+          "azure_front_door_cache_days": {
+            "type": "integer",
+            "title": "Cache Duration (days)",
+            "description": "How long Front Door keeps the files under the cached path prefixes at the edge.",
+            "default": 7,
+            "minimum": 1,
+            "maximum": 365
+          },
           "default_viewer_protocol_policy": {
             "type": "string",
             "title": "Viewer protocol",
@@ -1040,6 +1048,21 @@
                   },
                   "type": "Control",
                   "scope": "#/properties/distribution/properties/azure_front_door_cached_path_prefixes"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_front_door_cache_days"
                 },
                 {
                   "rule": {

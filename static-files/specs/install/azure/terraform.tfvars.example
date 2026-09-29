@@ -31,6 +31,7 @@ provider_configs = [
     # azure_subscription_id = ""
     # Optional Front Door behavior (defaults shown).
     # azure_front_door_cached_path_prefixes = ["/static/"]
+    # azure_front_door_cache_days           = 7
   },
   # {
   #   nrn                           = ""
