@@ -7,7 +7,7 @@
 #
 # Usage:
 #   source "front_door_assertions.bash"
-#   assert_azure_front_door_route_configured "app-name" "profile" "endpoint" "sub" "rg" "/origin/path" "full.domain"
+#   assert_azure_front_door_route_configured "app-name" "profile" "endpoint" "sub" "rg" "/origin/path" "full.domain" "storage" "zone" "subdomain" "rule-set-name"
 # =============================================================================
 
 _afd_profile_path() {
@@ -17,6 +17,7 @@ _afd_profile_path() {
 # +----------------------------------+----------------------------------------+
 # | Assertion                        | Expected Value                         |
 # +----------------------------------+----------------------------------------+
+# | Rule set exists                  | Non-empty ID                           |
 # | Origin group exists              | Non-empty ID                           |
 # | Origin host                      | <storage>.z13.web.core.windows.net     |
 # | Route exists                     | Non-empty ID                           |
@@ -27,10 +28,14 @@ _afd_profile_path() {
 # +----------------------------------+----------------------------------------+
 assert_azure_front_door_route_configured() {
   local app_name="$1" profile="$2" endpoint="$3" subscription_id="$4" resource_group="$5"
-  local origin_path="$6" full_domain="$7" storage_account="$8" zone_name="$9" subdomain="${10}"
+  local origin_path="$6" full_domain="$7" storage_account="$8" zone_name="$9" subdomain="${10}" rule_set_name="${11}"
 
   local base
   base=$(_afd_profile_path "$subscription_id" "$resource_group" "$profile")
+
+  local rule_set_json
+  rule_set_json=$(azure_mock "${base}/ruleSets/${rule_set_name}")
+  assert_not_empty "$(echo "$rule_set_json" | jq -r '.id // empty')" "Front Door rule set ID"
 
   local og_json
   og_json=$(azure_mock "${base}/originGroups/${app_name}-og")
@@ -55,14 +60,22 @@ assert_azure_front_door_route_configured() {
   assert_equal "$(echo "$txt_json" | jq -r '.properties.TXTRecords[0].value[0] // empty')" "mock-validation-token"
 }
 
+# Asserts every resource owned by the scope is gone: route, custom domain,
+# origin group, origin, rule set and the _dnsauth validation TXT record.
 assert_azure_front_door_route_not_configured() {
   local app_name="$1" profile="$2" endpoint="$3" subscription_id="$4" resource_group="$5"
+  local zone_name="$6" subdomain="$7" rule_set_name="$8"
   local base
   base=$(_afd_profile_path "$subscription_id" "$resource_group" "$profile")
 
   assert_equal "$(azure_mock "${base}/afdEndpoints/${endpoint}/routes/${app_name}" | jq -r '.id // empty')" ""
   assert_equal "$(azure_mock "${base}/originGroups/${app_name}-og" | jq -r '.id // empty')" ""
+  assert_equal "$(azure_mock "${base}/originGroups/${app_name}-og/origins/${app_name}-origin" | jq -r '.id // empty')" ""
   assert_equal "$(azure_mock "${base}/customDomains/${app_name}-domain" | jq -r '.id // empty')" ""
+  assert_equal "$(azure_mock "${base}/ruleSets/${rule_set_name}" | jq -r '.id // empty')" ""
+
+  local txt_path="/subscriptions/${subscription_id}/resourceGroups/${TEST_DNS_ZONE_RESOURCE_GROUP}/providers/Microsoft.Network/dnszones/${zone_name}/TXT/_dnsauth.${subdomain}"
+  assert_equal "$(azure_mock "$txt_path" | jq -r '.id // empty')" ""
 }
 
 assert_azure_front_door_shared_resources_exist() {

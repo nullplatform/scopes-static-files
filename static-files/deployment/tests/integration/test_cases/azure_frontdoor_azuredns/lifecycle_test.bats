@@ -11,6 +11,7 @@
 TEST_DISTRIBUTION_STORAGE_ACCOUNT="assetsaccount"
 TEST_DISTRIBUTION_ORIGIN_PATH="/tools/automation/v1.0.0"
 TEST_DISTRIBUTION_APP_NAME="automation-development-tools-7"
+TEST_DISTRIBUTION_RULE_SET_NAME="rsautomationdevelopmenttools7"
 TEST_FRONT_DOOR_PROFILE="shared-afd"
 TEST_FRONT_DOOR_ENDPOINT="shared-endpoint"
 
@@ -89,7 +90,8 @@ setup() {
     "$TEST_DISTRIBUTION_APP_NAME" "$TEST_FRONT_DOOR_PROFILE" "$TEST_FRONT_DOOR_ENDPOINT" \
     "$TEST_SUBSCRIPTION_ID" "$TEST_RESOURCE_GROUP" \
     "$TEST_DISTRIBUTION_ORIGIN_PATH" "$TEST_NETWORK_FULL_DOMAIN" \
-    "$TEST_DISTRIBUTION_STORAGE_ACCOUNT" "$TEST_NETWORK_DOMAIN" "$TEST_NETWORK_SUBDOMAIN"
+    "$TEST_DISTRIBUTION_STORAGE_ACCOUNT" "$TEST_NETWORK_DOMAIN" "$TEST_NETWORK_SUBDOMAIN" \
+    "$TEST_DISTRIBUTION_RULE_SET_NAME"
 
   assert_azure_dns_configured \
     "$TEST_NETWORK_SUBDOMAIN" "$TEST_NETWORK_DOMAIN" \
@@ -99,11 +101,21 @@ setup() {
 }
 
 @test "destroy infrastructure keeps the shared profile and endpoint" {
+  # The resources created by the previous test must still be there, otherwise
+  # the "not configured" assertions below would pass vacuously.
+  assert_azure_front_door_route_configured \
+    "$TEST_DISTRIBUTION_APP_NAME" "$TEST_FRONT_DOOR_PROFILE" "$TEST_FRONT_DOOR_ENDPOINT" \
+    "$TEST_SUBSCRIPTION_ID" "$TEST_RESOURCE_GROUP" \
+    "$TEST_DISTRIBUTION_ORIGIN_PATH" "$TEST_NETWORK_FULL_DOMAIN" \
+    "$TEST_DISTRIBUTION_STORAGE_ACCOUNT" "$TEST_NETWORK_DOMAIN" "$TEST_NETWORK_SUBDOMAIN" \
+    "$TEST_DISTRIBUTION_RULE_SET_NAME"
+
   run_workflow "static-files/deployment/workflows/delete.yaml"
 
   assert_azure_front_door_route_not_configured \
     "$TEST_DISTRIBUTION_APP_NAME" "$TEST_FRONT_DOOR_PROFILE" "$TEST_FRONT_DOOR_ENDPOINT" \
-    "$TEST_SUBSCRIPTION_ID" "$TEST_RESOURCE_GROUP"
+    "$TEST_SUBSCRIPTION_ID" "$TEST_RESOURCE_GROUP" \
+    "$TEST_NETWORK_DOMAIN" "$TEST_NETWORK_SUBDOMAIN" "$TEST_DISTRIBUTION_RULE_SET_NAME"
 
   assert_azure_dns_not_configured \
     "$TEST_NETWORK_SUBDOMAIN" "$TEST_NETWORK_DOMAIN" \
