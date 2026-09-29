@@ -307,19 +307,81 @@ run "validation_txt_record_in_dns_zone_resource_group" {
   command = plan
 
   assert {
-    condition     = azurerm_dns_txt_record.custom_domain_validation.name == "_dnsauth.automation-development-tools"
+    condition     = azurerm_dns_txt_record.custom_domain_validation[0].name == "_dnsauth.automation-development-tools"
     error_message = "Validation record should be _dnsauth.<subdomain>"
   }
 
   assert {
-    condition     = azurerm_dns_txt_record.custom_domain_validation.zone_name == "example.com"
+    condition     = azurerm_dns_txt_record.custom_domain_validation[0].zone_name == "example.com"
     error_message = "Validation record should live in the network DNS zone"
   }
 
   assert {
-    condition     = azurerm_dns_txt_record.custom_domain_validation.resource_group_name == "dns-rg"
+    condition     = azurerm_dns_txt_record.custom_domain_validation[0].resource_group_name == "dns-rg"
     error_message = "Validation record should be created in the DNS zone resource group"
   }
+}
+
+run "managed_certificate_by_default_keeps_the_validation_record" {
+  command = plan
+
+  assert {
+    condition     = one(azurerm_cdn_frontdoor_custom_domain.static.tls).certificate_type == "ManagedCertificate" && !local.distribution_use_customer_certificate
+    error_message = "Without a certificate secret the custom domain should use a managed certificate"
+  }
+
+  assert {
+    condition     = length(azurerm_dns_txt_record.custom_domain_validation) == 1
+    error_message = "A managed certificate needs the _dnsauth validation record"
+  }
+
+  assert {
+    condition     = output.distribution_validation_record != null
+    error_message = "distribution_validation_record should be set with a managed certificate"
+  }
+}
+
+run "customer_certificate_references_the_shared_secret" {
+  command = plan
+
+  variables {
+    distribution_certificate_secret = "customer-certificate"
+  }
+
+  assert {
+    condition     = one(azurerm_cdn_frontdoor_custom_domain.static.tls).certificate_type == "CustomerCertificate"
+    error_message = "Custom domain should use the customer certificate"
+  }
+
+  assert {
+    condition     = one(azurerm_cdn_frontdoor_custom_domain.static.tls).cdn_frontdoor_secret_id == "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/cdn-rg/providers/Microsoft.Cdn/profiles/shared-afd/secrets/customer-certificate"
+    error_message = "Secret id should be <profile id>/secrets/<secret name>"
+  }
+
+  assert {
+    condition     = one(azurerm_cdn_frontdoor_custom_domain.static.tls).minimum_tls_version == "TLS12"
+    error_message = "Custom domain should require TLS 1.2 with a customer certificate too"
+  }
+
+  assert {
+    condition     = length(azurerm_dns_txt_record.custom_domain_validation) == 0
+    error_message = "A customer certificate validates the domain by CN/SAN: no _dnsauth record"
+  }
+
+  assert {
+    condition     = output.distribution_validation_record == null
+    error_message = "distribution_validation_record should be null with a customer certificate"
+  }
+}
+
+run "rejects_invalid_certificate_secret_name" {
+  command = plan
+
+  variables {
+    distribution_certificate_secret = "-customer_certificate"
+  }
+
+  expect_failures = [var.distribution_certificate_secret]
 }
 
 run "route_is_associated_with_the_custom_domain" {

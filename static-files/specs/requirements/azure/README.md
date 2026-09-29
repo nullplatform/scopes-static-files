@@ -26,8 +26,14 @@ This module creates:
   | `assets_storage_account` | Reader | `assets_storage_account_id` (the distribution layer reads it with a data source) |
   | `waf_policy` | `waf_policy_role_definition_name` (default Reader) | The created policy, or `existing_waf_policy_id`. Only when one of them is set |
 
-It works with `azurerm >= 3.117, < 5.0` and declares no provider block: the
-consuming stack configures `azurerm` (4.x or 3.x) and the subscription.
+- **A customer certificate** (`certificate_key_vault_certificate_id`, default
+  off): a user-assigned identity attached to the profile, `Key Vault Secrets
+  User` for it on the vault, and one Front Door secret every scope references. See
+  [Customer certificate](#customer-certificate).
+
+It needs `azurerm >= 4.15, < 5.0` (4.15 added the profile's `identity` block)
+and declares no provider block: the consuming stack configures `azurerm` and
+the subscription. Stacks still on azurerm 3.x stay on v2.x of this module.
 
 ## Usage
 
@@ -100,6 +106,8 @@ resource "nullplatform_provider_config" "static_files" {
       azure_front_door_profile        = module.static_files_requirements.front_door_profile_name
       azure_front_door_endpoint       = module.static_files_requirements.front_door_endpoint_names[each.key]
       azure_front_door_resource_group = module.static_files_requirements.front_door_resource_group_name
+      # Only with a customer certificate; omit it for managed certificates.
+      azure_front_door_certificate_secret = module.static_files_requirements.front_door_certificate_secret_name
     }
 
     security = {
@@ -136,6 +144,11 @@ Without a WAF policy, use `security = { azure_security = "none" }`.
 | `waf_mode` | `Prevention` | `Detection` or `Prevention`. |
 | `existing_waf_policy_id` | `""` | Existing WAF policy the scopes attach; gets the WAF role assignment. |
 | `waf_policy_role_definition_name` | `Reader` | Role on the WAF policy. See [WAF policy permissions](#waf-policy-permissions). |
+| `certificate_key_vault_id` | `""` | Id of the Key Vault (RBAC mode) with the customer certificate. Required with `certificate_key_vault_certificate_id`. |
+| `certificate_key_vault_certificate_id` | `""` | **Versionless** certificate id (`https://<vault>.vault.azure.net/certificates/<name>`); a trailing version is rejected. Empty keeps managed certificates. |
+| `front_door_certificate_secret_name` | `customer-certificate` | Front Door secret name: 2-260 letters, digits or hyphens, starting alphanumeric. |
+| `front_door_identity_name` | `""` | User-assigned identity for Key Vault access; empty means `id-<front_door_profile_name>`. 3-128 letters, digits, hyphens or underscores. |
+| `front_door_identity_location` | `""` | Region of that identity; empty reads the location of `front_door_resource_group_name`. |
 | `tags` | `{}` | Tags on the profile, endpoints and WAF policy. |
 
 ## Outputs
@@ -150,6 +163,9 @@ Without a WAF policy, use `security = { azure_security = "none" }`.
 | `waf_policy_id` | Created policy id, or null. |
 | `waf_policy_name` | Created policy name, or null. Feeds `security.azure_waf_policy_name`. |
 | `role_assignment_ids` | Map of the keys in the table above → role assignment id. |
+| `front_door_certificate_secret_name` | Secret name, or null without a customer certificate. Feeds `distribution.azure_front_door_certificate_secret`. |
+| `front_door_principal_id` | Principal (object) id of the profile's user-assigned identity, or null without a customer certificate. |
+| `front_door_identity_id` | Resource id of that identity, or null without a customer certificate. |
 
 ## The agent's principal id
 
@@ -175,6 +191,90 @@ The module keeps `Reader`. If the first `azure_waf` deployment fails with
 `waf_policy_role_definition_name = "Network Contributor"` (scoped to the policy
 only), or grant a custom role with `.../frontDoorWebApplicationFirewallPolicies/read`
 and `.../join/action`.
+
+## Customer certificate
+
+By default every scope gets a Front Door managed certificate, validated with a
+`_dnsauth` TXT record; issuing it adds several minutes to a scope's first
+deployment. Instead, the scopes can serve one certificate you keep in Key Vault
+(for example a Let's Encrypt wildcard `*.np.example.com`), the way AWS scopes
+reference an existing ACM certificate:
+
+```hcl
+module "static_files_requirements" {
+  # ...
+  certificate_key_vault_id             = azurerm_key_vault.certs.id
+  certificate_key_vault_certificate_id = "https://certs-kv.vault.azure.net/certificates/wildcard-np-example-com"
+}
+```
+
+The module then:
+
+- creates a user-assigned identity `front_door_identity_name` (default
+  `id-<front_door_profile_name>`) in `front_door_resource_group_name`, in
+  `front_door_identity_location` or, when empty, the resource group's location;
+- attaches it to the profile with `identity { type = "UserAssigned" }` (an
+  in-place update, verified against a real profile: the profile is not
+  replaced). User-assigned because the profile does not export the principal
+  id of a system-assigned identity, which the role assignment needs;
+- grants that identity `Key Vault Secrets User` on `certificate_key_vault_id`;
+- creates the Front Door secret `front_door_certificate_secret_name` pointing at
+  the certificate.
+
+Set `distribution.azure_front_door_certificate_secret` to the
+`front_door_certificate_secret_name` output. Each scope's custom domain then
+uses `CustomerCertificate` and skips the `_dnsauth` record: Front Door approves
+the domain because the certificate's CN/SAN covers it.
+
+Requirements:
+
+- **Key Vault in RBAC mode**, in the same subscription as the profile. The
+  identity applying this module needs rights to create role assignments on the
+  vault (Owner or User Access Administrator); whoever imports the certificate
+  needs `Key Vault Certificates Officer`. Registering the
+  `Microsoft.AzureFrontDoor-Cdn` service principal with an access policy is the
+  deprecated alternative and is not used.
+- **RSA key** (Front Door does not accept EC), **full chain**, imported as a
+  Key Vault **certificate** object from a PFX.
+- **Versionless id**, so Front Door follows renewals ("Latest"): a new version
+  imported into Key Vault reaches the edge within 72 hours, with no change to
+  the scopes or to this module.
+- **`create_front_door = true`**: the module does not change the identity of a
+  profile it does not own. With an existing profile, create the identity, the
+  role assignment and the secret yourself.
+
+**First apply.** Azure RBAC can take a few minutes to reach Key Vault after the
+role assignment is created, and the provider does not retry the secret. If the
+first apply fails on `azurerm_cdn_frontdoor_secret.customer_certificate` with a
+Key Vault access error, wait a couple of minutes and apply again; the identity
+and the role assignment are already in place.
+
+Example: a Let's Encrypt wildcard with [lego](https://go-acme.github.io/lego/),
+DNS-01 through Azure DNS (the identity running lego needs `DNS Zone
+Contributor` on the zone):
+
+```bash
+# After `az login`; lego finds the zone through Azure Resource Graph.
+AZURE_SUBSCRIPTION_ID=<subscription> AZURE_RESOURCE_GROUP=<dns-zone-rg> \
+lego --email ops@example.com --dns azuredns --key-type rsa2048 \
+  -d '*.np.example.com' run
+
+# lego writes the full chain to the .crt; bundle it with the key as a PFX.
+openssl pkcs12 -export -passout pass: \
+  -in .lego/certificates/_.np.example.com.crt \
+  -inkey .lego/certificates/_.np.example.com.key \
+  -out wildcard-np-example-com.pfx
+
+az keyvault certificate import --vault-name certs-kv \
+  --name wildcard-np-example-com --file wildcard-np-example-com.pfx
+
+# Versionless id: the certificate id without its last segment.
+az keyvault certificate show --vault-name certs-kv \
+  --name wildcard-np-example-com --query id -o tsv | sed 's|/[^/]*$||'
+```
+
+Renewing is `lego ... renew` plus the same `openssl` and `az keyvault
+certificate import`: the import adds a version and Front Door picks it up.
 
 ## Assets storage account (prerequisite)
 

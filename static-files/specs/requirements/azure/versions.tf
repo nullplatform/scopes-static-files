@@ -4,9 +4,9 @@ terraform {
   required_providers {
     azurerm = {
       source = "hashicorp/azurerm"
-      # Consumed by infra layers on azurerm 4.x and by stacks still on 3.x:
-      # only arguments whose names are identical in 3.117 and 4.x are used.
-      version = ">= 3.117, < 5.0"
+      # 4.15 is the first release with an identity block on
+      # azurerm_cdn_frontdoor_profile, which the customer certificate needs.
+      version = ">= 4.15, < 5.0"
     }
   }
 }

@@ -189,10 +189,45 @@ deployment if any is missing.
    > grants the management plane but not the blob **data** plane, so the agent's
    > state writes still fail.
 
-**No certificate pre-requisite.** The distribution layer requests a Front Door
-managed certificate for the custom domain and writes the `_dnsauth` TXT record
-that validates it. The domain answers once validation completes (a few minutes
-on the first deployment).
+**No certificate pre-requisite by default.** The distribution layer requests a
+Front Door managed certificate for the custom domain and writes the `_dnsauth`
+TXT record that validates it. The domain answers once validation completes
+(several minutes on the first deployment).
+
+**Customer certificate (optional).** To serve a certificate you keep in Azure
+Key Vault instead (for example a Let's Encrypt wildcard `*.np.example.com`),
+reference it once from the shared profile as a Front Door secret and set
+`distribution.azure_front_door_certificate_secret` to the secret's name. The
+scope's custom domain then uses `CustomerCertificate` and writes no `_dnsauth`
+record: Front Door approves the domain because the certificate's CN/SAN covers
+it. This mirrors AWS, where the scope references an existing ACM certificate.
+
+- **Key Vault in RBAC mode**, same subscription as the profile.
+- **RSA** key (no EC), **full chain**, a PFX imported as a Key Vault
+  **certificate** object.
+- The secret references the certificate's **versionless** id, so Front Door
+  follows renewals: a new version reaches the edge within 72 hours.
+- The profile needs a **user-assigned managed identity** with `Key Vault Secrets User` on the
+  vault (the older `Microsoft.AzureFrontDoor-Cdn` service principal with an
+  access policy is being deprecated).
+
+[`specs/requirements/azure`](specs/requirements/azure/README.md#customer-certificate)
+creates the identity, the role assignment and the secret
+(`certificate_key_vault_id`, `certificate_key_vault_certificate_id`), and its
+README has the full procedure, including this Let's Encrypt wildcard issued
+with DNS-01 on Azure DNS:
+
+```bash
+AZURE_SUBSCRIPTION_ID=<subscription> AZURE_RESOURCE_GROUP=<dns-zone-rg> \
+lego --email ops@example.com --dns azuredns --key-type rsa2048 \
+  -d '*.np.example.com' run
+openssl pkcs12 -export -passout pass: \
+  -in .lego/certificates/_.np.example.com.crt \
+  -inkey .lego/certificates/_.np.example.com.key \
+  -out wildcard-np-example-com.pfx
+az keyvault certificate import --vault-name certs-kv \
+  --name wildcard-np-example-com --file wildcard-np-example-com.pfx
+```
 
 **A DNS zone is mandatory on Azure.** The route is bound to the scope's custom
 domain only; the shared endpoint hostname does not serve any scope.
@@ -206,6 +241,7 @@ unset field keeps the default.
 | `distribution.azure_front_door_cache_days` | `7` | Days the cached paths stay at the edge, 1 to 365 |
 | `distribution.azure_front_door_security_headers` | `false` | Adds HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN` and `Referrer-Policy: strict-origin-when-cross-origin` to every response |
 | `distribution.azure_front_door_content_security_policy` | empty | `Content-Security-Policy` value, sent only when the security headers are on |
+| `distribution.azure_front_door_certificate_secret` | empty | Front Door secret in the shared profile with a Key Vault certificate covering the scope's domain; empty uses a managed certificate per scope. Env fallback `AZURE_FRONT_DOOR_CERTIFICATE_SECRET` |
 | `security.azure_security` | `none` | `azure_waf` attaches an existing Front Door WAF policy to the scope's custom domain |
 | `security.azure_waf_policy_name` | none | WAF policy name, required with `azure_waf` |
 | `security.azure_waf_policy_resource_group` | provider resource group | Resource group of the WAF policy |

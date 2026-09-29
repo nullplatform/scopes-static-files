@@ -192,8 +192,9 @@ resource "azurerm_cdn_frontdoor_custom_domain" "static" {
   host_name                = local.distribution_full_domain
 
   tls {
-    certificate_type    = "ManagedCertificate"
-    minimum_tls_version = "TLS12"
+    certificate_type        = local.distribution_use_customer_certificate ? "CustomerCertificate" : "ManagedCertificate"
+    cdn_frontdoor_secret_id = local.distribution_use_customer_certificate ? "${data.azurerm_cdn_frontdoor_profile.shared.id}/secrets/${var.distribution_certificate_secret}" : null
+    minimum_tls_version     = "TLS12"
   }
 
   lifecycle {
@@ -206,7 +207,10 @@ resource "azurerm_cdn_frontdoor_custom_domain" "static" {
 
 # Front Door proves domain ownership through _dnsauth.<subdomain> holding the
 # validation token. The managed certificate is issued once this resolves.
+# Not needed with a customer certificate: its CN/SAN proves ownership.
 resource "azurerm_dns_txt_record" "custom_domain_validation" {
+  count = local.distribution_use_customer_certificate ? 0 : 1
+
   name                = "_dnsauth.${var.network_subdomain}"
   zone_name           = var.network_dns_zone_name
   resource_group_name = var.network_dns_zone_resource_group

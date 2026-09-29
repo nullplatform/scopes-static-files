@@ -193,6 +193,35 @@ else
 fi
 
 # =============================================================================
+# Custom domain certificate: a Front Door secret in the shared profile that
+# points to a Key Vault certificate (empty = Front Door managed certificate)
+# =============================================================================
+distribution_certificate_secret=$(get_config_value \
+  --provider '.providers["scope-configurations"].distribution.azure_front_door_certificate_secret' \
+  --env AZURE_FRONT_DOOR_CERTIFICATE_SECRET)
+
+if [ -n "$distribution_certificate_secret" ]; then
+  # Length checked apart: POSIX regex bounds stop at 255 (RE_DUP_MAX).
+  if ! [[ "$distribution_certificate_secret" =~ ^[A-Za-z0-9][A-Za-z0-9-]+$ ]] || [ ${#distribution_certificate_secret} -gt 260 ]; then
+    echo ""
+    echo "   ❌ azure_front_door_certificate_secret '$distribution_certificate_secret' is not a valid Front Door secret name"
+    echo ""
+    echo "  💡 Possible causes:"
+    echo "    • distribution.azure_front_door_certificate_secret has characters other than letters, digits and hyphens"
+    echo "    • The name starts with a hyphen or is shorter than 2 or longer than 260 characters"
+    echo ""
+    echo "  🔧 How to fix:"
+    echo "    • Set it to the name of the Front Door secret in profile '$distribution_front_door_profile' (the requirements module output front_door_certificate_secret_name)"
+    echo "    • Or remove it to use a Front Door managed certificate"
+    echo ""
+    exit 1
+  fi
+  echo "   ✅ certificate_secret=$distribution_certificate_secret"
+else
+  echo "   ✅ certificate=managed"
+fi
+
+# =============================================================================
 # Preflight: the shared endpoint must already exist
 # =============================================================================
 echo ""
@@ -252,6 +281,7 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
   --argjson cache_days "$distribution_cache_days" \
   --argjson security_headers "$distribution_security_headers" \
   --arg content_security_policy "$distribution_content_security_policy" \
+  --arg certificate_secret "$distribution_certificate_secret" \
   '. + {
     distribution_storage_account: $storage_account,
     distribution_container_name: $container_name,
@@ -264,7 +294,8 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
     distribution_cached_path_prefixes: $cached_path_prefixes,
     distribution_cache_days: $cache_days,
     distribution_security_headers: $security_headers,
-    distribution_content_security_policy: $content_security_policy
+    distribution_content_security_policy: $content_security_policy,
+    distribution_certificate_secret: $certificate_secret
   }')
 
 echo ""

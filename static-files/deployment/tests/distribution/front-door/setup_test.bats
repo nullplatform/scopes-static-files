@@ -281,6 +281,54 @@ run_front_door_setup() {
   assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_content_security_policy')" '""'
 }
 
+@test "Should default the certificate secret to empty (managed certificate)" {
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_certificate_secret')" '""'
+}
+
+@test "Should read the certificate secret from the scope configuration" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.azure_front_door_certificate_secret = "wildcard-np-example-com"')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "0"
+  assert_contains "$output" "✅ certificate_secret=wildcard-np-example-com"
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_certificate_secret')" "wildcard-np-example-com"
+}
+
+@test "Should fall back to AZURE_FRONT_DOOR_CERTIFICATE_SECRET for the certificate secret" {
+  export AZURE_FRONT_DOOR_CERTIFICATE_SECRET="env-certificate"
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_certificate_secret')" "env-certificate"
+}
+
+@test "Should fail when the certificate secret name is invalid" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.azure_front_door_certificate_secret = "my_certificate"')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "❌ azure_front_door_certificate_secret 'my_certificate' is not a valid Front Door secret name"
+  assert_contains "$output" "🔧 How to fix:"
+}
+
+@test "Should fail when the certificate secret name is longer than 260 characters" {
+  local long_name
+  long_name=$(printf 'a%.0s' {1..261})
+  export CONTEXT=$(echo "$CONTEXT" | jq --arg name "$long_name" '.providers["scope-configurations"].distribution.azure_front_door_certificate_secret = $name')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "is not a valid Front Door secret name"
+}
+
 @test "Should add distribution variables to TOFU_VARIABLES" {
   run_front_door_setup
 
@@ -299,7 +347,8 @@ run_front_door_setup() {
   "distribution_cached_path_prefixes": ["/static/"],
   "distribution_cache_days": 7,
   "distribution_security_headers": false,
-  "distribution_content_security_policy": ""
+  "distribution_content_security_policy": "",
+  "distribution_certificate_secret": ""
 }'
 
   assert_json_equal "$TOFU_VARIABLES" "$expected" "TOFU_VARIABLES"

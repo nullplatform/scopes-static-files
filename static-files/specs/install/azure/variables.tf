@@ -90,6 +90,11 @@ variable "provider_configs" {
     `azure_front_door_cached_path_prefixes`, `azure_front_door_cache_days`,
     `azure_front_door_security_headers`, `azure_front_door_content_security_policy`.
 
+    `azure_front_door_certificate_secret` names the Front Door secret in the
+    shared profile that points to a Key Vault certificate covering the scopes'
+    domains (the requirements module's `front_door_certificate_secret_name`).
+    Unset or empty, each scope gets a Front Door managed certificate.
+
     `azure_security = "azure_waf"` attaches the existing Front Door WAF policy
     `azure_waf_policy_name` (in `azure_waf_policy_resource_group`, default
     `azure_resource_group`) to every scope's custom domain; `none` skips it.
@@ -108,6 +113,7 @@ variable "provider_configs" {
     azure_front_door_cache_days              = optional(number, 7)
     azure_front_door_security_headers        = optional(bool, false)
     azure_front_door_content_security_policy = optional(string, "")
+    azure_front_door_certificate_secret      = optional(string)
 
     azure_security                  = optional(string, "none")
     azure_waf_policy_name           = optional(string)

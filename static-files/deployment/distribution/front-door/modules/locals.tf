@@ -2,6 +2,11 @@ locals {
   distribution_full_domain       = local.network_full_domain
   distribution_has_custom_domain = local.network_full_domain != ""
 
+  # A customer certificate lives in the shared profile as a Front Door secret
+  # (created by the requirements module). Front Door then approves the domain
+  # by the certificate's CN/SAN, so no _dnsauth record is written.
+  distribution_use_customer_certificate = var.distribution_certificate_secret != ""
+
   distribution_blob_prefix_trimmed = trim(var.distribution_blob_prefix, "/")
   distribution_origin_path         = local.distribution_blob_prefix_trimmed != "" ? "/${local.distribution_blob_prefix_trimmed}" : ""
 

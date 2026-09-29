@@ -49,6 +49,6 @@ output "distribution_custom_domain" {
 }
 
 output "distribution_validation_record" {
-  description = "TXT record that validates the custom domain"
-  value       = azurerm_dns_txt_record.custom_domain_validation.fqdn
+  description = "TXT record that validates the custom domain (null with a customer certificate)"
+  value       = one(azurerm_dns_txt_record.custom_domain_validation[*].fqdn)
 }

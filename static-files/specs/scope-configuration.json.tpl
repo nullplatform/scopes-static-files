@@ -290,6 +290,13 @@
             "title": "Front Door Resource Group",
             "description": "Resource group that holds the profile. Leave empty to use the provider resource group."
           },
+          "azure_front_door_certificate_secret": {
+            "type": "string",
+            "title": "Front Door Certificate Secret",
+            "description": "Name of the Front Door secret in the shared profile that points to a Key Vault certificate covering the scope's domain (e.g. a wildcard). Leave empty to use a Front Door managed certificate per scope, which adds several minutes to a scope's first deployment.",
+            "default": "",
+            "pattern": "^([A-Za-z0-9][A-Za-z0-9-]{1,259})?$"
+          },
           "azure_front_door_cached_path_prefixes": {
             "type": "array",
             "title": "Cached Path Prefixes",
@@ -1071,6 +1078,21 @@
                   },
                   "type": "Control",
                   "scope": "#/properties/distribution/properties/azure_front_door_resource_group"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_front_door_certificate_secret"
                 },
                 {
                   "rule": {
