@@ -233,6 +233,25 @@ run "spa_fallback_rule_rewrites_to_index" {
   }
 }
 
+run "html_is_not_cached_outside_static" {
+  command = plan
+
+  assert {
+    condition     = azurerm_cdn_frontdoor_rule.no_cache_outside_static.order == 3
+    error_message = "NoCacheOutsideStatic should run after the SPA fallback and the static cache rules"
+  }
+
+  assert {
+    condition     = one(one(azurerm_cdn_frontdoor_rule.no_cache_outside_static.conditions).url_path_condition).negate_condition == true
+    error_message = "NoCacheOutsideStatic must match every path that does NOT begin with /static/"
+  }
+
+  assert {
+    condition     = one(one(azurerm_cdn_frontdoor_rule.no_cache_outside_static.actions).route_configuration_override_action).cache_behavior == "Disabled"
+    error_message = "HTML and client routes must not be cached: a stale index.html outlives the purge while a new origin path propagates"
+  }
+}
+
 run "static_cache_rule_declares_query_string_behavior" {
   command = plan
 

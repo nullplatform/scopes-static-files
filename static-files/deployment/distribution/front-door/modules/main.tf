@@ -90,6 +90,33 @@ resource "azurerm_cdn_frontdoor_rule" "static_cache" {
   }
 }
 
+# Never cache HTML or client routes. The purge runs when the route update is
+# accepted, but the new origin path reaches the edge minutes later; a request
+# in that window re-caches the previous index.html, and the static website
+# sends no Cache-Control, so Front Door would keep it for days.
+resource "azurerm_cdn_frontdoor_rule" "no_cache_outside_static" {
+  depends_on = [azurerm_cdn_frontdoor_origin_group.static, azurerm_cdn_frontdoor_origin.static]
+
+  name                      = "NoCacheOutsideStatic"
+  cdn_frontdoor_rule_set_id = azurerm_cdn_frontdoor_rule_set.static.id
+  order                     = 3
+  behavior_on_match         = "Continue"
+
+  conditions {
+    url_path_condition {
+      operator         = "BeginsWith"
+      match_values     = ["/static/"]
+      negate_condition = true
+    }
+  }
+
+  actions {
+    route_configuration_override_action {
+      cache_behavior = "Disabled"
+    }
+  }
+}
+
 resource "azurerm_cdn_frontdoor_route" "static" {
   name                          = var.distribution_app_name
   cdn_frontdoor_endpoint_id     = data.azurerm_cdn_frontdoor_endpoint.shared.id
