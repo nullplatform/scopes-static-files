@@ -143,6 +143,26 @@ Modules that run `tofu test` in isolation carry a `test_versions.tf` (skipped
 by `compose_modules`) with the same constraint, otherwise `tofu test` resolves
 the newest provider and the 3.x block names stop parsing.
 
+## Requirements module
+
+`static-files/specs/requirements/azure` is the Azure counterpart of
+`requirements/aws`: an OpenTofu module the customer's infrastructure layer
+consumes. It creates what the scope expects to exist and never creates
+itself: the shared Front Door profile, one endpoint per environment
+(`<prefix>-<env>`), an optional empty WAF policy, and the agent identity's
+role assignments (Storage Blob Data Contributor on the state container, CDN
+Profile Contributor on the profile, DNS Zone Contributor on the zone, Reader
+on the assets account and on the WAF policy). Its outputs map one to one to
+the `distribution.azure_front_door_*` and `security.azure_waf_policy_name`
+fields of each environment's provider config.
+
+Unlike the scope's own layers it accepts `azurerm >= 3.117, < 5.0`, because the
+first consumer's infrastructure layer runs 4.x; it only uses arguments whose
+names are the same in both majors, and `tofu test` there runs on 4.x. The
+principal id is an input (the object id), not a lookup: guest users in the
+customer tenant cannot read service principals. The assets storage account
+stays a prerequisite, like the S3 bucket on AWS.
+
 ## Testing
 
 - BATS for the setup script (asset URL parsing, `$web` decoding, missing
@@ -163,7 +183,7 @@ the newest provider and the 3.x block names stop parsing.
 
 ## Out of scope
 
-- Creating or managing WAF policies (the scope only attaches an existing one), Private Link and Premium-only features.
+- Creating or managing WAF policies from the scope (it only attaches an existing one; the requirements module can create an empty one), Private Link and Premium-only features.
 - Supporting `np asset push` for blob storage (platform side).
 - Migrating scopes created with `blob-cdn`: none could have been created
   since 2025-08-15.

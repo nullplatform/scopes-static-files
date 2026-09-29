@@ -35,6 +35,9 @@ install/
   Front Door profile and endpoint; the OpenTofu state storage account is shared,
   the same way `aws_state_bucket` is on AWS. The bundle is published by CI with
   `az storage blob upload-batch` + `np asset create`; see the top-level README.
+  The Front Door profile, endpoints, optional WAF policy and the agent's role
+  assignments come from the [`requirements/azure`](../requirements/azure/README.md)
+  module, whose outputs feed each `provider_configs` entry.
 
 ## Not yet provided
 

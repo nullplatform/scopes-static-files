@@ -156,7 +156,10 @@ deployment if any is missing.
 4. **A Front Door profile and one endpoint per environment.** Every
    static-files scope of that environment adds its own route and custom
    domain to this endpoint; the scope never creates or deletes the profile or
-   the endpoint. The tier is chosen here, once:
+   the endpoint. The tier is chosen here, once. The
+   [`specs/requirements/azure`](specs/requirements/azure/README.md) module
+   creates them (and item 5's role assignments) from your infrastructure
+   layer; alternatively, by hand:
 
    ```bash
    az afd profile create --resource-group <rg> --profile-name <profile> --sku Standard_AzureFrontDoor
@@ -169,8 +172,10 @@ deployment if any is missing.
 5. **Azure RBAC role assignments for the agent's identity:**
    `Storage Blob Data Contributor` on the state storage account, `Reader` on the
    assets storage account, `DNS Zone Contributor` on the DNS zone, and
-   `CDN Profile Contributor` on the resource group that holds the Front Door
-   profile. The state backend authenticates with the agent identity by default
+   `CDN Profile Contributor` on the Front Door profile (or its resource
+   group), plus `Reader` on the WAF policy when `azure_waf` is used.
+   [`specs/requirements/azure`](specs/requirements/azure/README.md) assigns
+   them to the agent's object id. The state backend authenticates with the agent identity by default
    (`azure_state_auth = "azuread"`), so shared-key access can stay disabled on
    the state account; set `key` to use account keys instead.
 

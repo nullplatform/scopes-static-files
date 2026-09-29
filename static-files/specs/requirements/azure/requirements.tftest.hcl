@@ -1,0 +1,382 @@
+# =============================================================================
+# Unit tests for specs/requirements/azure
+#
+# Run: tofu init -backend=false && tofu test
+# =============================================================================
+
+mock_provider "azurerm" {
+  mock_resource "azurerm_cdn_frontdoor_profile" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/cdn-rg/providers/Microsoft.Cdn/profiles/static-files-afd"
+    }
+  }
+
+  mock_resource "azurerm_cdn_frontdoor_endpoint" {
+    defaults = {
+      id        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/cdn-rg/providers/Microsoft.Cdn/profiles/static-files-afd/afdEndpoints/mock-endpoint"
+      host_name = "mock-endpoint-abcd.z01.azurefd.net"
+    }
+  }
+
+  mock_resource "azurerm_cdn_frontdoor_firewall_policy" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/cdn-rg/providers/Microsoft.Network/frontDoorWebApplicationFirewallPolicies/staticfileswaf"
+    }
+  }
+
+  mock_resource "azurerm_role_assignment" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/roleAssignments/11111111-1111-1111-1111-111111111111"
+    }
+  }
+}
+
+variables {
+  agent_principal_id             = "22222222-2222-2222-2222-222222222222"
+  front_door_profile_name        = "static-files-afd"
+  front_door_resource_group_name = "cdn-rg"
+  state_storage_account_id       = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/state-rg/providers/Microsoft.Storage/storageAccounts/tfstate"
+  state_container_name           = "tfstate"
+  dns_zone_id                    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/dns-rg/providers/Microsoft.Network/dnsZones/example.com"
+  assets_storage_account_id      = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/assets-rg/providers/Microsoft.Storage/storageAccounts/assets"
+}
+
+run "defaults_create_profile_endpoints_and_four_role_assignments" {
+  command = plan
+
+  assert {
+    condition     = length(azurerm_cdn_frontdoor_profile.this) == 1
+    error_message = "Expected one Front Door profile"
+  }
+
+  assert {
+    condition     = azurerm_cdn_frontdoor_profile.this[0].sku_name == "Standard_AzureFrontDoor"
+    error_message = "Default SKU should be Standard_AzureFrontDoor"
+  }
+
+  assert {
+    condition     = length(azurerm_cdn_frontdoor_endpoint.this) == 3
+    error_message = "Expected one endpoint per default environment"
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.agent) == 4
+    error_message = "Expected 4 role assignments, got ${length(azurerm_role_assignment.agent)}"
+  }
+
+  assert {
+    condition     = length(azurerm_cdn_frontdoor_firewall_policy.this) == 0
+    error_message = "No WAF policy by default"
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.agent["state_container"].scope == "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/state-rg/providers/Microsoft.Storage/storageAccounts/tfstate/blobServices/default/containers/tfstate"
+    error_message = "Storage Blob Data Contributor should be scoped to the state container"
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.agent["state_container"].role_definition_name == "Storage Blob Data Contributor"
+    error_message = "State container role should be Storage Blob Data Contributor"
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.agent["dns_zone"].role_definition_name == "DNS Zone Contributor" && azurerm_role_assignment.agent["dns_zone"].scope == var.dns_zone_id
+    error_message = "DNS Zone Contributor should be scoped to the DNS zone"
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.agent["assets_storage_account"].role_definition_name == "Reader" && azurerm_role_assignment.agent["assets_storage_account"].scope == var.assets_storage_account_id
+    error_message = "Reader should be scoped to the assets storage account"
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.agent["front_door_profile"].role_definition_name == "CDN Profile Contributor"
+    error_message = "Front Door profile role should be CDN Profile Contributor"
+  }
+
+  assert {
+    condition     = alltrue([for k, v in azurerm_role_assignment.agent : v.principal_id == var.agent_principal_id && v.principal_type == "ServicePrincipal"])
+    error_message = "Every assignment should target the agent principal as a ServicePrincipal"
+  }
+
+  assert {
+    condition     = output.waf_policy_id == null && output.waf_policy_name == null
+    error_message = "WAF outputs should be null when no policy is created"
+  }
+}
+
+run "profile_role_is_scoped_to_the_created_profile" {
+  command = apply
+
+  assert {
+    condition     = azurerm_role_assignment.agent["front_door_profile"].scope == azurerm_cdn_frontdoor_profile.this[0].id
+    error_message = "CDN Profile Contributor should be scoped to the created profile"
+  }
+
+  assert {
+    condition     = output.front_door_profile_id == azurerm_cdn_frontdoor_profile.this[0].id
+    error_message = "front_door_profile_id should be the created profile id"
+  }
+
+  assert {
+    condition     = output.front_door_endpoint_host_names["production"] == "mock-endpoint-abcd.z01.azurefd.net"
+    error_message = "front_door_endpoint_host_names should map env to host name"
+  }
+
+  assert {
+    condition     = length(output.role_assignment_ids) == 4
+    error_message = "role_assignment_ids should have one entry per assignment"
+  }
+}
+
+run "endpoints_are_named_prefix_dash_environment" {
+  command = plan
+
+  variables {
+    environments               = ["dev", "prd"]
+    front_door_endpoint_prefix = "fsj-static"
+    tags                       = { team = "platform" }
+  }
+
+  assert {
+    condition     = output.front_door_endpoint_names == { dev = "fsj-static-dev", prd = "fsj-static-prd" }
+    error_message = "Endpoint names should be <prefix>-<env>, got ${jsonencode(output.front_door_endpoint_names)}"
+  }
+
+  assert {
+    condition     = alltrue([for e in azurerm_cdn_frontdoor_endpoint.this : e.enabled])
+    error_message = "Endpoints should be enabled"
+  }
+
+  assert {
+    condition     = azurerm_cdn_frontdoor_profile.this[0].tags == tomap({ team = "platform" }) && azurerm_cdn_frontdoor_endpoint.this["dev"].tags == tomap({ team = "platform" })
+    error_message = "Tags should apply to the profile and the endpoints"
+  }
+
+  assert {
+    condition     = output.front_door_profile_name == "static-files-afd" && output.front_door_resource_group_name == "cdn-rg"
+    error_message = "Profile name and resource group outputs should match the inputs"
+  }
+}
+
+run "existing_profile_creates_no_front_door" {
+  command = plan
+
+  variables {
+    create_front_door              = false
+    existing_front_door_profile_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/other-rg/providers/Microsoft.Cdn/profiles/existing-afd"
+  }
+
+  assert {
+    condition     = length(azurerm_cdn_frontdoor_profile.this) == 0 && length(azurerm_cdn_frontdoor_endpoint.this) == 0
+    error_message = "No profile or endpoints when create_front_door is false"
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.agent["front_door_profile"].scope == var.existing_front_door_profile_id
+    error_message = "CDN Profile Contributor should be scoped to the existing profile"
+  }
+
+  assert {
+    condition     = output.front_door_profile_id == var.existing_front_door_profile_id
+    error_message = "front_door_profile_id should be the existing profile id"
+  }
+
+  assert {
+    condition     = output.front_door_profile_name == "existing-afd" && output.front_door_resource_group_name == "other-rg"
+    error_message = "Profile name and resource group should be parsed from the existing id"
+  }
+
+  assert {
+    condition     = output.front_door_endpoint_names == {}
+    error_message = "No endpoint names when create_front_door is false"
+  }
+}
+
+run "existing_profile_requires_its_id" {
+  command = plan
+
+  variables {
+    create_front_door = false
+  }
+
+  expect_failures = [azurerm_role_assignment.agent]
+}
+
+run "role_assignments_can_be_disabled" {
+  command = plan
+
+  variables {
+    create_role_assignments = false
+    agent_principal_id      = ""
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.agent) == 0
+    error_message = "No role assignments when create_role_assignments is false"
+  }
+
+  assert {
+    condition     = output.role_assignment_ids == {}
+    error_message = "role_assignment_ids should be empty"
+  }
+}
+
+run "missing_principal_id_fails_when_assignments_are_on" {
+  command = plan
+
+  variables {
+    agent_principal_id = ""
+  }
+
+  expect_failures = [azurerm_role_assignment.agent]
+}
+
+run "waf_policy_is_created_with_its_reader_assignment" {
+  command = apply
+
+  variables {
+    create_waf_policy = true
+    waf_policy_name   = "staticfileswaf"
+    front_door_sku    = "Premium_AzureFrontDoor"
+    tags              = { team = "platform" }
+  }
+
+  assert {
+    condition     = length(azurerm_cdn_frontdoor_firewall_policy.this) == 1
+    error_message = "Expected one WAF policy"
+  }
+
+  assert {
+    condition     = azurerm_cdn_frontdoor_firewall_policy.this[0].sku_name == "Premium_AzureFrontDoor"
+    error_message = "WAF policy SKU should match the profile SKU"
+  }
+
+  assert {
+    condition     = azurerm_cdn_frontdoor_firewall_policy.this[0].mode == "Prevention" && azurerm_cdn_frontdoor_firewall_policy.this[0].enabled
+    error_message = "WAF policy should be enabled in Prevention mode by default"
+  }
+
+  assert {
+    condition     = azurerm_cdn_frontdoor_firewall_policy.this[0].tags == tomap({ team = "platform" })
+    error_message = "Tags should apply to the WAF policy"
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.agent) == 5
+    error_message = "Expected a fifth role assignment for the WAF policy"
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.agent["waf_policy"].role_definition_name == "Reader" && azurerm_role_assignment.agent["waf_policy"].scope == azurerm_cdn_frontdoor_firewall_policy.this[0].id
+    error_message = "Reader should be scoped to the WAF policy"
+  }
+
+  assert {
+    condition     = output.waf_policy_name == "staticfileswaf" && output.waf_policy_id == azurerm_cdn_frontdoor_firewall_policy.this[0].id
+    error_message = "WAF outputs should expose the created policy"
+  }
+}
+
+run "existing_waf_policy_gets_the_reader_assignment" {
+  command = plan
+
+  variables {
+    existing_waf_policy_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sec-rg/providers/Microsoft.Network/frontDoorWebApplicationFirewallPolicies/existingwaf"
+  }
+
+  assert {
+    condition     = length(azurerm_cdn_frontdoor_firewall_policy.this) == 0
+    error_message = "No WAF policy is created for an existing one"
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.agent["waf_policy"].scope == var.existing_waf_policy_id
+    error_message = "Reader should be scoped to the existing WAF policy"
+  }
+}
+
+run "invalid_sku_is_rejected" {
+  command = plan
+
+  variables {
+    front_door_sku = "Classic_AzureFrontDoor"
+  }
+
+  expect_failures = [var.front_door_sku]
+}
+
+run "invalid_waf_mode_is_rejected" {
+  command = plan
+
+  variables {
+    waf_mode = "Block"
+  }
+
+  expect_failures = [var.waf_mode]
+}
+
+run "invalid_waf_policy_name_is_rejected" {
+  command = plan
+
+  variables {
+    create_waf_policy = true
+    waf_policy_name   = "static-files-waf"
+  }
+
+  expect_failures = [var.waf_policy_name]
+}
+
+run "endpoint_name_with_invalid_characters_is_rejected" {
+  command = plan
+
+  variables {
+    front_door_endpoint_prefix = "static_files"
+  }
+
+  expect_failures = [var.front_door_endpoint_prefix]
+}
+
+run "endpoint_name_longer_than_46_chars_is_rejected" {
+  command = plan
+
+  variables {
+    front_door_endpoint_prefix = "a-very-long-endpoint-prefix-for-static-files"
+  }
+
+  expect_failures = [azurerm_cdn_frontdoor_endpoint.this]
+}
+
+run "environment_with_invalid_characters_is_rejected" {
+  command = plan
+
+  variables {
+    environments = ["development", "prod_"]
+  }
+
+  expect_failures = [var.environments]
+}
+
+run "longest_endpoint_name_is_accepted" {
+  command = plan
+
+  variables {
+    environments               = ["production"]
+    front_door_endpoint_prefix = "a-35-char-endpoint-prefix-abcdefghi"
+  }
+
+  assert {
+    condition     = length(output.front_door_endpoint_names["production"]) == 46
+    error_message = "A 46-char endpoint name should be accepted"
+  }
+}
+
+run "profile_requires_a_resource_group" {
+  command = plan
+
+  variables {
+    front_door_resource_group_name = ""
+  }
+
+  expect_failures = [azurerm_cdn_frontdoor_profile.this]
+}
