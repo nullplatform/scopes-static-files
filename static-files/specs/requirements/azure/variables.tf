@@ -147,3 +147,31 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "certificate_key_vault_id" {
+  description = "Resource id of the Key Vault (RBAC mode) that holds the customer certificate. Required when certificate_key_vault_certificate_id is set: the profile's managed identity gets Key Vault Secrets User on it."
+  type        = string
+  default     = ""
+}
+
+variable "certificate_key_vault_certificate_id" {
+  description = "Versionless id of the Key Vault certificate the scopes serve (https://<vault>.vault.azure.net/certificates/<name>), e.g. a wildcard. Empty keeps a Front Door managed certificate per scope."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = !can(regex("/[0-9A-Fa-f]{32}/?$", var.certificate_key_vault_certificate_id))
+    error_message = "certificate_key_vault_certificate_id must be the versionless id (https://<vault>.vault.azure.net/certificates/<name>) so Front Door follows renewals; drop the trailing version segment."
+  }
+}
+
+variable "front_door_certificate_secret_name" {
+  description = "Name of the Front Door secret that references the customer certificate. Feeds distribution.azure_front_door_certificate_secret."
+  type        = string
+  default     = "customer-certificate"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9-]+$", var.front_door_certificate_secret_name)) && length(var.front_door_certificate_secret_name) <= 260
+    error_message = "front_door_certificate_secret_name must be 2-260 letters, digits or hyphens and start with a letter or digit."
+  }
+}

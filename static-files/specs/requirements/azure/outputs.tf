@@ -37,3 +37,13 @@ output "role_assignment_ids" {
   description = "Map of assignment key (state_container, front_door_profile, dns_zone, assets_storage_account, waf_policy) to role assignment id."
   value       = { for k, ra in azurerm_role_assignment.agent : k => ra.id }
 }
+
+output "front_door_certificate_secret_name" {
+  description = "Name of the Front Door secret with the customer certificate, or null when not used. Feeds distribution.azure_front_door_certificate_secret."
+  value       = local.use_customer_certificate ? azurerm_cdn_frontdoor_secret.customer_certificate[0].name : null
+}
+
+output "front_door_principal_id" {
+  description = "Principal id of the profile's system-assigned identity, or null when the profile has none."
+  value       = try(azurerm_cdn_frontdoor_profile.this[0].identity[0].principal_id, null)
+}

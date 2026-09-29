@@ -3,7 +3,8 @@
 #
 # What the scope expects to exist before its first deployment and never
 # creates itself: the shared Front Door profile, one endpoint per environment,
-# optionally a WAF policy, and the agent identity's role assignments. The
+# optionally a WAF policy and a customer certificate (Front Door secret), and
+# the agent identity's role assignments. The
 # outputs feed the scope-configuration provider config of each environment.
 ################################################################################
 
@@ -14,6 +15,8 @@ locals {
     var.existing_waf_policy_id != "" ? var.existing_waf_policy_id : null
   )
   assign_waf_policy = var.create_waf_policy || var.existing_waf_policy_id != ""
+
+  use_customer_certificate = var.certificate_key_vault_certificate_id != ""
 
   role_assignments = !var.create_role_assignments ? {} : merge(
     {
@@ -50,6 +53,15 @@ resource "azurerm_cdn_frontdoor_profile" "this" {
   resource_group_name = var.front_door_resource_group_name
   sku_name            = var.front_door_sku
   tags                = var.tags
+
+  # Front Door reads the customer certificate from Key Vault with this
+  # identity. Added in place on an existing profile, never a replacement.
+  dynamic "identity" {
+    for_each = local.use_customer_certificate ? [1] : []
+    content {
+      type = "SystemAssigned"
+    }
+  }
 
   lifecycle {
     precondition {
@@ -122,4 +134,51 @@ resource "azurerm_role_assignment" "agent" {
       error_message = "state_storage_account_id, dns_zone_id and assets_storage_account_id are required when create_role_assignments is true."
     }
   }
+}
+
+# =============================================================================
+# Customer certificate: one Front Door secret in the shared profile that every
+# scope references (distribution.azure_front_door_certificate_secret).
+# =============================================================================
+resource "azurerm_role_assignment" "front_door_key_vault" {
+  count = local.use_customer_certificate ? 1 : 0
+
+  scope                = var.certificate_key_vault_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = try(azurerm_cdn_frontdoor_profile.this[0].identity[0].principal_id, null)
+  # The identity is created in the same apply: without the explicit type,
+  # ARM looks the principal up in Entra ID, which may not have replicated it yet.
+  principal_type                   = "ServicePrincipal"
+  skip_service_principal_aad_check = true
+
+  lifecycle {
+    precondition {
+      condition     = var.create_front_door
+      error_message = "The customer certificate needs create_front_door = true: the module adds a managed identity to the profile it creates and does not change an existing profile's identity."
+    }
+
+    precondition {
+      condition     = var.certificate_key_vault_id != ""
+      error_message = "certificate_key_vault_id is required when certificate_key_vault_certificate_id is set."
+    }
+  }
+}
+
+# The versionless id makes Front Door follow renewals ("Latest"). Azure RBAC
+# can take several minutes to reach Key Vault after the role assignment
+# above: if the first apply fails here with a Key Vault access error, apply
+# again (see the README).
+resource "azurerm_cdn_frontdoor_secret" "customer_certificate" {
+  count = local.use_customer_certificate ? 1 : 0
+
+  name                     = var.front_door_certificate_secret_name
+  cdn_frontdoor_profile_id = local.front_door_profile_id
+
+  secret {
+    customer_certificate {
+      key_vault_certificate_id = var.certificate_key_vault_certificate_id
+    }
+  }
+
+  depends_on = [azurerm_role_assignment.front_door_key_vault]
 }
