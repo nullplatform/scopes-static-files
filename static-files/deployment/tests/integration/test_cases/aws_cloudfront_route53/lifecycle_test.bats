@@ -14,6 +14,9 @@
 # =============================================================================
 # Expected values derived from context.json and terraform variables
 
+TEST_NETWORK_DOMAIN="frontend.publicdomain.com"
+TEST_NETWORK_FULL_DOMAIN="automation-development-tools.frontend.publicdomain.com"
+
 # CloudFront variables (distribution/cloudfront/modules/variables.tf)
 TEST_DISTRIBUTION_BUCKET="my-asset-bucket"                                   # distribution_bucket_name (from context.json asset.url)
 TEST_DISTRIBUTION_S3_PREFIX="/tools/automation/v1.0.0"                      # distribution_s3_prefix
