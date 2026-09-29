@@ -1,0 +1,187 @@
+#!/bin/bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/../../scripts/get_config_value"
+
+echo "🔍 Validating Azure Front Door distribution configuration..."
+
+application_slug=$(echo "$CONTEXT" | jq -r .application.slug)
+scope_slug=$(echo "$CONTEXT" | jq -r .scope.slug)
+scope_id=$(echo "$CONTEXT" | jq -r .scope.id)
+asset_url=$(echo "$CONTEXT" | jq -r .asset.url)
+
+distribution_app_name="$application_slug-$scope_slug-$scope_id"
+echo "   ✅ app_name=$distribution_app_name"
+
+# =============================================================================
+# Asset location
+# Format: https://<account>.blob.core.windows.net/<container>/<prefix>
+# CI may percent-encode the container ($web arrives as %24web).
+# =============================================================================
+if [[ "$asset_url" == https://*.blob.core.windows.net/* ]]; then
+  url_without_scheme="${asset_url#https://}"
+  distribution_storage_account="${url_without_scheme%%.*}"
+  url_path="${url_without_scheme#*/}"
+  distribution_container_name="${url_path%%/*}"
+  distribution_container_name="${distribution_container_name//%24/\$}"
+  remaining_path="${url_path#*/}"
+  if [ "$remaining_path" = "$url_path" ]; then
+    distribution_blob_prefix="/"
+  else
+    distribution_blob_prefix="/${remaining_path}"
+  fi
+else
+  echo ""
+  echo "   ❌ Could not extract storage account from asset URL: $asset_url"
+  echo ""
+  echo "  💡 Possible causes:"
+  echo "    • The asset URL format is not recognized"
+  echo "    • CI registered the asset with something other than the blob URL"
+  echo ""
+  echo "  🔧 How to fix:"
+  echo "    • Register the asset with 'https://<account>.blob.core.windows.net/<container>/<prefix>'"
+  echo ""
+  exit 1
+fi
+
+distribution_container_name=${distribution_container_name:-"\$web"}
+
+echo "   ✅ storage_account=$distribution_storage_account"
+echo "   ✅ container=$distribution_container_name"
+echo "   ✅ blob_prefix=${distribution_blob_prefix:-"(root)"}"
+
+# =============================================================================
+# Shared Front Door profile and endpoint (customer-owned prerequisites)
+# =============================================================================
+missing_vars=()
+
+distribution_front_door_profile=$(get_config_value \
+  --provider '.providers["scope-configurations"].distribution.azure_front_door_profile' \
+  --env AZURE_FRONT_DOOR_PROFILE)
+if [ -z "$distribution_front_door_profile" ]; then
+  echo "   ❌ azure_front_door_profile is missing"
+  missing_vars+=("distribution.azure_front_door_profile")
+else
+  echo "   ✅ front_door_profile=$distribution_front_door_profile"
+fi
+
+distribution_front_door_endpoint=$(get_config_value \
+  --provider '.providers["scope-configurations"].distribution.azure_front_door_endpoint' \
+  --env AZURE_FRONT_DOOR_ENDPOINT)
+if [ -z "$distribution_front_door_endpoint" ]; then
+  echo "   ❌ azure_front_door_endpoint is missing"
+  missing_vars+=("distribution.azure_front_door_endpoint")
+else
+  echo "   ✅ front_door_endpoint=$distribution_front_door_endpoint"
+fi
+
+if [ ${#missing_vars[@]} -gt 0 ]; then
+  echo ""
+  echo "  💡 Possible causes:"
+  echo "    • The scope-configurations provider is missing these fields"
+  echo ""
+  echo "  🔧 How to fix:"
+  echo "    Set the missing field(s) in the scope-configurations provider:"
+  for var in "${missing_vars[@]}"; do
+    echo "      • $var"
+  done
+  echo "    Or set AZURE_FRONT_DOOR_PROFILE / AZURE_FRONT_DOOR_ENDPOINT in the agent"
+  echo ""
+  exit 1
+fi
+
+provider_resource_group=$(get_config_value \
+  --provider '.providers["scope-configurations"].provider.azure_resource_group' \
+  --env AZURE_RESOURCE_GROUP)
+distribution_front_door_resource_group=$(get_config_value \
+  --provider '.providers["scope-configurations"].distribution.azure_front_door_resource_group' \
+  --env AZURE_FRONT_DOOR_RESOURCE_GROUP \
+  --default "$provider_resource_group")
+echo "   ✅ front_door_resource_group=$distribution_front_door_resource_group"
+
+subscription_id=$(get_config_value \
+  --provider '.providers["scope-configurations"].provider.azure_subscription_id' \
+  --env AZURE_SUBSCRIPTION_ID)
+
+# =============================================================================
+# Preflight: the shared endpoint must already exist
+# =============================================================================
+echo ""
+echo "   📡 Verifying Front Door endpoint..."
+
+endpoint_url="https://management.azure.com/subscriptions/${subscription_id}/resourceGroups/${distribution_front_door_resource_group}/providers/Microsoft.Cdn/profiles/${distribution_front_door_profile}/afdEndpoints/${distribution_front_door_endpoint}?api-version=2025-04-15"
+
+stderr_file=$(mktemp)
+az_output=$(az rest --method get --url "$endpoint_url" 2>"$stderr_file") && az_exit_code=0 || az_exit_code=$?
+az_stderr=$(cat "$stderr_file")
+rm -f "$stderr_file"
+
+if [ "$az_exit_code" -ne 0 ]; then
+  echo ""
+  if echo "$az_stderr" | grep -q "ResourceNotFound\|NotFound\|ParentResourceNotFound"; then
+    echo "   ❌ Front Door endpoint '$distribution_front_door_endpoint' was not found in profile '$distribution_front_door_profile' (resource group '$distribution_front_door_resource_group')"
+    echo ""
+    echo "  💡 Possible causes:"
+    echo "    • The shared profile or endpoint has not been created yet"
+    echo "    • The names in the scope configuration have a typo"
+    echo ""
+    echo "  🔧 How to fix:"
+    echo "    • Create them once per environment:"
+    echo "        az afd profile create --resource-group $distribution_front_door_resource_group --profile-name $distribution_front_door_profile --sku Standard_AzureFrontDoor"
+    echo "        az afd endpoint create --resource-group $distribution_front_door_resource_group --profile-name $distribution_front_door_profile --endpoint-name $distribution_front_door_endpoint --enabled-state Enabled"
+  elif echo "$az_stderr" | grep -q "AuthorizationFailed\|Forbidden\|403"; then
+    echo "   🔒 Error: Permission denied when reading the Front Door endpoint"
+    echo ""
+    echo "  🔧 How to fix:"
+    echo "    • Grant the agent identity 'CDN Profile Contributor' on resource group '$distribution_front_door_resource_group'"
+  else
+    echo "   ❌ Failed to read the Front Door endpoint"
+    echo ""
+    echo "  📋 Error details:"
+    # shellcheck disable=SC2001
+    echo "$az_stderr" | sed 's/^/    /'
+  fi
+  echo ""
+  exit 1
+fi
+
+endpoint_host=$(echo "$az_output" | jq -r '.properties.hostName // empty')
+echo "   ✅ endpoint_host=${endpoint_host:-"(unknown)"}"
+
+RESOURCE_TAGS_JSON=${RESOURCE_TAGS_JSON:-"{}"}
+
+TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
+  --arg storage_account "$distribution_storage_account" \
+  --arg container_name "$distribution_container_name" \
+  --arg app_name "$distribution_app_name" \
+  --arg blob_prefix "$distribution_blob_prefix" \
+  --argjson resource_tags_json "$RESOURCE_TAGS_JSON" \
+  --arg fd_profile "$distribution_front_door_profile" \
+  --arg fd_endpoint "$distribution_front_door_endpoint" \
+  --arg fd_resource_group "$distribution_front_door_resource_group" \
+  '. + {
+    distribution_storage_account: $storage_account,
+    distribution_container_name: $container_name,
+    distribution_app_name: $app_name,
+    distribution_blob_prefix: $blob_prefix,
+    distribution_resource_tags_json: $resource_tags_json,
+    distribution_front_door_profile: $fd_profile,
+    distribution_front_door_endpoint: $fd_endpoint,
+    distribution_front_door_resource_group: $fd_resource_group
+  }')
+
+echo ""
+echo "✨ Azure Front Door distribution configured successfully"
+echo ""
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+module_name="${script_dir}/modules"
+
+if [[ -n $MODULES_TO_USE ]]; then
+  MODULES_TO_USE="$MODULES_TO_USE,$module_name"
+else
+  MODULES_TO_USE="$module_name"
+fi
