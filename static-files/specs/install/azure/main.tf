@@ -113,17 +113,23 @@ resource "nullplatform_provider_config" "static_files_configuration" {
       azure_dns_zone_resource_group = each.value.azure_dns_zone_resource_group
     }
 
-    distribution = {
-      azure_distribution              = "front-door"
-      azure_front_door_profile        = each.value.azure_front_door_profile
-      azure_front_door_endpoint       = each.value.azure_front_door_endpoint
-      azure_front_door_resource_group = coalesce(each.value.azure_front_door_resource_group, each.value.azure_resource_group)
+    distribution = merge(
+      {
+        azure_distribution              = "front-door"
+        azure_front_door_profile        = each.value.azure_front_door_profile
+        azure_front_door_endpoint       = each.value.azure_front_door_endpoint
+        azure_front_door_resource_group = coalesce(each.value.azure_front_door_resource_group, each.value.azure_resource_group)
 
-      azure_front_door_cached_path_prefixes    = each.value.azure_front_door_cached_path_prefixes
-      azure_front_door_cache_days              = each.value.azure_front_door_cache_days
-      azure_front_door_security_headers        = each.value.azure_front_door_security_headers
-      azure_front_door_content_security_policy = each.value.azure_front_door_content_security_policy
-    }
+        azure_front_door_cached_path_prefixes    = each.value.azure_front_door_cached_path_prefixes
+        azure_front_door_cache_days              = each.value.azure_front_door_cache_days
+        azure_front_door_security_headers        = each.value.azure_front_door_security_headers
+        azure_front_door_content_security_policy = each.value.azure_front_door_content_security_policy
+      },
+      # Only when set: empty means a managed certificate per scope.
+      each.value.azure_front_door_certificate_secret != null && each.value.azure_front_door_certificate_secret != "" ? {
+        azure_front_door_certificate_secret = each.value.azure_front_door_certificate_secret
+      } : {}
+    )
 
     security = { for k, v in {
       azure_security                  = each.value.azure_security

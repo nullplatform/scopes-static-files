@@ -34,6 +34,9 @@ provider_configs = [
     # azure_front_door_cache_days           = 7
     # azure_front_door_security_headers        = false
     # azure_front_door_content_security_policy = "" # sent only when security headers are on
+    # Optional: Front Door secret with a Key Vault certificate (e.g. a wildcard);
+    # empty uses a managed certificate per scope.
+    # azure_front_door_certificate_secret = "customer-certificate"
     # Optional WAF attachment: "none" (default) or "azure_waf".
     # azure_security                  = "none"
     # azure_waf_policy_name           = "" # required with azure_waf

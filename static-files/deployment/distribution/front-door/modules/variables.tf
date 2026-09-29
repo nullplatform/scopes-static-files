@@ -79,3 +79,14 @@ variable "distribution_content_security_policy" {
   type        = string
   default     = ""
 }
+
+variable "distribution_certificate_secret" {
+  description = "Name of the Front Door secret in the shared profile that points to a Key Vault certificate covering this scope's domain; empty uses a Front Door managed certificate"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.distribution_certificate_secret == "" || can(regex("^[A-Za-z0-9][A-Za-z0-9-]{1,259}$", var.distribution_certificate_secret))
+    error_message = "distribution_certificate_secret must be 2-260 letters, digits or hyphens and start with a letter or digit."
+  }
+}
