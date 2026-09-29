@@ -1,0 +1,117 @@
+# =============================================================================
+# Azure Front Door distribution
+#
+# Inside a customer-owned profile and endpoint, this scope owns: an origin
+# group, an origin (the storage static-website host), a rule set, a route and
+# (Task 5) a custom domain with its validation record. Nothing here touches
+# the profile or the endpoint themselves.
+# =============================================================================
+
+resource "azurerm_cdn_frontdoor_origin_group" "static" {
+  name                     = "${var.distribution_app_name}-og"
+  cdn_frontdoor_profile_id = data.azurerm_cdn_frontdoor_profile.shared.id
+
+  load_balancing {
+    additional_latency_in_milliseconds = 0
+    sample_size                        = 4
+    successful_samples_required        = 3
+  }
+}
+
+resource "azurerm_cdn_frontdoor_origin" "static" {
+  name                          = "${var.distribution_app_name}-origin"
+  cdn_frontdoor_origin_group_id = azurerm_cdn_frontdoor_origin_group.static.id
+  enabled                       = true
+
+  host_name                      = data.azurerm_storage_account.static.primary_web_host
+  origin_host_header             = data.azurerm_storage_account.static.primary_web_host
+  certificate_name_check_enabled = true
+  http_port                      = 80
+  https_port                     = 443
+  priority                       = 1
+  weight                         = 1000
+}
+
+resource "azurerm_cdn_frontdoor_rule_set" "static" {
+  name                     = local.distribution_rule_set_name
+  cdn_frontdoor_profile_id = data.azurerm_cdn_frontdoor_profile.shared.id
+}
+
+# SPA routing: a request without a file extension (a client-side route) is
+# served index.html. Same rule blob-cdn carried, in Front Door terms.
+resource "azurerm_cdn_frontdoor_rule" "spa_fallback" {
+  depends_on = [azurerm_cdn_frontdoor_origin_group.static, azurerm_cdn_frontdoor_origin.static]
+
+  name                      = "SpaFallback"
+  cdn_frontdoor_rule_set_id = azurerm_cdn_frontdoor_rule_set.static.id
+  order                     = 1
+  behavior_on_match         = "Continue"
+
+  conditions {
+    url_file_extension_condition {
+      operator     = "LessThan"
+      match_values = ["1"]
+    }
+  }
+
+  actions {
+    url_rewrite_action {
+      source_pattern          = "/"
+      destination             = "/index.html"
+      preserve_unmatched_path = false
+    }
+  }
+}
+
+# Long cache for fingerprinted assets under /static/, as blob-cdn did.
+resource "azurerm_cdn_frontdoor_rule" "static_cache" {
+  depends_on = [azurerm_cdn_frontdoor_origin_group.static, azurerm_cdn_frontdoor_origin.static]
+
+  name                      = "StaticCache"
+  cdn_frontdoor_rule_set_id = azurerm_cdn_frontdoor_rule_set.static.id
+  order                     = 2
+  behavior_on_match         = "Continue"
+
+  conditions {
+    url_path_condition {
+      operator     = "BeginsWith"
+      match_values = ["/static/"]
+    }
+  }
+
+  actions {
+    route_configuration_override_action {
+      cache_behavior = "OverrideAlways"
+      cache_duration = "7.00:00:00"
+    }
+  }
+}
+
+resource "azurerm_cdn_frontdoor_route" "static" {
+  name                          = var.distribution_app_name
+  cdn_frontdoor_endpoint_id     = data.azurerm_cdn_frontdoor_endpoint.shared.id
+  cdn_frontdoor_origin_group_id = azurerm_cdn_frontdoor_origin_group.static.id
+  cdn_frontdoor_origin_ids      = [azurerm_cdn_frontdoor_origin.static.id]
+  cdn_frontdoor_rule_set_ids    = [azurerm_cdn_frontdoor_rule_set.static.id]
+  enabled                       = true
+
+  # The version switch: a new deployment changes the origin path and the
+  # purge below drops the old content from the edge.
+  cdn_frontdoor_origin_path = local.distribution_origin_path
+
+  forwarding_protocol    = "HttpsOnly"
+  https_redirect_enabled = true
+  patterns_to_match      = ["/*"]
+  supported_protocols    = ["Http", "Https"]
+
+  # The endpoint is shared by every scope of the environment, so a route can
+  # never own its default hostname. The custom domain is the scope's identity.
+  link_to_default_domain          = false
+  cdn_frontdoor_custom_domain_ids = local.distribution_custom_domain_ids
+
+  cache {
+    query_string_caching_behavior = "IgnoreQueryString"
+    compression_enabled           = true
+    content_types_to_compress     = local.distribution_compressed_content_types
+  }
+}
