@@ -4,7 +4,7 @@
 # gRPC worker bridge. The bridge dials over gRPC and runs the bash entrypoint
 # on each package-exec action; this image adds the cloud tooling the scope's
 # steps need and bakes the scope in.
-FROM public.ecr.aws/nullplatform/scopes/worker-bridge:1.1.1
+FROM public.ecr.aws/nullplatform/scopes/worker-bridge:2.0.0
 
 # Tooling the static-files workflows call: aws + gomplate from apk, az from pip
 # (Alpine has no azure-cli package). az is needed by network/azure_dns/setup
