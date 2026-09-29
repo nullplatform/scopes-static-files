@@ -9,11 +9,6 @@ locals {
   # "<app>-<scope>-<id>" has hyphens, so strip them and cap the length.
   distribution_rule_set_name = substr(replace(var.distribution_app_name, "/[^A-Za-z0-9]/", ""), 0, 60)
 
-  distribution_tags = merge(var.distribution_resource_tags_json, {
-    ManagedBy = "terraform"
-    Module    = "distribution/front-door"
-  })
-
   distribution_compressed_content_types = [
     "application/javascript",
     "application/json",
@@ -32,5 +27,11 @@ locals {
   distribution_target_domain = data.azurerm_cdn_frontdoor_endpoint.shared.host_name
   distribution_record_type   = "CNAME"
 
-  distribution_custom_domain_ids = []
+  distribution_custom_domain_ids = [azurerm_cdn_frontdoor_custom_domain.static.id]
+
+  distribution_purge_url = "https://management.azure.com${data.azurerm_cdn_frontdoor_endpoint.shared.id}/purge?api-version=2025-04-15"
+
+  # Purge only this scope's domain: the endpoint is shared with every other
+  # scope of the environment.
+  distribution_purge_command = "az rest --method post --url '${local.distribution_purge_url}' --body '${jsonencode({ contentPaths = ["/*"], domains = [local.distribution_full_domain] })}'"
 }

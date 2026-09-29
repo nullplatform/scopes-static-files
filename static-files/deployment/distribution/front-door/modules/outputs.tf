@@ -42,3 +42,13 @@ output "distribution_website_url" {
   description = "Website URL (custom domain only; the shared endpoint hostname does not serve this scope)"
   value       = "https://${local.distribution_full_domain}"
 }
+
+output "distribution_custom_domain" {
+  description = "Custom domain served by this scope"
+  value       = azurerm_cdn_frontdoor_custom_domain.static.host_name
+}
+
+output "distribution_validation_record" {
+  description = "TXT record that validates the custom domain"
+  value       = azurerm_dns_txt_record.custom_domain_validation.fqdn
+}

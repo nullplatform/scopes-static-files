@@ -115,3 +115,62 @@ resource "azurerm_cdn_frontdoor_route" "static" {
     content_types_to_compress     = local.distribution_compressed_content_types
   }
 }
+
+# =============================================================================
+# Custom domain: mandatory. The route is not reachable through the shared
+# endpoint hostname, so without a DNS zone there is nothing to serve.
+# =============================================================================
+resource "azurerm_cdn_frontdoor_custom_domain" "static" {
+  name                     = "${var.distribution_app_name}-domain"
+  cdn_frontdoor_profile_id = data.azurerm_cdn_frontdoor_profile.shared.id
+  dns_zone_id              = data.azurerm_dns_zone.custom_domain.id
+  host_name                = local.distribution_full_domain
+
+  tls {
+    certificate_type    = "ManagedCertificate"
+    minimum_tls_version = "TLS12"
+  }
+
+  lifecycle {
+    precondition {
+      condition     = local.distribution_has_custom_domain
+      error_message = "The front-door distribution needs a custom domain: configure the network layer (network.azure_network = azure_dns with a DNS zone) for this scope."
+    }
+  }
+}
+
+# Front Door proves domain ownership through _dnsauth.<subdomain> holding the
+# validation token. The managed certificate is issued once this resolves.
+resource "azurerm_dns_txt_record" "custom_domain_validation" {
+  name                = "_dnsauth.${var.network_subdomain}"
+  zone_name           = var.network_dns_zone_name
+  resource_group_name = var.network_dns_zone_resource_group
+  ttl                 = 3600
+
+  record {
+    value = azurerm_cdn_frontdoor_custom_domain.static.validation_token
+  }
+}
+
+resource "azurerm_cdn_frontdoor_custom_domain_association" "static" {
+  cdn_frontdoor_custom_domain_id = azurerm_cdn_frontdoor_custom_domain.static.id
+  cdn_frontdoor_route_ids        = [azurerm_cdn_frontdoor_route.static.id]
+}
+
+# Drop the previous version from the edge whenever the origin path changes.
+# Same role as the CloudFront invalidation, scoped to this domain because the
+# endpoint is shared.
+resource "terraform_data" "front_door_purge" {
+  triggers_replace = [
+    local.distribution_origin_path
+  ]
+
+  provisioner "local-exec" {
+    command = local.distribution_purge_command
+  }
+
+  depends_on = [
+    azurerm_cdn_frontdoor_route.static,
+    azurerm_cdn_frontdoor_custom_domain_association.static,
+  ]
+}
