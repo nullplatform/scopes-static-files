@@ -149,7 +149,7 @@ variable "tags" {
 }
 
 variable "certificate_key_vault_id" {
-  description = "Resource id of the Key Vault (RBAC mode) that holds the customer certificate. Required when certificate_key_vault_certificate_id is set: the profile's managed identity gets Key Vault Secrets User on it."
+  description = "Resource id of the Key Vault (RBAC mode) that holds the customer certificate. Required when certificate_key_vault_certificate_id is set: the profile's user-assigned identity gets Key Vault Secrets User on it."
   type        = string
   default     = ""
 }
@@ -174,4 +174,21 @@ variable "front_door_certificate_secret_name" {
     condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9-]+$", var.front_door_certificate_secret_name)) && length(var.front_door_certificate_secret_name) <= 260
     error_message = "front_door_certificate_secret_name must be 2-260 letters, digits or hyphens and start with a letter or digit."
   }
+}
+
+variable "front_door_identity_name" {
+  description = "Name of the user-assigned identity the profile uses to read the customer certificate. Empty means id-<front_door_profile_name>."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.front_door_identity_name == "" || can(regex("^[A-Za-z0-9][A-Za-z0-9_-]{2,127}$", var.front_door_identity_name))
+    error_message = "front_door_identity_name must be 3-128 letters, digits, hyphens or underscores and start with a letter or digit."
+  }
+}
+
+variable "front_door_identity_location" {
+  description = "Azure region of the user-assigned identity. Empty means the location of front_door_resource_group_name."
+  type        = string
+  default     = ""
 }

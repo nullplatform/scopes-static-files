@@ -24,6 +24,19 @@ mock_provider "azurerm" {
     }
   }
 
+  mock_resource "azurerm_user_assigned_identity" {
+    defaults = {
+      id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/cdn-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-static-files-afd"
+      principal_id = "33333333-3333-3333-3333-333333333333"
+    }
+  }
+
+  mock_data "azurerm_resource_group" {
+    defaults = {
+      location = "eastus2"
+    }
+  }
+
   mock_resource "azurerm_cdn_frontdoor_secret" {
     defaults = {
       id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/cdn-rg/providers/Microsoft.Cdn/profiles/static-files-afd/secrets/customer-certificate"
@@ -406,7 +419,12 @@ run "customer_certificate_is_off_by_default" {
   }
 
   assert {
-    condition     = output.front_door_certificate_secret_name == null && output.front_door_principal_id == null
+    condition     = length(azurerm_user_assigned_identity.front_door) == 0 && length(data.azurerm_resource_group.front_door) == 0
+    error_message = "No user-assigned identity (nor resource group lookup) without a customer certificate"
+  }
+
+  assert {
+    condition     = output.front_door_certificate_secret_name == null && output.front_door_principal_id == null && output.front_door_identity_id == null
     error_message = "Certificate outputs should be null without a customer certificate"
   }
 }
@@ -420,8 +438,23 @@ run "customer_certificate_creates_identity_role_and_secret" {
   }
 
   assert {
-    condition     = one(azurerm_cdn_frontdoor_profile.this[0].identity).type == "SystemAssigned"
-    error_message = "The profile should get a SystemAssigned identity"
+    condition     = one(azurerm_cdn_frontdoor_profile.this[0].identity).type == "UserAssigned"
+    error_message = "The profile should get a UserAssigned identity"
+  }
+
+  assert {
+    condition     = one(azurerm_cdn_frontdoor_profile.this[0].identity).identity_ids == toset([azurerm_user_assigned_identity.front_door[0].id])
+    error_message = "The profile identity should be the module's user-assigned identity"
+  }
+
+  assert {
+    condition     = azurerm_user_assigned_identity.front_door[0].name == "id-static-files-afd"
+    error_message = "The identity name should default to id-<front_door_profile_name>"
+  }
+
+  assert {
+    condition     = azurerm_user_assigned_identity.front_door[0].resource_group_name == "cdn-rg" && azurerm_user_assigned_identity.front_door[0].location == "eastus2"
+    error_message = "The identity should live in the profile's resource group and take its location"
   }
 
   assert {
@@ -450,8 +483,8 @@ run "customer_certificate_creates_identity_role_and_secret" {
   }
 
   assert {
-    condition     = azurerm_role_assignment.front_door_key_vault[0].principal_id == one(azurerm_cdn_frontdoor_profile.this[0].identity).principal_id
-    error_message = "Key Vault Secrets User should target the profile's managed identity"
+    condition     = azurerm_role_assignment.front_door_key_vault[0].principal_id == "33333333-3333-3333-3333-333333333333"
+    error_message = "Key Vault Secrets User should target the user-assigned identity's principal id"
   }
 
   assert {
@@ -465,8 +498,13 @@ run "customer_certificate_creates_identity_role_and_secret" {
   }
 
   assert {
-    condition     = output.front_door_principal_id == one(azurerm_cdn_frontdoor_profile.this[0].identity).principal_id
-    error_message = "front_door_principal_id should be the profile identity's principal id"
+    condition     = output.front_door_principal_id == "33333333-3333-3333-3333-333333333333"
+    error_message = "front_door_principal_id should be the user-assigned identity's principal id"
+  }
+
+  assert {
+    condition     = output.front_door_identity_id == azurerm_user_assigned_identity.front_door[0].id
+    error_message = "front_door_identity_id should be the user-assigned identity id"
   }
 
   assert {
@@ -482,6 +520,18 @@ run "customer_certificate_secret_name_is_configurable" {
     certificate_key_vault_id             = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/kv-rg/providers/Microsoft.KeyVault/vaults/certs-kv"
     certificate_key_vault_certificate_id = "https://certs-kv.vault.azure.net/certificates/wildcard-np-example-com"
     front_door_certificate_secret_name   = "wildcard-np-example-com"
+    front_door_identity_name             = "id-fsj-static-files"
+    front_door_identity_location         = "brazilsouth"
+  }
+
+  assert {
+    condition     = azurerm_user_assigned_identity.front_door[0].name == "id-fsj-static-files" && azurerm_user_assigned_identity.front_door[0].location == "brazilsouth"
+    error_message = "front_door_identity_name and front_door_identity_location should override the defaults"
+  }
+
+  assert {
+    condition     = length(data.azurerm_resource_group.front_door) == 0
+    error_message = "An explicit location needs no resource group lookup"
   }
 
   assert {
@@ -537,4 +587,14 @@ run "customer_certificate_requires_the_key_vault_id" {
   }
 
   expect_failures = [azurerm_role_assignment.front_door_key_vault]
+}
+
+run "invalid_identity_name_is_rejected" {
+  command = plan
+
+  variables {
+    front_door_identity_name = "-bad name"
+  }
+
+  expect_failures = [var.front_door_identity_name]
 }

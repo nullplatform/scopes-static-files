@@ -207,7 +207,7 @@ it. This mirrors AWS, where the scope references an existing ACM certificate.
   **certificate** object.
 - The secret references the certificate's **versionless** id, so Front Door
   follows renewals: a new version reaches the edge within 72 hours.
-- The profile needs a **managed identity** with `Key Vault Secrets User` on the
+- The profile needs a **user-assigned managed identity** with `Key Vault Secrets User` on the
   vault (the older `Microsoft.AzureFrontDoor-Cdn` service principal with an
   access policy is being deprecated).
 

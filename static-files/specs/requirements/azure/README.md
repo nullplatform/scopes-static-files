@@ -27,8 +27,8 @@ This module creates:
   | `waf_policy` | `waf_policy_role_definition_name` (default Reader) | The created policy, or `existing_waf_policy_id`. Only when one of them is set |
 
 - **A customer certificate** (`certificate_key_vault_certificate_id`, default
-  off): a system-assigned identity on the profile, `Key Vault Secrets User`
-  for it on the vault, and one Front Door secret every scope references. See
+  off): a user-assigned identity attached to the profile, `Key Vault Secrets
+  User` for it on the vault, and one Front Door secret every scope references. See
   [Customer certificate](#customer-certificate).
 
 It needs `azurerm >= 4.15, < 5.0` (4.15 added the profile's `identity` block)
@@ -147,6 +147,8 @@ Without a WAF policy, use `security = { azure_security = "none" }`.
 | `certificate_key_vault_id` | `""` | Id of the Key Vault (RBAC mode) with the customer certificate. Required with `certificate_key_vault_certificate_id`. |
 | `certificate_key_vault_certificate_id` | `""` | **Versionless** certificate id (`https://<vault>.vault.azure.net/certificates/<name>`); a trailing version is rejected. Empty keeps managed certificates. |
 | `front_door_certificate_secret_name` | `customer-certificate` | Front Door secret name: 2-260 letters, digits or hyphens, starting alphanumeric. |
+| `front_door_identity_name` | `""` | User-assigned identity for Key Vault access; empty means `id-<front_door_profile_name>`. 3-128 letters, digits, hyphens or underscores. |
+| `front_door_identity_location` | `""` | Region of that identity; empty reads the location of `front_door_resource_group_name`. |
 | `tags` | `{}` | Tags on the profile, endpoints and WAF policy. |
 
 ## Outputs
@@ -162,7 +164,8 @@ Without a WAF policy, use `security = { azure_security = "none" }`.
 | `waf_policy_name` | Created policy name, or null. Feeds `security.azure_waf_policy_name`. |
 | `role_assignment_ids` | Map of the keys in the table above → role assignment id. |
 | `front_door_certificate_secret_name` | Secret name, or null without a customer certificate. Feeds `distribution.azure_front_door_certificate_secret`. |
-| `front_door_principal_id` | Principal id of the profile's system-assigned identity, or null. |
+| `front_door_principal_id` | Principal (object) id of the profile's user-assigned identity, or null without a customer certificate. |
+| `front_door_identity_id` | Resource id of that identity, or null without a customer certificate. |
 
 ## The agent's principal id
 
@@ -207,8 +210,13 @@ module "static_files_requirements" {
 
 The module then:
 
-- adds `identity { type = "SystemAssigned" }` to the profile (an in-place
-  update, the profile is not replaced);
+- creates a user-assigned identity `front_door_identity_name` (default
+  `id-<front_door_profile_name>`) in `front_door_resource_group_name`, in
+  `front_door_identity_location` or, when empty, the resource group's location;
+- attaches it to the profile with `identity { type = "UserAssigned" }` (an
+  in-place update, verified against a real profile: the profile is not
+  replaced). User-assigned because the profile does not export the principal
+  id of a system-assigned identity, which the role assignment needs;
 - grants that identity `Key Vault Secrets User` on `certificate_key_vault_id`;
 - creates the Front Door secret `front_door_certificate_secret_name` pointing at
   the certificate.

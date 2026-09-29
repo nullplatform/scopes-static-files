@@ -108,8 +108,8 @@ Facts that shape it (Microsoft docs, checked 2026-09-29):
   null).
 - The secret references the certificate's **versionless** id, so Front Door
   follows renewals ("Latest"); a new version deploys within 72 hours.
-- Key Vault access is the profile's **managed identity** with `Key Vault
-  Secrets User` on an RBAC-mode vault. Registering the
+- Key Vault access is a **user-assigned managed identity** attached to the
+  profile, with `Key Vault Secrets User` on an RBAC-mode vault. Registering the
   `Microsoft.AzureFrontDoor-Cdn` service principal with an access policy is
   being deprecated and is not used.
 - Certificates must be RSA (no EC), carry the full chain, be imported from a
@@ -122,11 +122,18 @@ Split of responsibilities:
   scope needs no Key Vault access and no new role; `CDN Profile Contributor`
   covers the custom domain. The 3.117 `tls` argument is
   `cdn_frontdoor_secret_id`.
-- **Requirements module** (azurerm >= 4.15): the profile identity (the `identity`
-  block only exists from azurerm 4.15), the role assignment and the secret,
-  behind `certificate_key_vault_certificate_id`. Only for a profile the module
-  creates: it does not change an existing profile's identity. Adding the
-  identity updates the profile in place.
+- **Requirements module** (azurerm >= 4.15): a user-assigned identity
+  (`id-<profile>` by default, located in the profile's resource group region
+  unless `front_door_identity_location` is set), attached to the profile (the
+  `identity` block only exists from azurerm 4.15), the role assignment and the
+  secret, behind `certificate_key_vault_certificate_id`. User-assigned, not
+  system-assigned: `azurerm_cdn_frontdoor_profile` exports only `id` and
+  `resource_guid`, so a system identity's principal id cannot feed the role
+  assignment (a real plan failed with `Missing required argument` on
+  `principal_id`). Only for a profile the module creates: it does not change
+  an existing profile's identity. Attaching the identity updates the profile
+  in place (verified with a real `tofu plan` against a v2.0.0-created
+  profile).
 
 Role propagation: Azure RBAC can take minutes to reach Key Vault, and the
 provider does not retry the secret. The secret `depends_on` the role

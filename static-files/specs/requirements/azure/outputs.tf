@@ -44,6 +44,11 @@ output "front_door_certificate_secret_name" {
 }
 
 output "front_door_principal_id" {
-  description = "Principal id of the profile's system-assigned identity, or null when the profile has none."
-  value       = try(azurerm_cdn_frontdoor_profile.this[0].identity[0].principal_id, null)
+  description = "Principal (object) id of the profile's user-assigned identity, or null without a customer certificate."
+  value       = local.use_customer_certificate ? azurerm_user_assigned_identity.front_door[0].principal_id : null
+}
+
+output "front_door_identity_id" {
+  description = "Resource id of the profile's user-assigned identity, or null without a customer certificate."
+  value       = local.use_customer_certificate ? azurerm_user_assigned_identity.front_door[0].id : null
 }

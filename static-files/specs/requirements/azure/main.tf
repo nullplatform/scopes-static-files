@@ -17,6 +17,7 @@ locals {
   assign_waf_policy = var.create_waf_policy || var.existing_waf_policy_id != ""
 
   use_customer_certificate = var.certificate_key_vault_certificate_id != ""
+  front_door_identity_name = var.front_door_identity_name != "" ? var.front_door_identity_name : "id-${var.front_door_profile_name}"
 
   role_assignments = !var.create_role_assignments ? {} : merge(
     {
@@ -56,10 +57,13 @@ resource "azurerm_cdn_frontdoor_profile" "this" {
 
   # Front Door reads the customer certificate from Key Vault with this
   # identity. Added in place on an existing profile, never a replacement.
+  # User-assigned because the profile does not export the principal id of a
+  # system-assigned identity, which the Key Vault role assignment needs.
   dynamic "identity" {
     for_each = local.use_customer_certificate ? [1] : []
     content {
-      type = "SystemAssigned"
+      type         = "UserAssigned"
+      identity_ids = [azurerm_user_assigned_identity.front_door[0].id]
     }
   }
 
@@ -140,12 +144,28 @@ resource "azurerm_role_assignment" "agent" {
 # Customer certificate: one Front Door secret in the shared profile that every
 # scope references (distribution.azure_front_door_certificate_secret).
 # =============================================================================
+# Only looked up when no explicit location is given.
+data "azurerm_resource_group" "front_door" {
+  count = local.use_customer_certificate && var.front_door_identity_location == "" ? 1 : 0
+
+  name = var.front_door_resource_group_name
+}
+
+resource "azurerm_user_assigned_identity" "front_door" {
+  count = local.use_customer_certificate ? 1 : 0
+
+  name                = local.front_door_identity_name
+  resource_group_name = var.front_door_resource_group_name
+  location            = var.front_door_identity_location != "" ? var.front_door_identity_location : data.azurerm_resource_group.front_door[0].location
+  tags                = var.tags
+}
+
 resource "azurerm_role_assignment" "front_door_key_vault" {
   count = local.use_customer_certificate ? 1 : 0
 
   scope                = var.certificate_key_vault_id
   role_definition_name = "Key Vault Secrets User"
-  principal_id         = try(azurerm_cdn_frontdoor_profile.this[0].identity[0].principal_id, null)
+  principal_id         = azurerm_user_assigned_identity.front_door[0].principal_id
   # The identity is created in the same apply: without the explicit type,
   # ARM looks the principal up in Entra ID, which may not have replicated it yet.
   principal_type                   = "ServicePrincipal"
@@ -154,7 +174,7 @@ resource "azurerm_role_assignment" "front_door_key_vault" {
   lifecycle {
     precondition {
       condition     = var.create_front_door
-      error_message = "The customer certificate needs create_front_door = true: the module adds a managed identity to the profile it creates and does not change an existing profile's identity."
+      error_message = "The customer certificate needs create_front_door = true: the module attaches a user-assigned identity to the profile it creates and does not change an existing profile's identity."
     }
 
     precondition {
