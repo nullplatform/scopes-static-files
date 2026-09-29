@@ -83,6 +83,9 @@ resource "azurerm_cdn_frontdoor_rule" "static_cache" {
     route_configuration_override_action {
       cache_behavior = "OverrideAlways"
       cache_duration = "7.00:00:00"
+      # Azure stores IgnoreQueryString when the override leaves it unset, so an
+      # omitted value shows up as a change on every plan. Same value as the route.
+      query_string_caching_behavior = "IgnoreQueryString"
     }
   }
 }

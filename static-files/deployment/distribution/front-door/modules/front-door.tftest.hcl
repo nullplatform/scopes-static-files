@@ -233,6 +233,15 @@ run "spa_fallback_rule_rewrites_to_index" {
   }
 }
 
+run "static_cache_rule_declares_query_string_behavior" {
+  command = plan
+
+  assert {
+    condition     = one(one(azurerm_cdn_frontdoor_rule.static_cache.actions).route_configuration_override_action).query_string_caching_behavior == "IgnoreQueryString"
+    error_message = "StaticCache must declare query_string_caching_behavior: Azure stores IgnoreQueryString and an unset value re-plans every deploy"
+  }
+}
+
 run "cross_module_locals_for_dns" {
   command = plan
 
