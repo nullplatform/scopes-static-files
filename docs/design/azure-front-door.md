@@ -81,6 +81,14 @@ is the behavior the layer shipped with.
 | `distribution.azure_front_door_cache_days` | `7` | Edge cache duration of `StaticCache` (`<days>.00:00:00`), 1 to 365. The override keeps `query_string_caching_behavior = IgnoreQueryString` |
 | `distribution.azure_front_door_security_headers` | `false` | Adds the `SecurityHeaders` rule (order 4, no conditions): Strict-Transport-Security `max-age=31536000; includeSubDomains`, X-Content-Type-Options `nosniff`, X-Frame-Options `SAMEORIGIN`, Referrer-Policy `strict-origin-when-cross-origin`, all `Overwrite` |
 | `distribution.azure_front_door_content_security_policy` | `""` | Fifth header of `SecurityHeaders` when non-empty. Ignored, with a setup warning, while the headers are off |
+| `security.azure_security` | `none` | `azure_waf` composes `security/azure_waf`, which creates a Front Door security policy `<app_name>-waf` in the shared profile associating an existing, customer-owned WAF policy with this scope's custom domain (`/*`). `security/none` stays the shared no-op |
+| `security.azure_waf_policy_name` | none (required with `azure_waf`) | Name of the WAF policy (`Microsoft.Network/FrontDoorWebApplicationFirewallPolicies`); the setup checks it exists |
+| `security.azure_waf_policy_resource_group` | `provider.azure_resource_group` | Resource group of the WAF policy |
+
+The WAF policy follows the AWS `security/waf` model: the customer creates it
+once (same tier as the profile) and the scope only associates it. Standard
+profiles support custom rules only; managed rule sets need a Premium profile
+and a Premium policy.
 
 ## Layer contract
 
@@ -155,7 +163,7 @@ the newest provider and the 3.x block names stop parsing.
 
 ## Out of scope
 
-- WAF, Private Link and Premium-only features.
+- Creating or managing WAF policies (the scope only attaches an existing one), Private Link and Premium-only features.
 - Supporting `np asset push` for blob storage (platform side).
 - Migrating scopes created with `blob-cdn`: none could have been created
   since 2025-08-15.

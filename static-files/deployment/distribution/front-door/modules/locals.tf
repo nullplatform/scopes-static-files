@@ -44,6 +44,11 @@ locals {
 
   distribution_custom_domain_ids = [azurerm_cdn_frontdoor_custom_domain.static.id]
 
+  # Cross-module references (consumed by security/azure_waf): the security
+  # policy lives in the shared profile and covers this scope's domain only.
+  distribution_front_door_profile_id = data.azurerm_cdn_frontdoor_profile.shared.id
+  distribution_custom_domain_id      = azurerm_cdn_frontdoor_custom_domain.static.id
+
   distribution_purge_url = "https://management.azure.com${data.azurerm_cdn_frontdoor_endpoint.shared.id}/purge?api-version=2025-04-15"
 
   # Purge only this scope's domain: the endpoint is shared with every other

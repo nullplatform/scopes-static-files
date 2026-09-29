@@ -201,6 +201,21 @@ unset field keeps the default.
 | `distribution.azure_front_door_cache_days` | `7` | Days the cached paths stay at the edge, 1 to 365 |
 | `distribution.azure_front_door_security_headers` | `false` | Adds HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN` and `Referrer-Policy: strict-origin-when-cross-origin` to every response |
 | `distribution.azure_front_door_content_security_policy` | empty | `Content-Security-Policy` value, sent only when the security headers are on |
+| `security.azure_security` | `none` | `azure_waf` attaches an existing Front Door WAF policy to the scope's custom domain |
+| `security.azure_waf_policy_name` | none | WAF policy name, required with `azure_waf` |
+| `security.azure_waf_policy_resource_group` | provider resource group | Resource group of the WAF policy |
+
+**Optional WAF (`security.azure_security = azure_waf`).** Create a Front Door
+WAF policy once, with the same tier as the profile, and name it in
+`security.azure_waf_policy_name`. The scope only creates a security policy
+that associates it with its own custom domain; the agent identity needs read
+access to the policy. Standard profiles support custom rules only; managed
+rule sets need a Premium profile and a Premium policy.
+
+```bash
+az network front-door waf-policy create --resource-group <rg> --name <policy> \
+  --sku Standard_AzureFrontDoor --mode Prevention
+```
 
 **Publishing the bundle is CI's job**, the same way it is on AWS. Upload to the
 static-website container and register the asset with the blob URL:

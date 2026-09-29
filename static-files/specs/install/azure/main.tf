@@ -124,5 +124,11 @@ resource "nullplatform_provider_config" "static_files_configuration" {
       azure_front_door_security_headers        = each.value.azure_front_door_security_headers
       azure_front_door_content_security_policy = each.value.azure_front_door_content_security_policy
     }
+
+    security = { for k, v in {
+      azure_security                  = each.value.azure_security
+      azure_waf_policy_name           = each.value.azure_waf_policy_name
+      azure_waf_policy_resource_group = each.value.azure_waf_policy_resource_group
+    } : k => v if v != null }
   })
 }

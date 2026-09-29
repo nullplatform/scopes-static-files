@@ -34,6 +34,10 @@ provider_configs = [
     # azure_front_door_cache_days           = 7
     # azure_front_door_security_headers        = false
     # azure_front_door_content_security_policy = "" # sent only when security headers are on
+    # Optional WAF attachment: "none" (default) or "azure_waf".
+    # azure_security                  = "none"
+    # azure_waf_policy_name           = "" # required with azure_waf
+    # azure_waf_policy_resource_group = "" # defaults to azure_resource_group
   },
   # {
   #   nrn                           = ""

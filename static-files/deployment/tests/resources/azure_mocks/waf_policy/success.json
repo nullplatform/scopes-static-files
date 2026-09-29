@@ -1,0 +1,17 @@
+{
+  "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-resource-group/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/sharedwaf",
+  "name": "sharedwaf",
+  "type": "Microsoft.Network/frontdoorwebapplicationfirewallpolicies",
+  "location": "Global",
+  "sku": {
+    "name": "Standard_AzureFrontDoor"
+  },
+  "properties": {
+    "policySettings": {
+      "enabledState": "Enabled",
+      "mode": "Prevention"
+    },
+    "provisioningState": "Succeeded",
+    "resourceState": "Enabled"
+  }
+}

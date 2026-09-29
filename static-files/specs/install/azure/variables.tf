@@ -89,6 +89,10 @@ variable "provider_configs" {
     the layer's own defaults (see the Azure section of the README):
     `azure_front_door_cached_path_prefixes`, `azure_front_door_cache_days`,
     `azure_front_door_security_headers`, `azure_front_door_content_security_policy`.
+
+    `azure_security = "azure_waf"` attaches the existing Front Door WAF policy
+    `azure_waf_policy_name` (in `azure_waf_policy_resource_group`, default
+    `azure_resource_group`) to every scope's custom domain; `none` skips it.
   EOT
   type = list(object({
     nrn                             = string
@@ -104,5 +108,9 @@ variable "provider_configs" {
     azure_front_door_cache_days              = optional(number, 7)
     azure_front_door_security_headers        = optional(bool, false)
     azure_front_door_content_security_policy = optional(string, "")
+
+    azure_security                  = optional(string, "none")
+    azure_waf_policy_name           = optional(string)
+    azure_waf_policy_resource_group = optional(string)
   }))
 }

@@ -591,3 +591,17 @@ run "csp_is_ignored_while_security_headers_are_off" {
     error_message = "A CSP alone must not create the SecurityHeaders rule"
   }
 }
+
+run "exports_profile_and_custom_domain_ids_for_the_security_layer" {
+  command = plan
+
+  assert {
+    condition     = local.distribution_front_door_profile_id == "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/cdn-rg/providers/Microsoft.Cdn/profiles/shared-afd"
+    error_message = "distribution_front_door_profile_id should be the shared profile id"
+  }
+
+  assert {
+    condition     = local.distribution_custom_domain_id == azurerm_cdn_frontdoor_custom_domain.static.id
+    error_message = "distribution_custom_domain_id should be the scope's custom domain id"
+  }
+}

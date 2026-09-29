@@ -117,3 +117,17 @@ layer_selections() {
 
 	assert_equal "$values" "front-door "
 }
+
+@test "Should offer none and azure_waf as azure security layers" {
+	local values
+	values=$(render_schema | jq -r '.schema.properties.security.properties.azure_security.oneOf[].const' | tr '\n' ' ')
+
+	assert_equal "$values" "none azure_waf "
+}
+
+@test "Should default the azure security layer to none" {
+	local value
+	value=$(render_schema | jq -r '.schema.properties.security.properties.azure_security.default')
+
+	assert_equal "$value" "none"
+}

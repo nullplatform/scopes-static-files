@@ -772,6 +772,32 @@
             "type": "string",
             "title": "WAF WebACL Name",
             "description": "Name of an existing AWS WAF WebACL with scope=CLOUDFRONT"
+          },
+          "azure_security": {
+            "type": "string",
+            "title": "Azure Security",
+            "description": "Optional WAF attachment for the scope's Front Door custom domain. Choose 'none' to skip, or 'azure_waf' to attach an existing Front Door WAF policy.",
+            "default": "none",
+            "oneOf": [
+              {
+                "const": "none",
+                "title": "None"
+              },
+              {
+                "const": "azure_waf",
+                "title": "Azure Front Door WAF"
+              }
+            ]
+          },
+          "azure_waf_policy_name": {
+            "type": "string",
+            "title": "WAF Policy Name",
+            "description": "Name of an existing Front Door WAF policy (Microsoft.Network/FrontDoorWebApplicationFirewallPolicies) with the same tier as the profile"
+          },
+          "azure_waf_policy_resource_group": {
+            "type": "string",
+            "title": "WAF Policy Resource Group",
+            "description": "Resource group that holds the WAF policy. Leave empty to use the provider resource group."
           }
         },
         "description": "Security settings for the distribution layer (optional)"
@@ -1520,7 +1546,10 @@
                     "condition": {
                       "scope": "#/properties/cloud_provider",
                       "schema": {
-                        "const": "aws"
+                        "enum": [
+                          "aws",
+                          "azure"
+                        ]
                       }
                     }
                   },
@@ -1583,6 +1612,114 @@
                   },
                   "type": "Control",
                   "scope": "#/properties/security/properties/aws_web_acl_name"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/security/properties/azure_security",
+                  "options": {
+                    "format": "radio-cards"
+                  }
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Label",
+                  "text": "> ℹ️ The WAF policy is yours: create it once and the scope only associates it with its own custom domain. Standard profiles support custom rules only; managed rule sets need a Premium profile and a Premium policy.",
+                  "options": {
+                    "format": "markdown"
+                  }
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#",
+                      "schema": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "cloud_provider": {
+                                "not": {
+                                  "const": "azure"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "security": {
+                                "properties": {
+                                  "azure_security": {
+                                    "not": {
+                                      "const": "azure_waf"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/security/properties/azure_waf_policy_name"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#",
+                      "schema": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "cloud_provider": {
+                                "not": {
+                                  "const": "azure"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "security": {
+                                "properties": {
+                                  "azure_security": {
+                                    "not": {
+                                      "const": "azure_waf"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/security/properties/azure_waf_policy_resource_group"
                 }
               ]
             }
