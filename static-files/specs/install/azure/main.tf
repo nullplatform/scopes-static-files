@@ -105,11 +105,10 @@ resource "nullplatform_provider_config" "static_files_configuration" {
       azure_network       = "azure_dns"
       azure_dns_zone_name = each.value.azure_dns_zone_name
 
-      # Must equal the scope's resource group: `network/azure_dns/setup` preflight-checks
-      # this value but never forwards it, and the module resolves the zone against
-      # `azure_provider.resource_group`. Pointing it elsewhere passes the preflight and
-      # then reads the wrong resource group, so it is not exposed as a variable.
-      azure_dns_zone_resource_group = each.value.azure_resource_group
+      # Resource group that holds the DNS zone. It may differ from the scope's
+      # resource group: the setup validates the zone there and the module
+      # writes its records there.
+      azure_dns_zone_resource_group = each.value.azure_dns_zone_resource_group
     }
 
     distribution = {

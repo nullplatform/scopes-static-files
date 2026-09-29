@@ -69,5 +69,6 @@ variable "provider_configs" {
     azure_subscription_id = optional(string)
     azure_resource_group  = string
     azure_dns_zone_name   = string
+    azure_dns_zone_resource_group = string
   }))
 }
