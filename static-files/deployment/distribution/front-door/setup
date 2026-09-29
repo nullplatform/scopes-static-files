@@ -173,6 +173,26 @@ distribution_cache_days=$((10#$distribution_cache_days))
 echo "   ✅ cache_days=$distribution_cache_days"
 
 # =============================================================================
+# Security headers (off by default)
+# =============================================================================
+distribution_security_headers=$(echo "$CONTEXT" | jq -r '
+  (.providers["scope-configurations"].distribution.azure_front_door_security_headers // false)
+  | if . == true or . == "true" then "true" else "false" end')
+distribution_content_security_policy=$(echo "$CONTEXT" | jq -r '.providers["scope-configurations"].distribution.azure_front_door_content_security_policy // ""')
+
+if [ "$distribution_security_headers" = "true" ]; then
+  echo "   ✅ security_headers=true"
+  if [ -n "$distribution_content_security_policy" ]; then
+    echo "   ✅ content_security_policy=$distribution_content_security_policy"
+  fi
+else
+  if [ -n "$distribution_content_security_policy" ]; then
+    echo "   ⚠️  azure_front_door_content_security_policy is ignored: azure_front_door_security_headers is off"
+  fi
+  distribution_content_security_policy=""
+fi
+
+# =============================================================================
 # Preflight: the shared endpoint must already exist
 # =============================================================================
 echo ""
@@ -230,6 +250,8 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
   --arg fd_resource_group "$distribution_front_door_resource_group" \
   --argjson cached_path_prefixes "$distribution_cached_path_prefixes" \
   --argjson cache_days "$distribution_cache_days" \
+  --argjson security_headers "$distribution_security_headers" \
+  --arg content_security_policy "$distribution_content_security_policy" \
   '. + {
     distribution_storage_account: $storage_account,
     distribution_container_name: $container_name,
@@ -240,7 +262,9 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
     distribution_front_door_endpoint: $fd_endpoint,
     distribution_front_door_resource_group: $fd_resource_group,
     distribution_cached_path_prefixes: $cached_path_prefixes,
-    distribution_cache_days: $cache_days
+    distribution_cache_days: $cache_days,
+    distribution_security_headers: $security_headers,
+    distribution_content_security_policy: $content_security_policy
   }')
 
 echo ""

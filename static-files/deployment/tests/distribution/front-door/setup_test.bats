@@ -241,6 +241,46 @@ run_front_door_setup() {
   assert_contains "$output" "❌ azure_front_door_cache_days must be an integer between 1 and 365, got '1.5'"
 }
 
+@test "Should leave the security headers off by default" {
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_security_headers')" "false"
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_content_security_policy')" '""'
+}
+
+@test "Should enable the security headers with a content security policy" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.azure_front_door_security_headers = true
+    | .providers["scope-configurations"].distribution.azure_front_door_content_security_policy = "default-src '"'"'self'"'"'"')
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_security_headers')" "true"
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_content_security_policy')" "default-src 'self'"
+}
+
+@test "Should enable the security headers without a content security policy" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.azure_front_door_security_headers = true')
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_security_headers')" "true"
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_content_security_policy')" '""'
+}
+
+@test "Should warn and ignore a content security policy while the security headers are off" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.azure_front_door_content_security_policy = "default-src '"'"'self'"'"'"')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "0"
+  assert_contains "$output" "⚠️  azure_front_door_content_security_policy is ignored: azure_front_door_security_headers is off"
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_security_headers')" "false"
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -c '.distribution_content_security_policy')" '""'
+}
+
 @test "Should add distribution variables to TOFU_VARIABLES" {
   run_front_door_setup
 
@@ -257,7 +297,9 @@ run_front_door_setup() {
   "distribution_front_door_endpoint": "shared-endpoint",
   "distribution_front_door_resource_group": "my-resource-group",
   "distribution_cached_path_prefixes": ["/static/"],
-  "distribution_cache_days": 7
+  "distribution_cache_days": 7,
+  "distribution_security_headers": false,
+  "distribution_content_security_policy": ""
 }'
 
   assert_json_equal "$TOFU_VARIABLES" "$expected" "TOFU_VARIABLES"

@@ -312,6 +312,18 @@
             "minimum": 1,
             "maximum": 365
           },
+          "azure_front_door_security_headers": {
+            "type": "boolean",
+            "title": "Security Headers",
+            "description": "Add Strict-Transport-Security, X-Content-Type-Options, X-Frame-Options (SAMEORIGIN) and Referrer-Policy to every response.",
+            "default": false
+          },
+          "azure_front_door_content_security_policy": {
+            "type": "string",
+            "title": "Content Security Policy",
+            "description": "Optional Content-Security-Policy header value, sent only when Security Headers is on. Leave empty to send no CSP.",
+            "default": ""
+          },
           "default_viewer_protocol_policy": {
             "type": "string",
             "title": "Viewer protocol",
@@ -1063,6 +1075,57 @@
                   },
                   "type": "Control",
                   "scope": "#/properties/distribution/properties/azure_front_door_cache_days"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_front_door_security_headers"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#",
+                      "schema": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "cloud_provider": {
+                                "not": {
+                                  "const": "azure"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "distribution": {
+                                "properties": {
+                                  "azure_front_door_security_headers": {
+                                    "not": {
+                                      "const": true
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_front_door_content_security_policy"
                 },
                 {
                   "rule": {

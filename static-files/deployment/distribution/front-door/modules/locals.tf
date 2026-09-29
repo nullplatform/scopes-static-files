@@ -28,6 +28,15 @@ locals {
     "text/xml",
   ]
 
+  # Fixed values for the SecurityHeaders rule. The CSP is appended only when
+  # configured: a wrong policy breaks the site, so there is no default one.
+  distribution_security_headers = {
+    "Strict-Transport-Security" = "max-age=31536000; includeSubDomains"
+    "X-Content-Type-Options"    = "nosniff"
+    "X-Frame-Options"           = "SAMEORIGIN"
+    "Referrer-Policy"           = "strict-origin-when-cross-origin"
+  }
+
   # Cross-module references (consumed by network/azure_dns): the CNAME points
   # at the shared endpoint; Front Door then routes by Host header.
   distribution_target_domain = data.azurerm_cdn_frontdoor_endpoint.shared.host_name

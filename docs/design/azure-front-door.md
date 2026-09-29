@@ -79,6 +79,8 @@ is the behavior the layer shipped with.
 |-------|---------|--------|
 | `distribution.azure_front_door_cached_path_prefixes` | `["/static/"]` | Paths `StaticCache` caches long; `NoCacheOutsideStatic` disables caching for every path that starts with none of them. 1 to 10 entries, each starting with `/` |
 | `distribution.azure_front_door_cache_days` | `7` | Edge cache duration of `StaticCache` (`<days>.00:00:00`), 1 to 365. The override keeps `query_string_caching_behavior = IgnoreQueryString` |
+| `distribution.azure_front_door_security_headers` | `false` | Adds the `SecurityHeaders` rule (order 4, no conditions): Strict-Transport-Security `max-age=31536000; includeSubDomains`, X-Content-Type-Options `nosniff`, X-Frame-Options `SAMEORIGIN`, Referrer-Policy `strict-origin-when-cross-origin`, all `Overwrite` |
+| `distribution.azure_front_door_content_security_policy` | `""` | Fifth header of `SecurityHeaders` when non-empty. Ignored, with a setup warning, while the headers are off |
 
 ## Layer contract
 

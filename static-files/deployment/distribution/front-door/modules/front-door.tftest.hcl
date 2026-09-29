@@ -503,3 +503,91 @@ run "rejects_fractional_cache_days" {
     var.distribution_cache_days,
   ]
 }
+
+run "security_headers_rule_is_absent_by_default" {
+  command = plan
+
+  assert {
+    condition     = length(azurerm_cdn_frontdoor_rule.security_headers) == 0
+    error_message = "SecurityHeaders must not be created unless distribution_security_headers is true"
+  }
+}
+
+run "security_headers_rule_without_csp" {
+  command = plan
+
+  variables {
+    distribution_security_headers = true
+  }
+
+  assert {
+    condition     = length(azurerm_cdn_frontdoor_rule.security_headers) == 1
+    error_message = "SecurityHeaders should be created when enabled"
+  }
+
+  assert {
+    condition     = azurerm_cdn_frontdoor_rule.security_headers[0].name == "SecurityHeaders" && azurerm_cdn_frontdoor_rule.security_headers[0].order == 4
+    error_message = "SecurityHeaders should be named SecurityHeaders and run fourth"
+  }
+
+  assert {
+    condition     = azurerm_cdn_frontdoor_rule.security_headers[0].behavior_on_match == "Continue"
+    error_message = "SecurityHeaders must not stop the rule set"
+  }
+
+  assert {
+    condition     = length(azurerm_cdn_frontdoor_rule.security_headers[0].conditions) == 0
+    error_message = "SecurityHeaders applies to every response, so it has no conditions"
+  }
+
+  assert {
+    condition     = length(one(azurerm_cdn_frontdoor_rule.security_headers[0].actions).response_header_action) == 4
+    error_message = "Without a CSP the rule should set exactly four headers"
+  }
+
+  assert {
+    condition = {
+      for h in one(azurerm_cdn_frontdoor_rule.security_headers[0].actions).response_header_action : h.header_name => "${h.header_action}|${h.value}"
+      } == {
+      "Strict-Transport-Security" = "Overwrite|max-age=31536000; includeSubDomains"
+      "X-Content-Type-Options"    = "Overwrite|nosniff"
+      "X-Frame-Options"           = "Overwrite|SAMEORIGIN"
+      "Referrer-Policy"           = "Overwrite|strict-origin-when-cross-origin"
+    }
+    error_message = "SecurityHeaders should overwrite HSTS, X-Content-Type-Options, X-Frame-Options and Referrer-Policy with the fixed values"
+  }
+}
+
+run "security_headers_rule_with_csp" {
+  command = plan
+
+  variables {
+    distribution_security_headers        = true
+    distribution_content_security_policy = "default-src 'self'"
+  }
+
+  assert {
+    condition     = length(one(azurerm_cdn_frontdoor_rule.security_headers[0].actions).response_header_action) == 5
+    error_message = "With a CSP the rule should set five headers"
+  }
+
+  assert {
+    condition = [
+      for h in one(azurerm_cdn_frontdoor_rule.security_headers[0].actions).response_header_action : "${h.header_action}|${h.value}" if h.header_name == "Content-Security-Policy"
+    ] == ["Overwrite|default-src 'self'"]
+    error_message = "The CSP header should carry the configured policy"
+  }
+}
+
+run "csp_is_ignored_while_security_headers_are_off" {
+  command = plan
+
+  variables {
+    distribution_content_security_policy = "default-src 'self'"
+  }
+
+  assert {
+    condition     = length(azurerm_cdn_frontdoor_rule.security_headers) == 0
+    error_message = "A CSP alone must not create the SecurityHeaders rule"
+  }
+}

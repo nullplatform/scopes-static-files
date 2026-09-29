@@ -67,3 +67,15 @@ variable "distribution_cache_days" {
     error_message = "distribution_cache_days must be a whole number of days between 1 and 365."
   }
 }
+
+variable "distribution_security_headers" {
+  description = "Add the SecurityHeaders rule (HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy) to every response"
+  type        = bool
+  default     = false
+}
+
+variable "distribution_content_security_policy" {
+  description = "Content-Security-Policy value added by the SecurityHeaders rule; empty means no CSP header. Ignored while distribution_security_headers is false"
+  type        = string
+  default     = ""
+}

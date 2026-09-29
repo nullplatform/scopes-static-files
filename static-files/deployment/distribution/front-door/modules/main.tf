@@ -120,6 +120,38 @@ resource "azurerm_cdn_frontdoor_rule" "no_cache_outside_static" {
   }
 }
 
+# Opt-in security headers on every response (no conditions). A rule holds at
+# most 5 actions: the four fixed headers plus the optional CSP.
+resource "azurerm_cdn_frontdoor_rule" "security_headers" {
+  count      = var.distribution_security_headers ? 1 : 0
+  depends_on = [azurerm_cdn_frontdoor_origin_group.static, azurerm_cdn_frontdoor_origin.static]
+
+  name                      = "SecurityHeaders"
+  cdn_frontdoor_rule_set_id = azurerm_cdn_frontdoor_rule_set.static.id
+  order                     = 4
+  behavior_on_match         = "Continue"
+
+  actions {
+    dynamic "response_header_action" {
+      for_each = local.distribution_security_headers
+      content {
+        header_action = "Overwrite"
+        header_name   = response_header_action.key
+        value         = response_header_action.value
+      }
+    }
+
+    dynamic "response_header_action" {
+      for_each = var.distribution_content_security_policy != "" ? [var.distribution_content_security_policy] : []
+      content {
+        header_action = "Overwrite"
+        header_name   = "Content-Security-Policy"
+        value         = response_header_action.value
+      }
+    }
+  }
+}
+
 resource "azurerm_cdn_frontdoor_route" "static" {
   name                          = var.distribution_app_name
   cdn_frontdoor_endpoint_id     = data.azurerm_cdn_frontdoor_endpoint.shared.id

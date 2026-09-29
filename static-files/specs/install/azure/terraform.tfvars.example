@@ -32,6 +32,8 @@ provider_configs = [
     # Optional Front Door behavior (defaults shown).
     # azure_front_door_cached_path_prefixes = ["/static/"]
     # azure_front_door_cache_days           = 7
+    # azure_front_door_security_headers        = false
+    # azure_front_door_content_security_policy = "" # sent only when security headers are on
   },
   # {
   #   nrn                           = ""
