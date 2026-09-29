@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.0](https://github.com/nullplatform/scopes-static-files/compare/v1.1.5...v2.0.0) (2026-09-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **distribution:** azure_distribution no longer accepts blob-cdn. Azure CDN Standard from Microsoft (classic) stopped accepting new profiles on 2025-08-15; use front-door with a shared profile and endpoint instead.
+
+### Features
+
+* **distribution:** Azure Front Door distribution, remove Azure CDN classic ([#50](https://github.com/nullplatform/scopes-static-files/issues/50)) ([31a81bf](https://github.com/nullplatform/scopes-static-files/commit/31a81bf4f72dee24ad48ddfbc38c19b650f21c72))
+* run with the credentials you already have — STATIC_FILES_ASSUME_ROLE_ARN=none ([795170f](https://github.com/nullplatform/scopes-static-files/commit/795170f2d220b4df3a849e40eee68d35cf4d68ab))
+
 ## [1.1.5](https://github.com/nullplatform/scopes-static-files/compare/v1.1.4...v1.1.5) (2026-09-21)
 
 
