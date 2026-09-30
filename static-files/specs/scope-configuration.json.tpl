@@ -293,7 +293,7 @@
           "azure_front_door_certificate_secret": {
             "type": "string",
             "title": "Front Door Certificate Secret",
-            "description": "Name of the Front Door secret in the shared profile that points to a Key Vault certificate covering the scope's domain (e.g. a wildcard). Leave empty to use a Front Door managed certificate per scope, which adds several minutes to a scope's first deployment.",
+            "description": "Name of the Front Door secret in the shared profile that points to a Key Vault certificate covering the scope's domain (e.g. a wildcard). Leave empty to use a Front Door managed certificate per scope.",
             "default": "",
             "pattern": "^([A-Za-z0-9][A-Za-z0-9-]{1,259})?$"
           },

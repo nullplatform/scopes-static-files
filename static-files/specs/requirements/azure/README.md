@@ -195,8 +195,7 @@ and `.../join/action`.
 ## Customer certificate
 
 By default every scope gets a Front Door managed certificate, validated with a
-`_dnsauth` TXT record; issuing it adds several minutes to a scope's first
-deployment. Instead, the scopes can serve one certificate you keep in Key Vault
+`_dnsauth` TXT record. Instead, the scopes can serve one certificate you keep in Key Vault
 (for example a Let's Encrypt wildcard `*.np.example.com`), the way AWS scopes
 reference an existing ACM certificate:
 
