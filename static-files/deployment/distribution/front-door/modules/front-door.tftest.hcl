@@ -50,6 +50,12 @@ mock_provider "azurerm" {
     }
   }
 
+  mock_data "azurerm_cdn_frontdoor_custom_domain" {
+    defaults = {
+      validation_token = "mock-validation-token"
+    }
+  }
+
   mock_resource "azurerm_cdn_frontdoor_route" {
     defaults = {
       id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/cdn-rg/providers/Microsoft.Cdn/profiles/shared-afd/afdEndpoints/shared-endpoint/routes/mock-route"
@@ -665,5 +671,37 @@ run "exports_profile_and_custom_domain_ids_for_the_security_layer" {
   assert {
     condition     = local.distribution_custom_domain_id == azurerm_cdn_frontdoor_custom_domain.static.id
     error_message = "distribution_custom_domain_id should be the scope's custom domain id"
+  }
+}
+
+run "managed_certificate_reads_the_validation_token_back_from_azure" {
+  command = plan
+
+  assert {
+    condition     = length(data.azurerm_cdn_frontdoor_custom_domain.static) == 1
+    error_message = "A managed certificate should read the validation token back from Azure after the domain is applied"
+  }
+
+  assert {
+    condition     = data.azurerm_cdn_frontdoor_custom_domain.static[0].name == azurerm_cdn_frontdoor_custom_domain.static.name
+    error_message = "The token lookup should target the scope's own custom domain"
+  }
+
+  assert {
+    condition     = length(azurerm_dns_txt_record.custom_domain_validation) == 1
+    error_message = "A managed certificate should still get its _dnsauth record"
+  }
+}
+
+run "customer_certificate_does_not_read_the_validation_token" {
+  command = plan
+
+  variables {
+    distribution_certificate_secret = "customer-certificate"
+  }
+
+  assert {
+    condition     = length(data.azurerm_cdn_frontdoor_custom_domain.static) == 0
+    error_message = "A customer certificate needs no validation token lookup"
   }
 }
