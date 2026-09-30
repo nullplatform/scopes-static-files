@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.2](https://github.com/nullplatform/scopes-static-files/compare/v3.0.1...v3.0.2) (2026-09-30)
+
+
+### Bug Fixes
+
+* read the Front Door validation token back after the custom domain is applied ([#56](https://github.com/nullplatform/scopes-static-files/issues/56)) ([533e6a4](https://github.com/nullplatform/scopes-static-files/commit/533e6a476d27bc9478cecfc221fa1dae1cb42ebb))
+
 ## [3.0.1](https://github.com/nullplatform/scopes-static-files/compare/v3.0.0...v3.0.1) (2026-09-30)
 
 
