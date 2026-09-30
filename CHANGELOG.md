@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.1](https://github.com/nullplatform/scopes-static-files/compare/v3.0.0...v3.0.1) (2026-09-30)
+
+
+### Bug Fixes
+
+* drop the claim that a managed certificate slows the first deployment ([#54](https://github.com/nullplatform/scopes-static-files/issues/54)) ([1919f12](https://github.com/nullplatform/scopes-static-files/commit/1919f127e7b4c967a00537100dc1016beef506ca))
+
 ## [3.0.0](https://github.com/nullplatform/scopes-static-files/compare/v2.0.0...v3.0.0) (2026-09-29)
 
 
