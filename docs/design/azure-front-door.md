@@ -93,8 +93,12 @@ and a Premium policy.
 
 ## Customer certificate
 
-A managed certificate per scope costs several minutes on each scope's first
-deployment (Front Door validates `_dnsauth`, then issues). The alternative
+A customer certificate does not make a scope's first deployment faster.
+Measured on 2026-09-29: with a managed certificate the custom domain is created
+in under a minute and the certificate is issued while the route propagates;
+with a customer certificate the custom domain takes ~14 minutes to be created,
+before the route, so the first deployment took ~37 minutes instead of ~25.
+Use it when a policy requires your own certificate (CA choice, pinning). It
 mirrors AWS, where the scope references an existing ACM certificate: the
 customer keeps one certificate (typically a wildcard) in Key Vault and the
 shared profile holds **one** Front Door secret pointing to it; every scope's
