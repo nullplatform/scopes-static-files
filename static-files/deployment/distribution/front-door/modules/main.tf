@@ -205,6 +205,23 @@ resource "azurerm_cdn_frontdoor_custom_domain" "static" {
   }
 }
 
+# The validation token read back from Azure once the custom domain is applied.
+# The resource's own attribute is not enough when an existing domain switches
+# from a customer certificate to a managed one: its token is "" in state and
+# the provider only fills it after the update, so the TXT record would be
+# planned with an empty value and rejected. A data source that depends on the
+# domain is read after the domain's changes are applied (at plan time when
+# the domain is unchanged, so steady deployments show no diff).
+data "azurerm_cdn_frontdoor_custom_domain" "static" {
+  count = local.distribution_use_customer_certificate ? 0 : 1
+
+  name                = azurerm_cdn_frontdoor_custom_domain.static.name
+  profile_name        = var.distribution_front_door_profile
+  resource_group_name = var.distribution_front_door_resource_group
+
+  depends_on = [azurerm_cdn_frontdoor_custom_domain.static]
+}
+
 # Front Door proves domain ownership through _dnsauth.<subdomain> holding the
 # validation token. The managed certificate is issued once this resolves.
 # Not needed with a customer certificate: its CN/SAN proves ownership.
@@ -217,7 +234,7 @@ resource "azurerm_dns_txt_record" "custom_domain_validation" {
   ttl                 = 3600
 
   record {
-    value = azurerm_cdn_frontdoor_custom_domain.static.validation_token
+    value = data.azurerm_cdn_frontdoor_custom_domain.static[0].validation_token
   }
 }
 

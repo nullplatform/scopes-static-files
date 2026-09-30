@@ -118,6 +118,16 @@ Facts that shape it (Microsoft docs, checked 2026-09-29):
   being deprecated and is not used.
 - Certificates must be RSA (no EC), carry the full chain, be imported from a
   PFX as a Key Vault certificate object, and live in the same subscription.
+- Switching an existing scope from a customer certificate to a managed one
+  (empty `azure_front_door_certificate_secret`) needs the validation token
+  that Azure only generates once the domain is updated. The domain resource
+  keeps `validation_token = ""` in state and the provider does not mark it
+  unknown on that update, so a TXT record fed from it was planned empty and
+  rejected (`expected length of record.0.value to be in the range (1 -
+  4096)`, seen 2026-09-30). The layer reads the token back with the
+  `azurerm_cdn_frontdoor_custom_domain` data source, which `depends_on` the
+  domain: OpenTofu defers that read to apply when the domain has changes, and
+  reads it at plan time otherwise.
 
 Split of responsibilities:
 
