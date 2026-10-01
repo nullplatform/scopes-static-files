@@ -417,3 +417,45 @@ run_front_door_setup() {
   assert_equal "$status" "1"
   assert_contains "$output" "❌ The asset is in storage account 'mystaticstorage', but the scope serves 'otherstorage'"
 }
+
+# az stub that answers by URL: the scope's origin from ORIGIN_RESPONSE (exit
+# ORIGIN_EXIT), anything else (the endpoint preflight) with the success mock.
+use_origin_aware_az() {
+  mkdir -p "$BATS_TEST_TMPDIR/bin"
+  cat > "$BATS_TEST_TMPDIR/bin/az" <<STUB
+#!/bin/bash
+if [[ "\$*" == */origins/* ]]; then
+  if [ "\${ORIGIN_EXIT:-0}" -eq 0 ]; then cat "\$ORIGIN_RESPONSE"; else cat "\$ORIGIN_RESPONSE" >&2; fi
+  exit "\${ORIGIN_EXIT:-0}"
+fi
+cat "$AZURE_MOCKS_DIR/afd_endpoint/success.json"
+STUB
+  chmod +x "$BATS_TEST_TMPDIR/bin/az"
+  export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
+}
+
+@test "Should take the storage account from the existing origin when deleting a scope without the attribute" {
+  export STATIC_FILES_PHASE="scope-delete"
+  export CONTEXT=$(echo "$CONTEXT" | jq 'del(.asset)')
+  echo '{"properties": {"hostName": "legacystorage.z13.web.core.windows.net"}}' > "$BATS_TEST_TMPDIR/origin.json"
+  export ORIGIN_RESPONSE="$BATS_TEST_TMPDIR/origin.json"
+  use_origin_aware_az
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_storage_account')" "legacystorage"
+  assert_equal "${TOFU_ACTION:-}" ""
+}
+
+@test "Should skip deleting a scope without the attribute when its origin does not exist" {
+  export STATIC_FILES_PHASE="scope-delete"
+  export TOFU_ACTION="destroy"
+  export CONTEXT=$(echo "$CONTEXT" | jq 'del(.asset)')
+  export ORIGIN_RESPONSE="$AZURE_MOCKS_DIR/afd_endpoint/not_found.json"
+  export ORIGIN_EXIT=1
+  use_origin_aware_az
+
+  run_front_door_setup
+
+  assert_equal "$TOFU_ACTION" "skip"
+}
