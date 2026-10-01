@@ -125,6 +125,10 @@ resource "nullplatform_provider_config" "static_files_configuration" {
         azure_front_door_security_headers        = each.value.azure_front_door_security_headers
         azure_front_door_content_security_policy = each.value.azure_front_door_content_security_policy
       },
+      # Only when set: scopes cannot be created without it, deployments can.
+      each.value.azure_assets_storage_account != null && each.value.azure_assets_storage_account != "" ? {
+        azure_assets_storage_account = each.value.azure_assets_storage_account
+      } : {},
       # Only when set: empty means a managed certificate per scope.
       each.value.azure_front_door_certificate_secret != null && each.value.azure_front_door_certificate_secret != "" ? {
         azure_front_door_certificate_secret = each.value.azure_front_door_certificate_secret

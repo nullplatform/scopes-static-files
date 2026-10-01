@@ -333,7 +333,7 @@ Minimum inputs (Azure):
 | `azure_state_container` | Blob container inside that storage account |
 | `azure_state_resource_group` | Optional. Resource group of the state storage account when it differs from the scope resource group. Empty means each entry's own `azure_resource_group`. |
 | `azure_state_auth` | Optional. How the state backend authenticates: `azuread` (default, agent identity) or `key` (account keys). |
-| `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each needs `nrn`, `azure_resource_group` and `azure_dns_zone_name`, plus an optional `azure_subscription_id` to override the default. The DNS zone must live in the entry's own `azure_resource_group`. |
+| `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each needs `nrn`, `azure_resource_group` and `azure_dns_zone_name`, plus an optional `azure_subscription_id` to override the default. The DNS zone must live in the entry's own `azure_resource_group`. Set `azure_assets_storage_account` (the storage account CI uploads bundles to): without it, scopes cannot be created. |
 | `tags` | Agent/channel tag selectors (must match `tags` of the agent that should pick up deployments) |
 
 After `tofu apply`, the scope type appears in the nullplatform UI and is

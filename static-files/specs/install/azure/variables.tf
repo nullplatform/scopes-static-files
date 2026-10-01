@@ -95,6 +95,10 @@ variable "provider_configs" {
     domains (the requirements module's `front_door_certificate_secret_name`).
     Unset or empty, each scope gets a Front Door managed certificate.
 
+    `azure_assets_storage_account` is the storage account (static website
+    enabled) that CI uploads bundles to. Required to create scopes: the scope
+    creates its Front Door origin on it before any deployment exists.
+
     `azure_security = "azure_waf"` attaches the existing Front Door WAF policy
     `azure_waf_policy_name` (in `azure_waf_policy_resource_group`, default
     `azure_resource_group`) to every scope's custom domain; `none` skips it.
@@ -108,6 +112,7 @@ variable "provider_configs" {
     azure_front_door_profile        = string
     azure_front_door_endpoint       = string
     azure_front_door_resource_group = optional(string)
+    azure_assets_storage_account    = optional(string)
 
     azure_front_door_cached_path_prefixes    = optional(list(string), ["/static/"])
     azure_front_door_cache_days              = optional(number, 7)
