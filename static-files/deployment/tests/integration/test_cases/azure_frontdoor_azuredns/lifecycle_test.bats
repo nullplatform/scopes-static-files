@@ -90,9 +90,9 @@ setup() {
   seed_shared_resources
 }
 
-# Scope actions carry no asset.
+# A scope action carries no asset, deployment or release.
 drop_asset() {
-  export CONTEXT=$(echo "$CONTEXT" | jq 'del(.asset)')
+  export CONTEXT=$(echo "$CONTEXT" | jq 'del(.asset, .deployment, .release)')
 }
 
 assert_route_on() {
