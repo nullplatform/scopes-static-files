@@ -202,6 +202,10 @@ roughly 15 to 37 minutes. Until the first deployment the route points at
 deployment only switches the route's origin path to the asset and purges the
 cache, and `delete-deployment` changes nothing.
 
+`delete-scope` reads the shared prerequisites (Front Door profile and endpoint,
+DNS zone, assets storage account, WAF policy) just as a deployment does: delete
+every scope of an environment before removing them.
+
 This needs `distribution.azure_assets_storage_account` (env fallback
 `AZURE_ASSETS_STORAGE_ACCOUNT`): the storage account CI uploads bundles to,
 since a scope action has no asset to read it from. Deployments work without it;
