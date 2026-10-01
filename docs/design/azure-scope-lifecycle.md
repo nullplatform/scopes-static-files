@@ -44,7 +44,7 @@ belongs to the control plane, not to this repository.
 | Action | Today | After |
 |---|---|---|
 | `create-scope` | `no_op` | `apply` the whole stack, with the route pointing at a placeholder prefix |
-| `update-scope` | `no_op` | `apply` the whole stack (picks up scope configuration changes) |
+| `update-scope` | `no_op` | `no_op` (unchanged, see below) |
 | `delete-scope` | `no_op` | `destroy` the whole stack |
 | `start-initial`, `start-blue-green` | `apply` the whole stack | `apply` the whole stack; the scope resources already exist, so only `cdn_frontdoor_origin_path` and the purge change |
 | `delete-deployment` | `destroy` the whole stack | nothing |
@@ -62,12 +62,13 @@ scope.
 On AWS nothing changes: the scope workflows stay no-ops and `delete-deployment`
 still destroys.
 
-`update.yaml` gets the same phase as `create.yaml`, but no `update-scope`
-action specification is registered today (`specs/service-spec.json.tpl` lists
-only `create-scope` and `delete-scope` among scope actions), so nothing
-triggers it yet. Registering it is out of scope; until then a scope
-configuration change reaches Front Door on the next deployment, which applies
-the whole stack.
+`update.yaml` stays a `no_op`. No `update-scope` action specification is
+registered today (`specs/service-spec.json.tpl` lists only `create-scope` and
+`delete-scope` among scope actions), and `scope-apply` points the route at the
+placeholder: on a scope that is already serving it would take the site offline
+until the next deployment. A scope configuration change reaches Front Door on
+the next deployment, which applies the whole stack. Registering `update-scope`
+needs it to keep the current origin path, and is out of scope.
 
 ### Phase resolution
 

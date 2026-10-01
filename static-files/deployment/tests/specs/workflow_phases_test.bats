@@ -31,10 +31,16 @@ phase_of() {
   assert_equal "$status" "1"
 }
 
-@test "scope create and update apply, scope delete destroys" {
+@test "scope create applies, scope delete destroys" {
   assert_equal "$(phase_of "$STATIC_DIR/scope/workflows/create.yaml")" "scope-apply"
-  assert_equal "$(phase_of "$STATIC_DIR/scope/workflows/update.yaml")" "scope-apply"
   assert_equal "$(phase_of "$STATIC_DIR/scope/workflows/delete.yaml")" "scope-delete"
+}
+
+@test "scope update stays a no-op: scope-apply would move a live route back to the placeholder" {
+  run grep -F '$SERVICE_PATH/deployment/workflows/initial.yaml' "$STATIC_DIR/scope/workflows/update.yaml"
+  assert_equal "$status" "1"
+  run grep -F '$SERVICE_PATH/no_op' "$STATIC_DIR/scope/workflows/update.yaml"
+  assert_equal "$status" "0"
 }
 
 @test "resolve_tofu_action runs right after build_context" {
@@ -44,7 +50,7 @@ phase_of() {
 }
 
 @test "scope workflows run the deployment steps" {
-  for wf in create update delete; do
+  for wf in create delete; do
     run grep -F '$SERVICE_PATH/deployment/workflows/initial.yaml' "$STATIC_DIR/scope/workflows/$wf.yaml"
     assert_equal "$status" "0"
   done

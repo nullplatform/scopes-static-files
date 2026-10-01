@@ -1,7 +1,7 @@
-# Azure (front-door): creates the scope's Front Door resources, with the route
-# pointing at a placeholder until the first deployment. AWS (cloudfront): no-op,
-# the first deployment still creates the distribution.
-include:
-  - "$SERVICE_PATH/deployment/workflows/initial.yaml"
-configuration:
-  STATIC_FILES_PHASE: "scope-apply"
+# No-op on purpose. No update-scope action is registered, and scope-apply
+# points the route at the placeholder prefix: running it on a scope that is
+# already serving would take the site offline until the next deployment.
+steps:
+  - name: no_op
+    type: command
+    command: "$SERVICE_PATH/no_op"
