@@ -14,6 +14,13 @@
 script_dir="$(dirname "${BASH_SOURCE[0]}")"
 modules_dir="$script_dir"
 
+if [ "${TOFU_ACTION:-}" = "skip" ]; then
+  echo "⏭️  Skipping module composition: nothing to do in phase ${STATIC_FILES_PHASE:-unknown}"
+  # Sourced by the engine or by tests, executed by hand: works either way.
+  # shellcheck disable=SC2317
+  return 0 2>/dev/null || exit 0
+fi
+
 echo "🔍 Validating module composition configuration..."
 
 if [ -z "${MODULES_TO_USE:-}" ]; then
