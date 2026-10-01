@@ -3,13 +3,17 @@
 # Integration test: Azure Front Door + Azure DNS Lifecycle
 #
 #   1. Seed the customer-owned prerequisites (profile, endpoint, zone, storage)
-#   2. Create infrastructure (route + custom domain + TXT + CNAME + purge)
-#   3. Destroy infrastructure
-#   4. Verify the scope's resources are gone and the shared ones remain
+#   2. create-scope: the scope's Front Door resources, route on a placeholder
+#   3. start-initial: the route switches to the asset prefix and is purged
+#   4. delete-deployment: nothing changes
+#   5. delete-scope: the scope's resources are gone, the shared ones remain
+#
+# Each workflow declares its own STATIC_FILES_PHASE; the tests never set it.
 # =============================================================================
 
 TEST_DISTRIBUTION_STORAGE_ACCOUNT="assetsaccount"
 TEST_DISTRIBUTION_ORIGIN_PATH="/tools/automation/v1.0.0"
+TEST_PLACEHOLDER_ORIGIN_PATH="/_not-deployed/automation-development-tools-7"
 TEST_DISTRIBUTION_APP_NAME="automation-development-tools-7"
 TEST_DISTRIBUTION_RULE_SET_NAME="rsautomationdevelopmenttools7"
 TEST_FRONT_DOOR_PROFILE="shared-afd"
@@ -74,6 +78,7 @@ setup() {
   export TOFU_PROVIDER_STATE_AUTH="key"
   export AZURE_FRONT_DOOR_PROFILE="$TEST_FRONT_DOOR_PROFILE"
   export AZURE_FRONT_DOOR_ENDPOINT="$TEST_FRONT_DOOR_ENDPOINT"
+  export AZURE_ASSETS_STORAGE_ACCOUNT="$TEST_DISTRIBUTION_STORAGE_ACCOUNT"
 
   local mocks_dir="static-files/deployment/tests/integration/mocks/"
   mock_request "PATCH" "/scope/7" "$mocks_dir/scope/patch.json"
@@ -85,34 +90,59 @@ setup() {
   seed_shared_resources
 }
 
-@test "create infrastructure adds a route, custom domain and DNS records to the shared endpoint" {
-  run_workflow "static-files/deployment/workflows/initial.yaml"
+# Scope actions carry no asset.
+drop_asset() {
+  export CONTEXT=$(echo "$CONTEXT" | jq 'del(.asset)')
+}
 
+assert_route_on() {
   assert_azure_front_door_route_configured \
     "$TEST_DISTRIBUTION_APP_NAME" "$TEST_FRONT_DOOR_PROFILE" "$TEST_FRONT_DOOR_ENDPOINT" \
     "$TEST_SUBSCRIPTION_ID" "$TEST_RESOURCE_GROUP" \
-    "$TEST_DISTRIBUTION_ORIGIN_PATH" "$TEST_NETWORK_FULL_DOMAIN" \
+    "$1" "$TEST_NETWORK_FULL_DOMAIN" \
     "$TEST_DISTRIBUTION_STORAGE_ACCOUNT" "$TEST_NETWORK_DOMAIN" "$TEST_NETWORK_SUBDOMAIN" \
     "$TEST_DISTRIBUTION_RULE_SET_NAME"
+}
 
+@test "create-scope adds the route on a placeholder, the custom domain and the DNS records" {
+  drop_asset
+
+  run_workflow "static-files/scope/workflows/create.yaml"
+
+  assert_route_on "$TEST_PLACEHOLDER_ORIGIN_PATH"
   assert_azure_dns_configured \
     "$TEST_NETWORK_SUBDOMAIN" "$TEST_NETWORK_DOMAIN" \
     "$TEST_SUBSCRIPTION_ID" "$TEST_DNS_ZONE_RESOURCE_GROUP"
+  assert_mock_called "PATCH" "/scope/7"
+}
 
+@test "start-initial switches the route to the asset prefix and purges" {
+  assert_route_on "$TEST_PLACEHOLDER_ORIGIN_PATH"
+
+  run_workflow "static-files/deployment/workflows/initial.yaml"
+
+  assert_route_on "$TEST_DISTRIBUTION_ORIGIN_PATH"
   assert_azure_front_door_purged "$TEST_NETWORK_FULL_DOMAIN"
 }
 
-@test "destroy infrastructure keeps the shared profile and endpoint" {
-  # The resources created by the previous test must still be there, otherwise
-  # the "not configured" assertions below would pass vacuously.
-  assert_azure_front_door_route_configured \
-    "$TEST_DISTRIBUTION_APP_NAME" "$TEST_FRONT_DOOR_PROFILE" "$TEST_FRONT_DOOR_ENDPOINT" \
-    "$TEST_SUBSCRIPTION_ID" "$TEST_RESOURCE_GROUP" \
-    "$TEST_DISTRIBUTION_ORIGIN_PATH" "$TEST_NETWORK_FULL_DOMAIN" \
-    "$TEST_DISTRIBUTION_STORAGE_ACCOUNT" "$TEST_NETWORK_DOMAIN" "$TEST_NETWORK_SUBDOMAIN" \
-    "$TEST_DISTRIBUTION_RULE_SET_NAME"
+@test "delete-deployment leaves the scope's resources in place" {
+  run run_workflow "static-files/deployment/workflows/delete.yaml"
 
-  run_workflow "static-files/deployment/workflows/delete.yaml"
+  assert_equal "$status" "0"
+  assert_contains "$output" "⏭️  Skipping OpenTofu"
+  assert_route_on "$TEST_DISTRIBUTION_ORIGIN_PATH"
+  assert_azure_dns_configured \
+    "$TEST_NETWORK_SUBDOMAIN" "$TEST_NETWORK_DOMAIN" \
+    "$TEST_SUBSCRIPTION_ID" "$TEST_DNS_ZONE_RESOURCE_GROUP"
+}
+
+@test "delete-scope destroys the scope's resources and keeps the shared ones" {
+  # Still there from the previous tests, so the "not configured" assertions
+  # below cannot pass vacuously.
+  assert_route_on "$TEST_DISTRIBUTION_ORIGIN_PATH"
+  drop_asset
+
+  run_workflow "static-files/scope/workflows/delete.yaml"
 
   assert_azure_front_door_route_not_configured \
     "$TEST_DISTRIBUTION_APP_NAME" "$TEST_FRONT_DOOR_PROFILE" "$TEST_FRONT_DOOR_ENDPOINT" \
