@@ -4,6 +4,7 @@ provider_categories:
   - identity-access-control
 configuration:
   TOFU_ACTION: "apply"
+  STATIC_FILES_PHASE: "deployment-apply"
 steps:
   - name: assume role
     type: script
@@ -30,6 +31,12 @@ steps:
       - name: SECURITY_LAYER
         type: environment
       - name: CONTEXT
+        type: environment
+  - name: resolve_tofu_action
+    type: script
+    file: "$SERVICE_PATH/deployment/scripts/resolve_tofu_action"
+    output:
+      - name: TOFU_ACTION
         type: environment
   - name: setup_provider_layer
     type: script
