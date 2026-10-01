@@ -285,6 +285,12 @@
             "title": "Front Door Endpoint",
             "description": "Name of the shared endpoint inside the profile. Every scope of this environment gets a route and a custom domain on it."
           },
+          "azure_assets_storage_account": {
+            "type": "string",
+            "title": "Assets Storage Account",
+            "description": "Storage account (static website enabled) that CI uploads bundles to. The scope creates its Front Door origin on it when the scope is created, before any deployment.",
+            "pattern": "^([a-z0-9]{3,24})?$"
+          },
           "azure_front_door_resource_group": {
             "type": "string",
             "title": "Front Door Resource Group",
@@ -1063,6 +1069,21 @@
                   },
                   "type": "Control",
                   "scope": "#/properties/distribution/properties/azure_front_door_endpoint"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#/properties/cloud_provider",
+                      "schema": {
+                        "not": {
+                          "const": "azure"
+                        }
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/distribution/properties/azure_assets_storage_account"
                 },
                 {
                   "rule": {

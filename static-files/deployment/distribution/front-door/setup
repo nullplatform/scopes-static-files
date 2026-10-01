@@ -11,40 +11,73 @@ echo "🔍 Validating Azure Front Door distribution configuration..."
 application_slug=$(echo "$CONTEXT" | jq -r .application.slug)
 scope_slug=$(echo "$CONTEXT" | jq -r .scope.slug)
 scope_id=$(echo "$CONTEXT" | jq -r .scope.id)
-asset_url=$(echo "$CONTEXT" | jq -r .asset.url)
+phase="${STATIC_FILES_PHASE:-deployment-apply}"
 
 distribution_app_name="$application_slug-$scope_slug-$scope_id"
 echo "   ✅ app_name=$distribution_app_name"
 
-# =============================================================================
-# Asset location
-# Format: https://<account>.blob.core.windows.net/<container>/<prefix>
-# CI may percent-encode the container ($web arrives as %24web).
-# =============================================================================
-if [[ "$asset_url" == https://*.blob.core.windows.net/* ]]; then
-  url_without_scheme="${asset_url#https://}"
-  distribution_storage_account="${url_without_scheme%%.*}"
-  url_path="${url_without_scheme#*/}"
-  distribution_container_name="${url_path%%/*}"
-  distribution_container_name="${distribution_container_name//%24/\$}"
-  remaining_path="${url_path#*/}"
-  if [ "$remaining_path" = "$url_path" ]; then
-    distribution_blob_prefix="/"
-  else
-    distribution_blob_prefix="/${remaining_path}"
+# Storage account the scope serves from. Required when the scope creates or
+# destroys its resources (no asset then); optional on deployments, where it
+# guards against an asset uploaded to another account.
+assets_storage_account=$(get_config_value \
+  --provider '.providers["scope-configurations"].distribution.azure_assets_storage_account' \
+  --env AZURE_ASSETS_STORAGE_ACCOUNT)
+
+if [[ "$phase" == scope-* ]]; then
+  # =============================================================================
+  # Scope phase: no asset yet. The route points at a prefix with no blobs, so
+  # the domain answers 404 until the first deployment, and never serves another
+  # application's bundles from the shared container.
+  # =============================================================================
+  if [ -z "$assets_storage_account" ]; then
+    echo ""
+    echo "   ❌ azure_assets_storage_account is missing"
+    echo ""
+    echo "  💡 Possible causes:"
+    echo "    • The scope configuration predates scope-level Front Door resources"
+    echo ""
+    echo "  🔧 How to fix:"
+    echo "    • Set distribution.azure_assets_storage_account in the scope-configurations provider"
+    echo "    • Or set AZURE_ASSETS_STORAGE_ACCOUNT in the agent"
+    echo ""
+    exit 1
   fi
+  distribution_storage_account="$assets_storage_account"
+  distribution_container_name="\$web"
+  distribution_blob_prefix="/_not-deployed/$distribution_app_name"
 else
-  echo ""
-  echo "   ❌ Could not extract storage account from asset URL: $asset_url"
-  echo ""
-  echo "  💡 Possible causes:"
-  echo "    • The asset URL format is not recognized"
-  echo "    • CI registered the asset with something other than the blob URL"
-  echo ""
-  echo "  🔧 How to fix:"
-  echo "    • Register the asset with 'https://<account>.blob.core.windows.net/<container>/<prefix>'"
-  echo ""
-  exit 1
+  asset_url=$(echo "$CONTEXT" | jq -r .asset.url)
+
+  # =============================================================================
+  # Asset location
+  # Format: https://<account>.blob.core.windows.net/<container>/<prefix>
+  # CI may percent-encode the container ($web arrives as %24web).
+  # =============================================================================
+  if [[ "$asset_url" == https://*.blob.core.windows.net/* ]]; then
+    url_without_scheme="${asset_url#https://}"
+    distribution_storage_account="${url_without_scheme%%.*}"
+    url_path="${url_without_scheme#*/}"
+    distribution_container_name="${url_path%%/*}"
+    distribution_container_name="${distribution_container_name//%24/\$}"
+    remaining_path="${url_path#*/}"
+    if [ "$remaining_path" = "$url_path" ]; then
+      distribution_blob_prefix="/"
+    else
+      distribution_blob_prefix="/${remaining_path}"
+    fi
+  else
+    echo ""
+    echo "   ❌ Could not extract storage account from asset URL: $asset_url"
+    echo ""
+    echo "  💡 Possible causes:"
+    echo "    • The asset URL format is not recognized"
+    echo "    • CI registered the asset with something other than the blob URL"
+    echo ""
+    echo "  🔧 How to fix:"
+    echo "    • Register the asset with 'https://<account>.blob.core.windows.net/<container>/<prefix>'"
+    echo ""
+    exit 1
+  fi
 fi
 
 distribution_container_name=${distribution_container_name:-"\$web"}
@@ -58,6 +91,19 @@ if [ "$distribution_container_name" != "\$web" ]; then
   echo ""
   echo "  🔧 How to fix:"
   echo "    • Upload the bundle to the \$web container and register the asset with 'https://<account>.blob.core.windows.net/\$web/<prefix>'"
+  echo ""
+  exit 1
+fi
+
+if [ -n "$assets_storage_account" ] && [ "$assets_storage_account" != "$distribution_storage_account" ]; then
+  echo ""
+  echo "   ❌ The asset is in storage account '$distribution_storage_account', but the scope serves '$assets_storage_account'"
+  echo ""
+  echo "  💡 Possible causes:"
+  echo "    • CI uploaded the bundle to a different storage account"
+  echo ""
+  echo "  🔧 How to fix:"
+  echo "    • Upload the bundle to '$assets_storage_account', or update distribution.azure_assets_storage_account"
   echo ""
   exit 1
 fi

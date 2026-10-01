@@ -367,3 +367,53 @@ run_front_door_setup() {
 
   assert_equal "$MODULES_TO_USE" "existing/module,$PROJECT_DIR/distribution/front-door/modules"
 }
+
+@test "Should use the configured storage account and the placeholder prefix in scope phases" {
+  export STATIC_FILES_PHASE="scope-apply"
+  export CONTEXT=$(echo "$CONTEXT" | jq 'del(.asset) | .providers["scope-configurations"].distribution.azure_assets_storage_account = "mystaticstorage"')
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_storage_account')" "mystaticstorage"
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_container_name')" '$web'
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_blob_prefix')" "/_not-deployed/automation-development-tools-7"
+}
+
+@test "Should read the assets storage account from AZURE_ASSETS_STORAGE_ACCOUNT in scope phases" {
+  export STATIC_FILES_PHASE="scope-delete"
+  export AZURE_ASSETS_STORAGE_ACCOUNT="envstorage"
+  export CONTEXT=$(echo "$CONTEXT" | jq 'del(.asset)')
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_storage_account')" "envstorage"
+}
+
+@test "Should fail in scope phases when the assets storage account is not configured" {
+  export STATIC_FILES_PHASE="scope-apply"
+  export CONTEXT=$(echo "$CONTEXT" | jq 'del(.asset)')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "❌ azure_assets_storage_account is missing"
+  assert_contains "$output" "distribution.azure_assets_storage_account"
+}
+
+@test "Should keep deploying when the assets storage account is not configured" {
+  export STATIC_FILES_PHASE="deployment-apply"
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_storage_account')" "mystaticstorage"
+}
+
+@test "Should fail when the asset is in a different storage account than the configured one" {
+  export STATIC_FILES_PHASE="deployment-apply"
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.azure_assets_storage_account = "otherstorage"')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "❌ The asset is in storage account 'mystaticstorage', but the scope serves 'otherstorage'"
+}
