@@ -43,10 +43,10 @@ phase_of() {
   assert_equal "$status" "0"
 }
 
-@test "resolve_tofu_action runs right after build_context" {
-  run grep -n -E 'name: (build_context|resolve_tofu_action|setup_provider_layer)' "$STATIC_DIR/deployment/workflows/initial.yaml"
+@test "resolve_tofu_action runs right after build_context, before assume role and the layers" {
+  run grep -n -E 'name: (assume role|build_context|resolve_tofu_action|setup_provider_layer)' "$STATIC_DIR/deployment/workflows/initial.yaml"
   order=$(echo "$output" | sed -E 's/.*name: //' | paste -sd, -)
-  assert_equal "$order" "build_context,resolve_tofu_action,setup_provider_layer"
+  assert_equal "$order" "build_context,resolve_tofu_action,assume role,setup_provider_layer"
 }
 
 @test "scope workflows run the deployment steps" {

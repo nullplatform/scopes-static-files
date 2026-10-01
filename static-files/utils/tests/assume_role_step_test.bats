@@ -96,3 +96,18 @@ teardown() {
   assert_contains "$output" "   • The target role does not exist or does not trust the agent role"
   assert_contains "$output" "   • There is no role ARN configured for selector=static-files"
 }
+
+@test "assume_role_step: does not assume a role when the phase has nothing to do" {
+  export TOFU_ACTION="skip"
+  aws() { echo "aws must not be called: $*" >&2; return 1; }
+  export -f aws
+
+  logf=$(mktemp)
+  source "$STEP" >"$logf" 2>&1
+  status=$?
+
+  [ "$status" -eq 0 ]
+  [ -z "${AWS_ACCESS_KEY_ID:-}" ]
+  grep -q "Skipping assume role" "$logf"
+  ! grep -q "aws must not be called" "$logf"
+}

@@ -6,16 +6,6 @@ configuration:
   TOFU_ACTION: "apply"
   STATIC_FILES_PHASE: "deployment-apply"
 steps:
-  - name: assume role
-    type: script
-    file: "$SERVICE_PATH/utils/assume_role_step"
-    output:
-      - name: AWS_ACCESS_KEY_ID
-        type: environment
-      - name: AWS_SECRET_ACCESS_KEY
-        type: environment
-      - name: AWS_SESSION_TOKEN
-        type: environment
   - name: build_context
     type: script
     file: "$SERVICE_PATH/deployment/scripts/build_context"
@@ -37,6 +27,16 @@ steps:
     file: "$SERVICE_PATH/deployment/scripts/resolve_tofu_action"
     output:
       - name: TOFU_ACTION
+        type: environment
+  - name: assume role
+    type: script
+    file: "$SERVICE_PATH/utils/assume_role_step"
+    output:
+      - name: AWS_ACCESS_KEY_ID
+        type: environment
+      - name: AWS_SECRET_ACCESS_KEY
+        type: environment
+      - name: AWS_SESSION_TOKEN
         type: environment
   - name: setup_provider_layer
     type: script
