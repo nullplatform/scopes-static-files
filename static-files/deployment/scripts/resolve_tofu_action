@@ -1,0 +1,66 @@
+#!/bin/bash
+# =============================================================================
+# Resolve TOFU_ACTION for this workflow
+#
+# Scope and deployment workflows are shared by every cloud. Each one declares
+# its phase (STATIC_FILES_PHASE); this step maps phase and distribution layer
+# to the OpenTofu action. On Azure (front-door) the scope owns the Front Door
+# resources: create/update apply them, delete destroys them, and deleting a
+# deployment changes nothing. On AWS (cloudfront) the first deployment still
+# owns everything, so scope actions skip and deleting a deployment destroys.
+#
+#   phase              front-door  cloudfront
+#   scope-apply        apply       skip
+#   scope-delete       destroy     skip
+#   deployment-apply   apply       apply
+#   deployment-delete  skip        destroy
+# =============================================================================
+
+set -euo pipefail
+
+if [ -z "${STATIC_FILES_PHASE:-}" ]; then
+	echo "   ❌ STATIC_FILES_PHASE is not set" >&2
+	echo "  🔧 How to fix: declare STATIC_FILES_PHASE in the workflow configuration" >&2
+	exit 1
+fi
+
+case "${DISTRIBUTION_LAYER:-}" in
+front-door | cloudfront) ;;
+*)
+	echo "   ❌ Unknown distribution layer '${DISTRIBUTION_LAYER:-}'"
+	echo ""
+	echo "  💡 Possible causes:"
+	echo "    • build_context did not run before this step"
+	echo "    • A new distribution layer was added without a lifecycle mapping"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    • Add the layer to deployment/scripts/resolve_tofu_action"
+	echo ""
+	exit 1
+	;;
+esac
+
+case "$STATIC_FILES_PHASE:$DISTRIBUTION_LAYER" in
+scope-apply:front-door) TOFU_ACTION="apply" ;;
+scope-apply:cloudfront) TOFU_ACTION="skip" ;;
+scope-delete:front-door) TOFU_ACTION="destroy" ;;
+scope-delete:cloudfront) TOFU_ACTION="skip" ;;
+deployment-apply:*) TOFU_ACTION="apply" ;;
+deployment-delete:front-door) TOFU_ACTION="skip" ;;
+deployment-delete:cloudfront) TOFU_ACTION="destroy" ;;
+*)
+	echo "   ❌ Unknown STATIC_FILES_PHASE '$STATIC_FILES_PHASE'"
+	echo ""
+	echo "  💡 Possible causes:"
+	echo "    • A workflow declares a phase this script does not know"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    • Use one of: scope-apply, scope-delete, deployment-apply, deployment-delete"
+	echo ""
+	exit 1
+	;;
+esac
+
+echo "   ✅ phase=$STATIC_FILES_PHASE distribution=$DISTRIBUTION_LAYER tofu_action=$TOFU_ACTION"
+
+export TOFU_ACTION
