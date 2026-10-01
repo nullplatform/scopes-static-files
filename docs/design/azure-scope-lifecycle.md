@@ -5,7 +5,7 @@ scope out of the first deployment and into the scope's own lifecycle
 (`create-scope`, `update-scope`, `delete-scope`), so a deployment only switches
 the route's origin path to the build and purges the cache.
 
-Status: approved 2026-10-01, not yet implemented. Azure (`front-door`
+Status: approved 2026-10-01, implemented on branch feat/azure-scope-lifecycle. Azure (`front-door`
 distribution) only; AWS (`cloudfront`) keeps its current behavior.
 
 ## Why
@@ -98,15 +98,15 @@ The Front Door setup derives the storage account, the `$web` container and the
 blob prefix from `.asset.url`. A scope action has no asset.
 
 - New scope configuration attribute `distribution.azure_assets_storage_account`
-  (env fallback `AZURE_ASSETS_STORAGE_ACCOUNT`). Required for `front-door`.
+  (env fallback `AZURE_ASSETS_STORAGE_ACCOUNT`). Required in scope phases;
+  optional on deployments, so existing installations keep deploying without it.
 - In scope phases the setup uses it for the origin and sets the blob prefix to
-  `/frontends/<application_id>/_not-deployed`. No blob exists there, so the
-  storage account answers 404 until the first deployment. The prefix is
-  per-application so the domain never serves another application's bundles
-  (the container root holds `frontends/` for every application).
-- In deployment phases the setup keeps parsing `.asset.url`, and fails before
-  any `tofu` run if the URL's account differs from
-  `azure_assets_storage_account`.
+  `/_not-deployed/<application>-<scope>-<scope_id>`. No blob exists there, so
+  the storage account answers 404 until the first deployment. The prefix is
+  per scope and outside any CI layout, so the domain never serves another
+  application's bundles from the shared container.
+- In deployment phases the setup keeps parsing `.asset.url`, and, when the
+  attribute is set, fails before any `tofu` run if the URL's account differs.
 - `network/azure_dns/setup` already runs `np scope patch` with the domain; it
   now runs at `create-scope`, so the domain shows up as soon as the scope
   exists.
@@ -148,7 +148,6 @@ Each environment's scope configuration needs `azure_assets_storage_account`.
   and a deployment whose asset account differs from the configured one.
 - BATS for `layer_executor`, `compose_modules` and `do_tofu` with
   `TOFU_ACTION=skip`.
-- `front-door.tftest.hcl`: the route with the placeholder prefix.
 - `tests/specs/layer_selection_test.bats`: the new attribute in the schema.
 - Integration `azure_frontdoor_azuredns/lifecycle_test.bats`: `create.yaml`
   (scope) → `initial.yaml` → `delete.yaml` (deployment, no change) →
