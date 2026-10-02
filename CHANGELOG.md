@@ -1,5 +1,28 @@
 # Changelog
 
+## [4.0.0](https://github.com/nullplatform/scopes-static-files/compare/v3.0.2...v4.0.0) (2026-10-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **scope:** on Azure, create-scope now creates the Front Door resources and needs distribution.azure_assets_storage_account; delete-scope destroys them and delete-deployment no longer destroys anything.
+
+### Features
+
+* **distribution:** front door setup without an asset in scope phases ([0357612](https://github.com/nullplatform/scopes-static-files/commit/0357612061d959302444e6eeb6efb3c1fe228f8f))
+* **install:** pass the assets storage account to the azure scope configuration ([f749287](https://github.com/nullplatform/scopes-static-files/commit/f749287849ffa17ef94b6682e1f1ed3a9b0bc9f4))
+* **scope:** front door resources follow the scope lifecycle on azure ([0728414](https://github.com/nullplatform/scopes-static-files/commit/0728414304cfae5d3cf5e135f4a2fd01530e2859))
+* **scope:** resolve the tofu action from workflow phase and distribution ([8274574](https://github.com/nullplatform/scopes-static-files/commit/827457477d810bcecb91b0ef1798f9bec55456f2))
+* **scope:** skip layers, modules and tofu when the phase has nothing to do ([7f3fc4d](https://github.com/nullplatform/scopes-static-files/commit/7f3fc4d37c5fa08586b9d9da3a32c959d1421f2d))
+
+
+### Bug Fixes
+
+* **distribution:** delete a scope without the assets storage account ([8e932b9](https://github.com/nullplatform/scopes-static-files/commit/8e932b9c4cbe9838ad677d19a5cbd83fd072d0a2))
+* **network:** do not patch the scope domain while destroying ([74ad28e](https://github.com/nullplatform/scopes-static-files/commit/74ad28e0775ffdcdf33ea52c6ba27244f847d7f5))
+* **scope:** assume the aws role only when the phase runs tofu ([15c489a](https://github.com/nullplatform/scopes-static-files/commit/15c489a47470df4edb3c383eb4c5a8a02b3dded2))
+* **scope:** keep update-scope a no-op until it can preserve the origin path ([56dcbf9](https://github.com/nullplatform/scopes-static-files/commit/56dcbf9277848db4d9112d53c1c0a283cf150644))
+
 ## [3.0.2](https://github.com/nullplatform/scopes-static-files/compare/v3.0.1...v3.0.2) (2026-09-30)
 
 
