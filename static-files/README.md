@@ -191,8 +191,26 @@ deployment if any is missing.
 
 **No certificate pre-requisite by default.** The distribution layer requests a
 Front Door managed certificate for the custom domain and writes the `_dnsauth`
-TXT record that validates it. The domain answers once validation completes
-(several minutes on the first deployment).
+TXT record that validates it. The domain answers once validation completes.
+
+**Scope lifecycle on Azure.** The scope owns its Front Door resources (origin
+group, origin, rule set, custom domain, route and CNAME): `create-scope` creates
+them and `delete-scope` destroys them. Creating the custom domain takes
+minutes (~14 with a customer certificate), so the scope stays `creating` for
+roughly 15 to 37 minutes. Until the first deployment the route points at
+`/_not-deployed/<app>-<scope>-<scope_id>` and the domain answers 404. A
+deployment only switches the route's origin path to the asset and purges the
+cache, and `delete-deployment` changes nothing.
+
+`delete-scope` reads the shared prerequisites (Front Door profile and endpoint,
+DNS zone, assets storage account, WAF policy) just as a deployment does: delete
+every scope of an environment before removing them.
+
+This needs `distribution.azure_assets_storage_account` (env fallback
+`AZURE_ASSETS_STORAGE_ACCOUNT`): the storage account CI uploads bundles to,
+since a scope action has no asset to read it from. Deployments work without it;
+when set, a deployment whose asset is in another account fails before any
+change.
 
 **Customer certificate (optional).** To serve a certificate you keep in Azure
 Key Vault instead (for example a Let's Encrypt wildcard `*.np.example.com`),
@@ -319,7 +337,7 @@ Minimum inputs (Azure):
 | `azure_state_container` | Blob container inside that storage account |
 | `azure_state_resource_group` | Optional. Resource group of the state storage account when it differs from the scope resource group. Empty means each entry's own `azure_resource_group`. |
 | `azure_state_auth` | Optional. How the state backend authenticates: `azuread` (default, agent identity) or `key` (account keys). |
-| `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each needs `nrn`, `azure_resource_group` and `azure_dns_zone_name`, plus an optional `azure_subscription_id` to override the default. The DNS zone must live in the entry's own `azure_resource_group`. |
+| `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each needs `nrn`, `azure_resource_group` and `azure_dns_zone_name`, plus an optional `azure_subscription_id` to override the default. The DNS zone must live in the entry's own `azure_resource_group`. Set `azure_assets_storage_account` (the storage account CI uploads bundles to): without it, scopes cannot be created. |
 | `tags` | Agent/channel tag selectors (must match `tags` of the agent that should pick up deployments) |
 
 After `tofu apply`, the scope type appears in the nullplatform UI and is

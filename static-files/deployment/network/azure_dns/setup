@@ -147,35 +147,42 @@ TOFU_VARIABLES=$(echo "$TOFU_VARIABLES" | jq \
 
 scope_domain="$network_subdomain.$network_domain"
 
-echo ""
-echo "   📝 Setting scope domain to '$scope_domain'..."
-
-np_output=$(np scope patch --id "$scope_id" --body "{\"domain\":\"$scope_domain\"}" --format json 2>&1) && np_exit_code=0 || np_exit_code=$?
-
-if [ $np_exit_code -ne 0 ]; then
+# A destroy (delete-scope) must not touch the scope record: the scope is
+# going away, and a failed patch would leave its resources behind.
+if [ "${TOFU_ACTION:-}" = "destroy" ]; then
   echo ""
-  echo "   ❌ Failed to update scope domain"
+  echo "   ⏭️  Not setting the scope domain: the scope's resources are being destroyed"
+else
   echo ""
+  echo "   📝 Setting scope domain to '$scope_domain'..."
 
-  if echo "$np_output" | grep -q "unauthorized\|forbidden\|401\|403"; then
-    echo "  🔒 Error: Permission denied"
-    echo ""
-    echo "  💡 Possible causes:"
-    echo "    • The nullplatform API Key doesn't have 'Developer' permissions"
-    echo ""
-    echo "  🔧 How to fix:"
-    echo "    • Ensure the API Key has 'Developer' permissions at the correct NRN hierarchy level"
+  np_output=$(np scope patch --id "$scope_id" --body "{\"domain\":\"$scope_domain\"}" --format json 2>&1) && np_exit_code=0 || np_exit_code=$?
 
-  else
-    echo "  📋 Error details:"
-    echo "$np_output" | sed 's/^/    /'
+  if [ $np_exit_code -ne 0 ]; then
+    echo ""
+    echo "   ❌ Failed to update scope domain"
+    echo ""
+
+    if echo "$np_output" | grep -q "unauthorized\|forbidden\|401\|403"; then
+      echo "  🔒 Error: Permission denied"
+      echo ""
+      echo "  💡 Possible causes:"
+      echo "    • The nullplatform API Key doesn't have 'Developer' permissions"
+      echo ""
+      echo "  🔧 How to fix:"
+      echo "    • Ensure the API Key has 'Developer' permissions at the correct NRN hierarchy level"
+
+    else
+      echo "  📋 Error details:"
+      echo "$np_output" | sed 's/^/    /'
+    fi
+
+    echo ""
+    exit 1
   fi
 
-  echo ""
-  exit 1
+  echo "   ✅ Scope domain set successfully"
 fi
-
-echo "   ✅ Scope domain set successfully"
 
 echo ""
 echo "✨ Azure DNS network configured successfully"

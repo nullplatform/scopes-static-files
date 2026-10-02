@@ -2,6 +2,11 @@
 
 set -eou pipefail
 
+if [ "${TOFU_ACTION:-}" = "skip" ]; then
+	echo "⏭️  Skipping OpenTofu: nothing to do in phase ${STATIC_FILES_PHASE:-unknown}"
+	exit 0
+fi
+
 TOFU_VAR_FILE="$TOFU_MODULE_DIR/.tfvars.json"
 echo "$TOFU_VARIABLES" > "$TOFU_VAR_FILE"
 

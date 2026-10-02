@@ -104,6 +104,21 @@ setup() {
 }
 
 # =============================================================================
+# Test: create-scope is a no-op on CloudFront (the first deployment owns it)
+# =============================================================================
+
+@test "create-scope creates nothing on cloudfront" {
+  # A scope action carries no asset, deployment or release.
+  export CONTEXT=$(echo "$CONTEXT" | jq 'del(.asset, .deployment, .release)')
+
+  run run_workflow "static-files/scope/workflows/create.yaml"
+
+  assert_equal "$status" "0"
+  assert_contains "$output" "⏭️  Skipping OpenTofu"
+  assert_cloudfront_not_configured "$TEST_DISTRIBUTION_COMMENT"
+}
+
+# =============================================================================
 # Test: Create Infrastructure
 # =============================================================================
 

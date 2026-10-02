@@ -367,3 +367,95 @@ run_front_door_setup() {
 
   assert_equal "$MODULES_TO_USE" "existing/module,$PROJECT_DIR/distribution/front-door/modules"
 }
+
+@test "Should use the configured storage account and the placeholder prefix in scope phases" {
+  export STATIC_FILES_PHASE="scope-apply"
+  export CONTEXT=$(echo "$CONTEXT" | jq 'del(.asset) | .providers["scope-configurations"].distribution.azure_assets_storage_account = "mystaticstorage"')
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_storage_account')" "mystaticstorage"
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_container_name')" '$web'
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_blob_prefix')" "/_not-deployed/automation-development-tools-7"
+}
+
+@test "Should read the assets storage account from AZURE_ASSETS_STORAGE_ACCOUNT in scope phases" {
+  export STATIC_FILES_PHASE="scope-delete"
+  export AZURE_ASSETS_STORAGE_ACCOUNT="envstorage"
+  export CONTEXT=$(echo "$CONTEXT" | jq 'del(.asset)')
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_storage_account')" "envstorage"
+}
+
+@test "Should fail in scope phases when the assets storage account is not configured" {
+  export STATIC_FILES_PHASE="scope-apply"
+  export CONTEXT=$(echo "$CONTEXT" | jq 'del(.asset)')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "❌ azure_assets_storage_account is missing"
+  assert_contains "$output" "distribution.azure_assets_storage_account"
+}
+
+@test "Should keep deploying when the assets storage account is not configured" {
+  export STATIC_FILES_PHASE="deployment-apply"
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_storage_account')" "mystaticstorage"
+}
+
+@test "Should fail when the asset is in a different storage account than the configured one" {
+  export STATIC_FILES_PHASE="deployment-apply"
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].distribution.azure_assets_storage_account = "otherstorage"')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "❌ The asset is in storage account 'mystaticstorage', but the scope serves 'otherstorage'"
+}
+
+# az stub that answers by URL: the scope's origin from ORIGIN_RESPONSE (exit
+# ORIGIN_EXIT), anything else (the endpoint preflight) with the success mock.
+use_origin_aware_az() {
+  mkdir -p "$BATS_TEST_TMPDIR/bin"
+  cat > "$BATS_TEST_TMPDIR/bin/az" <<STUB
+#!/bin/bash
+if [[ "\$*" == */origins/* ]]; then
+  if [ "\${ORIGIN_EXIT:-0}" -eq 0 ]; then cat "\$ORIGIN_RESPONSE"; else cat "\$ORIGIN_RESPONSE" >&2; fi
+  exit "\${ORIGIN_EXIT:-0}"
+fi
+cat "$AZURE_MOCKS_DIR/afd_endpoint/success.json"
+STUB
+  chmod +x "$BATS_TEST_TMPDIR/bin/az"
+  export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
+}
+
+@test "Should take the storage account from the existing origin when deleting a scope without the attribute" {
+  export STATIC_FILES_PHASE="scope-delete"
+  export CONTEXT=$(echo "$CONTEXT" | jq 'del(.asset)')
+  echo '{"properties": {"hostName": "legacystorage.z13.web.core.windows.net"}}' > "$BATS_TEST_TMPDIR/origin.json"
+  export ORIGIN_RESPONSE="$BATS_TEST_TMPDIR/origin.json"
+  use_origin_aware_az
+
+  run_front_door_setup
+
+  assert_equal "$(echo "$TOFU_VARIABLES" | jq -r '.distribution_storage_account')" "legacystorage"
+  assert_equal "${TOFU_ACTION:-}" ""
+}
+
+@test "Should skip deleting a scope without the attribute when its origin does not exist" {
+  export STATIC_FILES_PHASE="scope-delete"
+  export TOFU_ACTION="destroy"
+  export CONTEXT=$(echo "$CONTEXT" | jq 'del(.asset)')
+  export ORIGIN_RESPONSE="$AZURE_MOCKS_DIR/afd_endpoint/not_found.json"
+  export ORIGIN_EXIT=1
+  use_origin_aware_az
+
+  run_front_door_setup
+
+  assert_equal "$TOFU_ACTION" "skip"
+}

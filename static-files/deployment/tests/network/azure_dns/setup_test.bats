@@ -307,3 +307,15 @@ run_azure_dns_setup() {
 
   assert_equal "$MODULES_TO_USE" "existing/module,$PROJECT_DIR/network/azure_dns/modules"
 }
+
+@test "Should not set the scope domain when destroying" {
+  export TOFU_ACTION="destroy"
+  set_az_mock "$AZURE_MOCKS_DIR/dns_zone/success.json"
+  # Any np call fails: the setup must not make one.
+  set_np_mock "$NP_MOCKS_DIR/scope/patch/unknown_error.json" 1
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "0"
+  assert_contains "$output" "⏭️  Not setting the scope domain: the scope's resources are being destroyed"
+}

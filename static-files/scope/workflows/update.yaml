@@ -1,2 +1,7 @@
-include:
-  - "$SERVICE_PATH/scope/workflows/create.yaml"
+# No-op on purpose. No update-scope action is registered, and scope-apply
+# points the route at the placeholder prefix: running it on a scope that is
+# already serving would take the site offline until the next deployment.
+steps:
+  - name: no_op
+    type: command
+    command: "$SERVICE_PATH/no_op"
