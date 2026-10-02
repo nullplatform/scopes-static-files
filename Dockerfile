@@ -14,7 +14,7 @@ RUN apk add --no-cache aws-cli gomplate py3-pip \
     && az version
 
 # OpenTofu >= 1.10 — the scope inits its S3 backend with use_lockfile=true.
-ARG TOFU_VERSION=1.12.6
+ARG TOFU_VERSION=1.13.1
 ARG TARGETARCH
 RUN curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_linux_${TARGETARCH}.tar.gz" \
       | tar -xz -C /usr/local/bin tofu \
