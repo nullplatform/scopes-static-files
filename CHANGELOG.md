@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.1.0](https://github.com/nullplatform/scopes-static-files/compare/v4.0.2...v4.1.0) (2026-10-06)
+
+
+### Features
+
+* run the worker image as a non-root user ([3f37552](https://github.com/nullplatform/scopes-static-files/commit/3f37552fb737538de25fb3467b4d9befa6fff8c3))
+* run the worker image as a non-root user ([4eb3837](https://github.com/nullplatform/scopes-static-files/commit/4eb38370509469a9f3744d18cb9ae8c68748dbe1))
+
 ## [4.0.2](https://github.com/nullplatform/scopes-static-files/compare/v4.0.1...v4.0.2) (2026-10-02)
 
 
