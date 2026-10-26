@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.1.2](https://github.com/nullplatform/scopes-static-files/compare/v4.1.1...v4.1.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **deps:** bump nullplatform/scopes/worker-bridge from 2.0.3 to 2.0.6 ([2d00caa](https://github.com/nullplatform/scopes-static-files/commit/2d00caa01847a84a12cb6ff96e6fa8b373b43b72))
+* **deps:** bump nullplatform/scopes/worker-bridge from 2.0.3 to 2.0.6 ([2ba17e5](https://github.com/nullplatform/scopes-static-files/commit/2ba17e54f7a88716813df46b315b3809b5756c9d))
+
 ## [4.1.1](https://github.com/nullplatform/scopes-static-files/compare/v4.1.0...v4.1.1) (2026-10-16)
 
 
