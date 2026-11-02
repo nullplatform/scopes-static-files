@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.4](https://github.com/nullplatform/scopes-static-files/compare/v4.1.3...v4.1.4) (2026-11-02)
+
+
+### Bug Fixes
+
+* **deps:** update dependency opentofu/opentofu to v1.13.2 ([#73](https://github.com/nullplatform/scopes-static-files/issues/73)) ([fee3711](https://github.com/nullplatform/scopes-static-files/commit/fee37115c511b936ef3bb40625bf8a699a0715ae))
+
 ## [4.1.3](https://github.com/nullplatform/scopes-static-files/compare/v4.1.2...v4.1.3) (2026-11-02)
 
 
