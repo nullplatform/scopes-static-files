@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.2.0](https://github.com/nullplatform/scopes-static-files/compare/v4.1.5...v4.2.0) (2026-11-16)
+
+
+### Features
+
+* **specs:** add mx-central-1 to AWS regions ([47b86d6](https://github.com/nullplatform/scopes-static-files/commit/47b86d6052b834d224d45f207667f8db713290e3))
+* **specs:** add mx-central-1 to AWS regions ([60aecad](https://github.com/nullplatform/scopes-static-files/commit/60aecad645f08f1c5db95006aebad162ede52ea3))
+
 ## [4.1.5](https://github.com/nullplatform/scopes-static-files/compare/v4.1.4...v4.1.5) (2026-11-16)
 
 
