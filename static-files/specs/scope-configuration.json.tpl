@@ -109,6 +109,10 @@
                 "title": "Canada (Central)"
               },
               {
+                "const": "mx-central-1",
+                "title": "Mexico (Central)"
+              },
+              {
                 "const": "sa-east-1",
                 "title": "South America (São Paulo)"
               },
