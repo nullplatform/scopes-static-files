@@ -32,7 +32,20 @@ module "scope_requirements_static" {
 | `policies_name_prefix` | `""` → `nullplatform_<cluster>` | Override for the policy name prefix. |
 | `iam_create_role` | `true` | When false, the module creates nothing. |
 | `iam_resource_tags_json` | `{}` | Tags applied to IAM resources. |
-| `assets_bucket_arn` | `""` | ARN of the assets bucket (frontend bundles pre-requisite). When set, emits `cloudfront_oac_bucket_policy_json`. Leave empty to skip. |
+| `assets_bucket_arn` | `""` | ARN of the assets bucket (frontend bundles pre-requisite). When set, emits `cloudfront_oac_bucket_policy_json`; with `state_bucket_arn` set, it also limits the role's bucket reads to it. |
+| `state_bucket_arn` | `""` | ARN of the scope's OpenTofu state bucket (`aws_state_bucket`). Setting it opts into scoped S3 access (see below). Empty keeps S3 access on every bucket. |
+
+### S3 access
+
+The scope reads the assets bucket (`ListBucket`, `GetBucketLocation`, `GetBucketPolicy`; never its
+objects, which CloudFront reads through OAC) and reads, writes and deletes (lock file) its own OpenTofu
+state under `nullplatform/scopes/static-files/` in the state bucket. It never writes bucket policies.
+
+Set `state_bucket_arn` and `assets_bucket_arn` to limit the role to those two buckets. Without
+`state_bucket_arn` the role keeps its S3 actions on every bucket in the account, which lets it read the
+state of other layers and services. With it, the assets bucket must be the bucket of the asset URLs
+the scope deploys: a deployment from another bucket fails at `cloudfront/setup`, which reports
+"No bucket policy found" when `GetBucketPolicy` is denied.
 
 ## Outputs
 

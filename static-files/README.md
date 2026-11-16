@@ -395,7 +395,7 @@ placeholders with your actual values:
 
 | Service | Actions | Resource | Notes |
 |---|---|---|---|
-| **S3** | Create/Delete bucket, Get/Put bucket-level config (policy, tagging, versioning, PAB, encryption, lifecycle, CORS, website, logging), List bucket, object-level Get/Put/Delete | `*` (scope down post-install) | Used both for the state bucket and for the per-scope asset bucket. |
+| **S3** | `ListBucket`, `GetBucketLocation`, `GetBucketPolicy` on the assets bucket; `GetObject`, `PutObject`, `DeleteObject` on `<state bucket>/nullplatform/scopes/static-files/*` and `ListBucket` on the state bucket | assets and state buckets | The scope never writes bucket policies nor reads asset objects. See `specs/requirements/aws/README.md`. |
 | **CloudFront** | `cloudfront:*` | `*` | Distribution lifecycle + invalidations. |
 | **Route 53** | `GetHostedZone`, `ChangeResourceRecordSets`, `ListResourceRecordSets` | `hostedzone/*` | Record-level operations. |
 | **Route 53** | `ListHostedZones`, `ListHostedZonesByName` | `*` | **Must be `*`** — these two actions don't support resource-level permissions, so scoping them to `hostedzone/*` silently denies them and the provider fails on its first list call. |

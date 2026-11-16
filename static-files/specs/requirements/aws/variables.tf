@@ -50,12 +50,23 @@ variable "iam_resource_tags_json" {
 }
 
 variable "assets_bucket_arn" {
-  description = "ARN of the S3 bucket that stores frontend bundles (the static-files 'assets bucket' pre-requisite). When set, the module outputs a ready-to-merge IAM policy document statement granting the CloudFront distribution's Origin Access Control (OAC) read access to this bucket. This module does NOT create an aws_s3_bucket_policy resource itself — merge the output into whichever module already owns that bucket's policy (a bucket can only have one aws_s3_bucket_policy resource managing it). Leave empty to skip generating the statement."
+  description = "ARN of the S3 bucket that stores frontend bundles (the static-files 'assets bucket' pre-requisite), the bucket of the asset URLs the scope deploys. When set, the module outputs a ready-to-merge IAM policy document statement granting the CloudFront distribution's Origin Access Control (OAC) read access to this bucket. This module does NOT create an aws_s3_bucket_policy resource itself — merge the output into whichever module already owns that bucket's policy (a bucket can only have one aws_s3_bucket_policy resource managing it). Leave empty to skip generating the statement. With state_bucket_arn set, the role's bucket reads (ListBucket, GetBucketLocation, GetBucketPolicy) are limited to this bucket; empty keeps them on every bucket."
   type        = string
   default     = ""
 
   validation {
     condition     = var.assets_bucket_arn == "" || can(regex("^arn:aws:s3:::.+", var.assets_bucket_arn))
     error_message = "assets_bucket_arn must be empty or match arn:aws:s3:::<bucket-name>"
+  }
+}
+
+variable "state_bucket_arn" {
+  description = "ARN of the S3 bucket that holds the scope's OpenTofu state (the scope configuration's aws_state_bucket). Setting it opts into scoped S3 access: object access is limited to the scope's state prefix (nullplatform/scopes/static-files/*) in this bucket, and bucket reads to assets_bucket_arn. Leave empty to keep S3 access on every bucket (not recommended)."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.state_bucket_arn == "" || can(regex("^arn:aws:s3:::[^/]+$", var.state_bucket_arn))
+    error_message = "state_bucket_arn must be empty or match arn:aws:s3:::<bucket-name>"
   }
 }

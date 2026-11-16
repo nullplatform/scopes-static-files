@@ -12,7 +12,7 @@
       ],
       "Resource": [
         "arn:aws:s3:::YOUR_STATE_BUCKET",
-        "arn:aws:s3:::YOUR_STATE_BUCKET/*"
+        "arn:aws:s3:::YOUR_STATE_BUCKET/nullplatform/scopes/static-files/*"
       ]
     },
     {
@@ -63,8 +63,6 @@
       "Action": [
         "s3:GetBucketLocation",
         "s3:GetBucketPolicy",
-        "s3:PutBucketPolicy",
-        "s3:DeleteBucketPolicy",
         "s3:ListBucket"
       ],
       "Resource": "arn:aws:s3:::YOUR_ASSETS_BUCKET"

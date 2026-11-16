@@ -41,22 +41,7 @@ resource "aws_iam_policy" "nullplatform_static_files" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "S3StaticAssets"
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject",
-          "s3:ListBucket",
-          "s3:GetBucketLocation",
-          "s3:GetBucketPolicy",
-          "s3:PutBucketPolicy",
-          "s3:DeleteBucketPolicy"
-        ]
-        Resource = "*"
-      },
+    Statement = concat(local.s3_statements, [
       {
         Sid    = "CloudFrontDistribution"
         Effect = "Allow"
@@ -137,7 +122,7 @@ resource "aws_iam_policy" "nullplatform_static_files" {
         ]
         Resource = "arn:aws:lambda:us-east-1:*:function:*"
       }
-    ]
+    ])
   })
 }
 
