@@ -58,8 +58,8 @@ module "scope_definition_agent_association" {
 # Provider configuration for scopes of type Static Files.
 #
 # One `nullplatform_provider_config` per entry in `var.provider_configs`, typically
-# one entry per environment (dev/stg/prd) with its own NRN, AWS region, and Route
-# 53 hosted zone. The state bucket (`var.aws_state_bucket`) is shared across all
+# one entry per environment (dev/stg/prd) with its own NRN, AWS region, and DNS
+# zone (Route 53 or Cloudflare). The state bucket (`var.aws_state_bucket`) is shared across all
 # entries — there is exactly one state bucket, regardless of how many
 # environments you configure.
 #
@@ -98,10 +98,17 @@ resource "nullplatform_provider_config" "static_files_configuration" {
       aws_state_bucket = var.aws_state_bucket
     }
 
-    network = {
-      aws_network               = "route53"
-      aws_hosted_public_zone_id = each.value.aws_hosted_public_zone_id
-    }
+    # Only the selected DNS provider's own fields are sent: the scope reads
+    # whichever zone matches `aws_network` and ignores the rest.
+    network = merge(
+      { aws_network = each.value.aws_network },
+      each.value.aws_network == "cloudflare" ? {
+        cloudflare_zone_id = each.value.cloudflare_zone_id
+        cloudflare_proxied = each.value.cloudflare_proxied
+        } : {
+        aws_hosted_public_zone_id = each.value.aws_hosted_public_zone_id
+      }
+    )
 
     distribution = {
       aws_distribution = "cloudfront"
