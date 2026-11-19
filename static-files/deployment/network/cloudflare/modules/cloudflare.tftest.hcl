@@ -179,3 +179,26 @@ run "outputs_are_correct" {
     error_message = "network_website_url output should be 'https://app.example.com'"
   }
 }
+
+# =============================================================================
+# Test: Input validation
+# =============================================================================
+run "rejects_a_zone_name_as_zone_id" {
+  command = plan
+
+  variables {
+    network_cloudflare_zone_id = "example.com"
+  }
+
+  expect_failures = [var.network_cloudflare_zone_id]
+}
+
+run "rejects_a_domain_that_is_not_a_hostname" {
+  command = plan
+
+  variables {
+    network_domain = "example.com/zones"
+  }
+
+  expect_failures = [var.network_domain]
+}

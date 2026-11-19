@@ -47,7 +47,6 @@ setup() {
 
   export MODULES_TO_USE=""
   export CLOUDFLARE_API_TOKEN="test-token-value"
-  unset CLOUDFLARE_API_BASE_URL
   unset TOFU_ACTION
 
   # Default mocks: the zone exists and the scope patch succeeds
@@ -116,6 +115,35 @@ set_curl_mock() {
   assert_contains "$output" "   ❌ cloudflare_proxied must be true or false, got 'yes'"
 }
 
+@test "Should reject a zone ID that is not 32 hexadecimal characters" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].network.cloudflare_zone_id = "example.com"')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "   ❌ cloudflare_zone_id is not a valid Cloudflare zone ID"
+  assert_contains "$output" "    • A zone name was configured instead of the zone ID"
+}
+
+@test "Should reject a zone ID that tries to change the request path before calling the API" {
+  export CONTEXT=$(echo "$CONTEXT" | jq '.providers["scope-configurations"].network.cloudflare_zone_id = "023e105f4ecef8ad9ca31a8372d0c353/../../user/tokens"')
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "   ❌ cloudflare_zone_id is not a valid Cloudflare zone ID"
+  [ ! -f "$CURL_MOCK_ARGS_FILE" ]
+}
+
+@test "Should reject a zone name that is not a hostname" {
+  set_curl_mock "$CLOUDFLARE_MOCKS_DIR/zones/invalid_name.json"
+
+  run source "$SCRIPT_PATH"
+
+  assert_equal "$status" "1"
+  assert_contains "$output" "   ❌ Failed to extract domain name from Cloudflare zone response"
+}
+
 # =============================================================================
 # Test: Cloudflare API call
 # =============================================================================
@@ -125,12 +153,16 @@ set_curl_mock() {
   assert_contains "$(cat "$CURL_MOCK_ARGS_FILE")" "https://api.cloudflare.com/client/v4/zones/023e105f4ecef8ad9ca31a8372d0c353"
 }
 
-@test "Should honor CLOUDFLARE_API_BASE_URL" {
-  export CLOUDFLARE_API_BASE_URL="http://cloudflare-mock:8080/client/v4"
+@test "Should not let the environment redirect the Cloudflare API endpoint" {
+  export CLOUDFLARE_API_BASE_URL="http://attacker.example/client/v4"
 
   run_cloudflare_setup
 
-  assert_contains "$(cat "$CURL_MOCK_ARGS_FILE")" "http://cloudflare-mock:8080/client/v4/zones/023e105f4ecef8ad9ca31a8372d0c353"
+  if grep -q "attacker.example" "$CURL_MOCK_ARGS_FILE"; then
+    echo "The request carrying the token was sent to an overridden endpoint"
+    return 1
+  fi
+  assert_contains "$(cat "$CURL_MOCK_ARGS_FILE")" "https://api.cloudflare.com/client/v4/zones/023e105f4ecef8ad9ca31a8372d0c353"
 }
 
 @test "Should send the token through stdin and never as an argument" {

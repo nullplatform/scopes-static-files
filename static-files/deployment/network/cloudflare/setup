@@ -23,6 +23,22 @@ if [ -z "$zone_id" ]; then
 	echo ""
 	exit 1
 fi
+
+# The zone ID ends up in a URL path and in the OpenTofu variables: accept only
+# what a Cloudflare zone ID looks like.
+if ! [[ "$zone_id" =~ ^[0-9a-f]{32}$ ]]; then
+	echo "   ❌ cloudflare_zone_id is not a valid Cloudflare zone ID"
+	echo ""
+	echo "  💡 Possible causes:"
+	echo "    • A zone name was configured instead of the zone ID"
+	echo "    • The value has a typo or extra characters"
+	echo ""
+	echo "  🔧 How to fix:"
+	echo "    • Set 'network.cloudflare_zone_id' to the 32-character hexadecimal ID"
+	echo "      on the zone's Overview page in the Cloudflare dashboard"
+	echo ""
+	exit 1
+fi
 echo "   ✅ zone_id=$zone_id"
 
 # The token is a secret, so it never comes from the scope configuration: the
@@ -63,7 +79,9 @@ scope_id=$(echo "$CONTEXT" | jq -r .scope.id)
 echo ""
 echo "   📡 Fetching domain from Cloudflare zone..."
 
-cloudflare_api_url="${CLOUDFLARE_API_BASE_URL:-https://api.cloudflare.com/client/v4}"
+# Fixed on purpose: the request carries the API token, so the endpoint is not
+# something the environment or the scope configuration gets to redirect.
+cloudflare_api_url="https://api.cloudflare.com/client/v4"
 
 # The Authorization header goes in through stdin rather than as an argument,
 # so the token does not show up in the process list. Cloudflare answers errors
@@ -128,12 +146,13 @@ fi
 
 network_domain=$(echo "$cf_body" | jq -r '.result.name // empty' 2>/dev/null || true)
 
-if [ -z "$network_domain" ] || [ "$network_domain" = "null" ]; then
+# The name becomes part of the scope's domain: take it only if it is a hostname.
+if ! [[ "$network_domain" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]]; then
 	echo ""
 	echo "   ❌ Failed to extract domain name from Cloudflare zone response"
 	echo ""
 	echo "  💡 Possible causes:"
-	echo "    • The Cloudflare API answered without a zone name"
+	echo "    • The Cloudflare API answered without a valid zone name"
 	echo ""
 	echo "  🔧 How to fix:"
 	echo "    1. Verify the zone: GET $cloudflare_api_url/zones/$zone_id"
@@ -169,7 +188,8 @@ else
 	echo ""
 	echo "   📝 Setting scope domain to '$scope_domain'..."
 
-	np_output=$(np scope patch --id "$scope_id" --body "{\"domain\":\"$scope_domain\"}" --format json 2>&1) && np_exit_code=0 || np_exit_code=$?
+	scope_patch_body=$(jq -nc --arg domain "$scope_domain" '{domain: $domain}')
+	np_output=$(np scope patch --id "$scope_id" --body "$scope_patch_body" --format json 2>&1) && np_exit_code=0 || np_exit_code=$?
 
 	if [ "$np_exit_code" -ne 0 ]; then
 		echo ""
