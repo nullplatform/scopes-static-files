@@ -44,7 +44,7 @@ This module provides infrastructure-as-code for deploying static files applicati
 │  • aws              • route53          • cloudfront             │
 │  • azure            • azure_dns        • front-door             │
 │  • gcp              • cloud_dns        • amplify                │
-│                                        • firebase               │
+│                     • cloudflare       • firebase               │
 │                                        • gcs-cdn                │
 │                                        • static-web-apps        │
 └─────────────────────────────────────────────────────────────────┘
@@ -92,15 +92,19 @@ deployment if any is missing.
 1. **An S3 bucket to store the OpenTofu state** (`aws_state_bucket`). One
    entry per scope is written here during the deployment workflow.
 
-2. **A Route 53 public hosted zone** for the domain the scopes will use
-   (`aws_hosted_public_zone_id`). The scope writes records into it; it does
-   not create the zone.
+2. **A public DNS zone** for the domain the scopes will use. The scope writes
+   records into it; it does not create the zone. Either:
+   - a **Route 53 public hosted zone** (`aws_hosted_public_zone_id`), the
+     default, or
+   - a **Cloudflare zone** (`aws_network = "cloudflare"` and
+     `cloudflare_zone_id`). See [DNS on Cloudflare](#dns-on-cloudflare).
 
 3. **An ACM certificate in `us-east-1` that covers the scope's domain.** The
    scope looks up a certificate via a data source and attaches it to the
    CloudFront distribution — it does not request or validate certificates.
    For the usual case, a wildcard certificate for `*.<domain>` (plus the apex
-   as a SAN) validated via DNS in Route 53 is enough. Must be in `us-east-1`
+   as a SAN) validated via DNS is enough — in Route 53, or in Cloudflare by
+   adding ACM's validation CNAME to the zone as a DNS-only record. Must be in `us-east-1`
    regardless of where the rest of the infrastructure lives: CloudFront only
    accepts certificates from that region.
 
@@ -323,7 +327,7 @@ Minimum inputs (AWS):
 | `nrn` | NRN where the scope type should be registered (usually an account-level NRN) |
 | `np_api_key` | nullplatform API key with `Admin` role on the target scope |
 | `aws_state_bucket` | S3 bucket for OpenTofu state (see Pre-requisites 1). One bucket, shared across every `provider_configs` entry. |
-| `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each entry needs `nrn`, `aws_region`, and `aws_hosted_public_zone_id`. See [Registering multiple environments](#registering-multiple-environments) below. |
+| `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each entry needs `nrn`, `aws_region`, and `aws_hosted_public_zone_id` — or, for [DNS on Cloudflare](#dns-on-cloudflare), `aws_network = "cloudflare"` and `cloudflare_zone_id`. See [Registering multiple environments](#registering-multiple-environments) below. |
 | `tags` | Agent/channel tag selectors (must match `tags` of the agent that should pick up deployments) |
 
 Minimum inputs (Azure):
@@ -371,6 +375,53 @@ What does **not** vary (and therefore stays as a top-level variable):
 entry. Keep the `nrn` stable after the first apply; changing it forces
 OpenTofu to destroy and recreate the provider config.
 
+#### DNS on Cloudflare
+
+With `aws_network = "cloudflare"` the scope still serves the site from S3 and
+CloudFront, but writes its DNS record into a Cloudflare zone instead of a
+Route 53 hosted zone:
+
+```hcl
+provider_configs = [
+  {
+    nrn                = "organization=123:account=456:namespace=789:application=*"
+    aws_region         = "us-east-1"
+    aws_network        = "cloudflare"
+    cloudflare_zone_id = "023e105f4ecef8ad9ca31a8372d0c353"
+  },
+]
+```
+
+What it needs, on top of the AWS pre-requisites:
+
+- **The zone ID** (`cloudflare_zone_id`), from the zone's Overview page. The
+  scope reads the domain from the zone, so there is no separate domain setting.
+- **An API token in the worker's environment**, as `CLOUDFLARE_API_TOKEN`. It
+  is a secret, so it is not part of the scope configuration: expose it to the
+  scope's worker from a secret. The token needs `Zone:Read` and `DNS:Edit` on
+  the zone, and nothing else.
+- **Outbound access to `api.cloudflare.com`** from the worker.
+- **The ACM certificate validated in Cloudflare.** The certificate still lives
+  in ACM (`us-east-1`): add the validation CNAME that ACM asks for to the
+  Cloudflare zone, as a DNS-only record.
+
+The record is a CNAME to the distribution's `*.cloudfront.net` hostname.
+Cloudflare flattens CNAMEs at the zone apex, which covers what a Route 53
+alias is used for.
+
+`cloudflare_proxied` (default `false`) routes traffic through Cloudflare's
+proxy. Leave it off unless you need Cloudflare in front of CloudFront: the
+distribution already terminates TLS and caches, and proxying it requires the
+zone's SSL/TLS mode to be **Full**, or requests loop on redirects.
+
+The Route 53 permissions in the agent's IAM policy are not used in this mode.
+
+**Moving an existing scope from Route 53 to Cloudflare.** The next deployment
+after switching `aws_network` deletes the Route 53 record and creates the
+Cloudflare one in the same apply. Keep the Route 53 hosted zone and the
+agent's Route 53 permissions until every scope has been redeployed: with the
+zone already gone, deleting the old record fails and so does the deployment.
+
 ### Agent IAM permissions
 
 The nullplatform agent needs the permissions below to run the full lifecycle
@@ -397,7 +448,7 @@ placeholders with your actual values:
 |---|---|---|---|
 | **S3** | Create/Delete bucket, Get/Put bucket-level config (policy, tagging, versioning, PAB, encryption, lifecycle, CORS, website, logging), List bucket, object-level Get/Put/Delete | `*` (scope down post-install) | Used both for the state bucket and for the per-scope asset bucket. |
 | **CloudFront** | `cloudfront:*` | `*` | Distribution lifecycle + invalidations. |
-| **Route 53** | `GetHostedZone`, `ChangeResourceRecordSets`, `ListResourceRecordSets` | `hostedzone/*` | Record-level operations. |
+| **Route 53** | `GetHostedZone`, `ChangeResourceRecordSets`, `ListResourceRecordSets` | `hostedzone/*` | Record-level operations. None of the Route 53 rows are needed with [DNS on Cloudflare](#dns-on-cloudflare). |
 | **Route 53** | `ListHostedZones`, `ListHostedZonesByName` | `*` | **Must be `*`** — these two actions don't support resource-level permissions, so scoping them to `hostedzone/*` silently denies them and the provider fails on its first list call. |
 | **Route 53** | `GetChange` | `change/*` | **Easy to miss.** The AWS provider polls this while waiting for DNS propagation; without it, `start-initial` fails with `AccessDenied` *after* successfully creating the record. |
 | **ACM** | `DescribeCertificate`, `GetCertificate`, `ListCertificates`, `ListTagsForCertificate` | `*` | Certificate lookup for the CloudFront distribution. `GetCertificate` is required in addition to `DescribeCertificate` — the provider calls both. |
