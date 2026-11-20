@@ -116,23 +116,7 @@ run "dns_only_by_default" {
 
   assert {
     condition     = cloudflare_dns_record.main.ttl == 300
-    error_message = "DNS-only record should use the default TTL of 300"
-  }
-}
-
-# =============================================================================
-# Test: Custom TTL on a DNS-only record
-# =============================================================================
-run "custom_ttl" {
-  command = plan
-
-  variables {
-    network_cloudflare_ttl = 60
-  }
-
-  assert {
-    condition     = cloudflare_dns_record.main.ttl == 60
-    error_message = "DNS-only record should use the configured TTL"
+    error_message = "DNS-only record should use a TTL of 300"
   }
 }
 
@@ -144,7 +128,6 @@ run "proxied_forces_automatic_ttl" {
 
   variables {
     network_cloudflare_proxied = true
-    network_cloudflare_ttl     = 60
   }
 
   assert {

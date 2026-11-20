@@ -29,9 +29,3 @@ variable "network_cloudflare_proxied" {
   type        = bool
   default     = false
 }
-
-variable "network_cloudflare_ttl" {
-  description = "TTL of the record in seconds; 1 means automatic. Ignored (forced to 1) when the record is proxied."
-  type        = number
-  default     = 300
-}

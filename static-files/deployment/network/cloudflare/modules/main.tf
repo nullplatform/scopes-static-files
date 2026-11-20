@@ -17,7 +17,8 @@ resource "cloudflare_dns_record" "main" {
   name    = local.network_full_domain
   type    = "CNAME"
   content = local.distribution_target_domain
-  ttl     = local.network_cloudflare_ttl
   proxied = var.network_cloudflare_proxied
+  # Cloudflare only accepts ttl = 1 ("automatic") on a proxied record.
+  ttl     = var.network_cloudflare_proxied ? 1 : 300
   comment = "Managed by nullplatform (static-files scope)"
 }
