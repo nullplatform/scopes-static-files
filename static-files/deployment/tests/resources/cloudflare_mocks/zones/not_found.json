@@ -1,0 +1,11 @@
+{
+  "success": false,
+  "errors": [
+    {
+      "code": 7003,
+      "message": "Could not route to /client/v4/zones/023e105f4ecef8ad9ca31a8372d0c353, perhaps your object identifier is invalid?"
+    }
+  ],
+  "messages": [],
+  "result": null
+}

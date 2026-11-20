@@ -81,7 +81,7 @@ This registers the scope type, service specification, notification channel, and 
 │  • aws              • route53          • cloudfront             │
 │  • azure            • azure_dns        • front-door             │
 │  • gcp              • cloud_dns        • amplify                │
-│                                        • firebase               │
+│                     • cloudflare       • firebase               │
 │                                        • gcs-cdn                │
 │                                        • static-web-apps        │
 └─────────────────────────────────────────────────────────────────┘

@@ -131,3 +131,40 @@ layer_selections() {
 
 	assert_equal "$value" "none"
 }
+
+@test "Should offer route53 and cloudflare as aws network layers" {
+	local values
+	values=$(render_schema | jq -r '.schema.properties.network.properties.aws_network.oneOf[].const' | tr '\n' ' ')
+
+	assert_equal "$values" "route53 cloudflare "
+}
+
+@test "Should keep route53 as the default aws network layer" {
+	local value
+	value=$(render_schema | jq -r '.schema.properties.network.properties.aws_network.default')
+
+	assert_equal "$value" "route53"
+}
+
+@test "Should leave the Cloudflare record DNS-only by default" {
+	local value
+	value=$(render_schema | jq -r '.schema.properties.network.properties.cloudflare_proxied.default')
+
+	assert_equal "$value" "false"
+}
+
+@test "Should accept only a 32-character hexadecimal Cloudflare zone ID" {
+	local pattern
+	pattern=$(render_schema | jq -r '.schema.properties.network.properties.cloudflare_zone_id.pattern')
+
+	[[ "023e105f4ecef8ad9ca31a8372d0c353" =~ $pattern ]]
+	[[ ! "example.com" =~ $pattern ]]
+	[[ ! "Z1234567890ABC" =~ $pattern ]]
+}
+
+@test "Should not ask for the Cloudflare API token in the scope configuration" {
+	local keys
+	keys=$(render_schema | jq -r '.schema.properties.network.properties | keys[]' | grep -i -E "token|secret|api_key" || true)
+
+	assert_equal "$keys" ""
+}

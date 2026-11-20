@@ -20,6 +20,14 @@ provider_configs = [
   #   aws_region                = "us-east-1"
   #   aws_hosted_public_zone_id = ""
   # },
+  # DNS on Cloudflare instead of Route 53. The API token is not set here: the
+  # scope's worker reads it from the CLOUDFLARE_API_TOKEN environment variable.
+  # {
+  #   nrn                = ""
+  #   aws_region         = "us-east-1"
+  #   aws_network        = "cloudflare"
+  #   cloudflare_zone_id = "" # 32 hex characters, from the zone's Overview page
+  # },
 ]
 
 tags = {

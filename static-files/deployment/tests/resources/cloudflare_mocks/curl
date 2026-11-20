@@ -1,0 +1,38 @@
+#!/bin/bash
+# Mock curl for testing the Cloudflare API calls
+# Set CURL_MOCK_RESPONSE to the path of the mock body to return
+# Set CURL_MOCK_HTTP_CODE to the HTTP status to report (default: 200)
+# Set CURL_MOCK_EXIT_CODE to the exit code (default: 0)
+# Set CURL_MOCK_ARGS_FILE / CURL_MOCK_STDIN_FILE to capture what the caller sent
+
+# The caller pipes its --config through stdin: read it so the pipe closes cleanly.
+stdin_content=$(cat)
+
+if [ -n "${CURL_MOCK_ARGS_FILE:-}" ]; then
+  printf '%s\n' "$@" > "$CURL_MOCK_ARGS_FILE"
+fi
+
+if [ -n "${CURL_MOCK_STDIN_FILE:-}" ]; then
+  printf '%s\n' "$stdin_content" > "$CURL_MOCK_STDIN_FILE"
+fi
+
+exit_code="${CURL_MOCK_EXIT_CODE:-0}"
+
+if [ "$exit_code" != "0" ]; then
+  echo "curl: (6) Could not resolve host: api.cloudflare.com" >&2
+  printf '\n000'
+  exit "$exit_code"
+fi
+
+if [ -z "${CURL_MOCK_RESPONSE:-}" ]; then
+  echo "CURL_MOCK_RESPONSE not set" >&2
+  exit 1
+fi
+
+if [ ! -f "$CURL_MOCK_RESPONSE" ]; then
+  echo "Mock file not found: $CURL_MOCK_RESPONSE" >&2
+  exit 1
+fi
+
+cat "$CURL_MOCK_RESPONSE"
+printf '\n%s' "${CURL_MOCK_HTTP_CODE:-200}"

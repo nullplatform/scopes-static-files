@@ -732,6 +732,10 @@
               {
                 "const": "route53",
                 "title": "Amazon Route 53"
+              },
+              {
+                "const": "cloudflare",
+                "title": "Cloudflare"
               }
             ]
           },
@@ -739,6 +743,18 @@
             "type": "string",
             "title": "Route 53 Hosted Zone ID",
             "description": "Public hosted zone ID for DNS records (e.g., Z1234567890ABC)"
+          },
+          "cloudflare_zone_id": {
+            "type": "string",
+            "title": "Cloudflare Zone ID",
+            "description": "ID of the Cloudflare zone the DNS records are written into (32 hexadecimal characters, on the zone's Overview page). The API token is not configured here: the scope's worker reads it from the CLOUDFLARE_API_TOKEN environment variable.",
+            "pattern": "^[0-9a-f]{32}$"
+          },
+          "cloudflare_proxied": {
+            "type": "boolean",
+            "title": "Proxy through Cloudflare",
+            "description": "Route traffic through Cloudflare's proxy instead of resolving straight to the distribution. Leave off unless the zone's SSL/TLS mode is Full: the distribution already terminates TLS and caches.",
+            "default": false
           },
           "azure_network": {
             "type": "string",
@@ -1522,16 +1538,113 @@
                   "rule": {
                     "effect": "HIDE",
                     "condition": {
-                      "scope": "#/properties/cloud_provider",
+                      "scope": "#",
                       "schema": {
-                        "not": {
-                          "const": "aws"
-                        }
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "cloud_provider": {
+                                "not": {
+                                  "const": "aws"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "network": {
+                                "properties": {
+                                  "aws_network": {
+                                    "const": "cloudflare"
+                                  }
+                                },
+                                "required": [
+                                  "aws_network"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "network"
+                            ]
+                          }
+                        ]
                       }
                     }
                   },
                   "type": "Control",
                   "scope": "#/properties/network/properties/aws_hosted_public_zone_id"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#",
+                      "schema": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "cloud_provider": {
+                                "not": {
+                                  "const": "aws"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "network": {
+                                "properties": {
+                                  "aws_network": {
+                                    "not": {
+                                      "const": "cloudflare"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/network/properties/cloudflare_zone_id"
+                },
+                {
+                  "rule": {
+                    "effect": "HIDE",
+                    "condition": {
+                      "scope": "#",
+                      "schema": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "cloud_provider": {
+                                "not": {
+                                  "const": "aws"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "network": {
+                                "properties": {
+                                  "aws_network": {
+                                    "not": {
+                                      "const": "cloudflare"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "type": "Control",
+                  "scope": "#/properties/network/properties/cloudflare_proxied"
                 },
                 {
                   "rule": {
