@@ -98,17 +98,17 @@ resource "nullplatform_provider_config" "static_files_configuration" {
       aws_state_bucket = var.aws_state_bucket
     }
 
-    # Only the selected DNS provider's own fields are sent: the scope reads
-    # whichever zone matches `aws_network` and ignores the rest.
-    network = merge(
-      { aws_network = each.value.aws_network },
-      each.value.aws_network == "cloudflare" ? {
-        cloudflare_zone_id = each.value.cloudflare_zone_id
-        cloudflare_proxied = each.value.cloudflare_proxied
-        } : {
-        aws_hosted_public_zone_id = each.value.aws_hosted_public_zone_id
-      }
-    )
+    # Only the selected DNS provider's own fields are sent. They are filtered
+    # by null instead of picked with a conditional: the two branches of a
+    # conditional must share a type, which would turn the boolean into a string.
+    network = {
+      for key, value in {
+        aws_network               = each.value.aws_network
+        aws_hosted_public_zone_id = each.value.aws_network == "route53" ? each.value.aws_hosted_public_zone_id : null
+        cloudflare_zone_id        = each.value.aws_network == "cloudflare" ? each.value.cloudflare_zone_id : null
+        cloudflare_proxied        = each.value.aws_network == "cloudflare" ? each.value.cloudflare_proxied : null
+      } : key => value if value != null
+    }
 
     distribution = {
       aws_distribution = "cloudfront"
