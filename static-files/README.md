@@ -8,7 +8,7 @@ This module provides infrastructure-as-code for deploying static files applicati
 - [Registering and Using the Scope](#registering-and-using-the-scope)
   - [Pre-requisites](#pre-requisites)
     - [AWS](#aws)
-  - [Registration (Terraform)](#registration-terraform)
+  - [Registration](#registration)
     - [Registering multiple environments](#registering-multiple-environments)
   - [Agent IAM permissions](#agent-iam-permissions)
   - [State management](#state-management)
@@ -289,87 +289,52 @@ np asset create --body "{\"type\":\"bundle\",\"name\":\"main\",\"build_id\":$bui
   \"metadata\":{}}"
 ```
 
-### Registration (Terraform)
+### Registration
 
-The reference Terraform for registering the scope lives under
-[`specs/install/`](specs/install/), organized by cloud:
+The scope is published as the global package `np-static-files`. How to install
+it — the requirements module of each cloud, the installation and the channel —
+is in the repository README's
+[Install in your organization](../README.md#install-in-your-organization).
+The former [`specs/install/`](https://github.com/nullplatform/scopes-static-files/tree/v4.2.0/static-files/specs/install)
+examples registered a copy with tofu-modules' `scope_definition`; a copy
+registered that way keeps working next to the package.
 
-- [`specs/install/aws/`](specs/install/aws/) — working AWS example
-  (S3 + CloudFront + Route 53 + ACM).
-- [`specs/install/azure/`](specs/install/azure/) — working Azure example
-  (Blob static website + Front Door + Azure DNS).
-
-See [`specs/install/README.md`](specs/install/README.md) for the layout and for
-guidance on contributing the GCP equivalent.
-
-Copy the example for your cloud into your own infrastructure repository and fill
-in `terraform.tfvars.example`:
-
-```bash
-# replace `aws` with `azure` to install on Azure
-cp -r static-files/specs/install/aws /path/to/your/infra/scopes/static-files
-cd /path/to/your/infra/scopes/static-files
-cp terraform.tfvars.example terraform.tfvars
-$EDITOR terraform.tfvars
-
-tofu init
-tofu apply
-```
-
-Minimum inputs (AWS):
-
-| Variable | Description |
-|---|---|
-| `nrn` | NRN where the scope type should be registered (usually an account-level NRN) |
-| `np_api_key` | nullplatform API key with `Admin` role on the target scope |
-| `aws_state_bucket` | S3 bucket for OpenTofu state (see Pre-requisites 1). One bucket, shared across every `provider_configs` entry. |
-| `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each entry needs `nrn`, `aws_region`, and `aws_hosted_public_zone_id`. See [Registering multiple environments](#registering-multiple-environments) below. |
-| `tags` | Agent/channel tag selectors (must match `tags` of the agent that should pick up deployments) |
-
-Minimum inputs (Azure):
-
-| Variable | Description |
-|---|---|
-| `nrn` | NRN where the scope type should be registered (usually an account-level NRN) |
-| `np_api_key` | nullplatform API key with `Admin` role on the target scope |
-| `azure_subscription_id` | Default subscription where the CDN profile and DNS records are created. Overridable per `provider_configs` entry. |
-| `azure_state_storage_account` | Storage account for OpenTofu state (see Pre-requisites 1). Shared across every `provider_configs` entry. |
-| `azure_state_container` | Blob container inside that storage account |
-| `azure_state_resource_group` | Optional. Resource group of the state storage account when it differs from the scope resource group. Empty means each entry's own `azure_resource_group`. |
-| `azure_state_auth` | Optional. How the state backend authenticates: `azuread` (default, agent identity) or `key` (account keys). |
-| `provider_configs` | List of one or more `nullplatform_provider_config` entries. Each needs `nrn`, `azure_resource_group` and `azure_dns_zone_name`, plus an optional `azure_subscription_id` to override the default. The DNS zone must live in the entry's own `azure_resource_group`. Set `azure_assets_storage_account` (the storage account CI uploads bundles to): without it, scopes cannot be created. |
-| `tags` | Agent/channel tag selectors (must match `tags` of the agent that should pick up deployments) |
-
-After `tofu apply`, the scope type appears in the nullplatform UI and is
-ready to host scopes.
+After the apply, the scope type appears in the nullplatform UI and is ready to
+host scopes once its settings exist (below).
 
 #### Registering multiple environments
 
-`provider_configs` is a list, so you can register several provider configs in
-one apply — typically one per environment (e.g. `dev` / `stg` / `prd`) or per
-region. Each entry becomes its own `nullplatform_provider_config` resource,
-with the entry's `nrn` used as the `for_each` key:
+The scope's settings are one `nullplatform_provider_config` of the
+scope-configuration schema per NRN — typically one per environment (e.g.
+`dev` / `stg` / `prd`) or per region. Each one carries the keys of the chosen
+`cloud_provider` (see [`specs/scope-configuration.json.tpl`](specs/scope-configuration.json.tpl)):
 
 ```hcl
-provider_configs = [
-  {
-    nrn                       = "organization=123:account=456:namespace=789:application=*"
-    aws_region                = "us-east-1"
-    aws_hosted_public_zone_id = "Z0100000000000000000A"
-  },
-  {
-    nrn                       = "organization=123:account=456:namespace=790:application=*"
-    aws_region                = "us-east-1"
-    aws_hosted_public_zone_id = "Z0200000000000000000B"
-  },
-]
+locals {
+  static_files_environments = {
+    "organization=123:account=456:namespace=789:application=*" = { aws_region = "us-east-1", aws_hosted_public_zone_id = "Z0100000000000000000A" }
+    "organization=123:account=456:namespace=790:application=*" = { aws_region = "us-east-1", aws_hosted_public_zone_id = "Z0200000000000000000B" }
+  }
+}
+
+resource "nullplatform_provider_config" "static_files_configuration" {
+  for_each = local.static_files_environments
+
+  nrn  = each.key
+  type = local.static_files.scope_configuration_specification_slug
+  attributes = jsonencode({
+    cloud_provider = "aws"
+    provider       = { aws_region = each.value.aws_region, aws_state_bucket = var.aws_state_bucket }
+    network        = { aws_network = "route53", aws_hosted_public_zone_id = each.value.aws_hosted_public_zone_id }
+    distribution   = { aws_distribution = "cloudfront" }
+  })
+}
 ```
 
-What varies between entries: `nrn`, `aws_region`, `aws_hosted_public_zone_id`.
-What does **not** vary (and therefore stays as a top-level variable):
-`aws_state_bucket` — the state bucket is a single bucket shared across every
-entry. Keep the `nrn` stable after the first apply; changing it forces
-OpenTofu to destroy and recreate the provider config.
+What varies between entries: the NRN, `aws_region`, `aws_hosted_public_zone_id`.
+What does **not** vary: `aws_state_bucket` — the state bucket is a single
+bucket shared across every entry. Keep the NRN stable after the first apply;
+changing it forces OpenTofu to destroy and recreate the provider config.
 
 ### Agent IAM permissions
 
