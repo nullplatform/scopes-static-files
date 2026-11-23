@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.3.0](https://github.com/nullplatform/scopes-static-files/compare/v4.2.0...v4.3.0) (2026-11-23)
+
+
+### Features
+
+* **package:** publish the scope as a global package ([49b2474](https://github.com/nullplatform/scopes-static-files/commit/49b2474aee820f6016f95c0dfe55a9a5540d6d97))
+* **package:** publish the scope as a global package ([a73dca5](https://github.com/nullplatform/scopes-static-files/commit/a73dca5689c733adf200bb83fba8e2535ae09c4a))
+
 ## [4.2.0](https://github.com/nullplatform/scopes-static-files/compare/v4.1.5...v4.2.0) (2026-11-16)
 
 
