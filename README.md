@@ -4,7 +4,7 @@ This module provides infrastructure-as-code for deploying static files applicati
 
 ## Table of Contents
 
-- [Installation](#installation)
+- [Install in your organization](#install-in-your-organization)
 - [Architecture Overview](#architecture-overview)
 - [Layer System](#layer-system)
 - [Variable Naming Conventions](#variable-naming-conventions)
@@ -17,46 +17,107 @@ This module provides infrastructure-as-code for deploying static files applicati
 
 ---
 
-## Installation
+## Install in your organization
 
-Register the scope definition in nullplatform using the Terraform module in `static-files/specs/install/`.
+The scope is published once as the package `np-static-files` (scope type "Static files"), visible to every organization. You do not copy its specs: you install the package and use it read-only.
 
-### Prerequisites
+How installing a package works, how it coexists with a copy you registered, how to upgrade, and when to fork instead are in the [package installation guide](https://docs.nullplatform.com/docs/packages/install); this section has what is specific to this scope.
 
-- [OpenTofu](https://opentofu.org/) or Terraform installed
-- A nullplatform API key
+Already registered a copy with tofu-modules' `scope_definition` (the former `static-files/specs/install/` examples)? It keeps working: it registered specs that stay in every release, and the package installs next to it, as the guide explains. If you sourced that directory as a module, pin its `?ref` to a release that still has it.
 
-### Steps
+Installing it touches the same three layers as registering a scope yourself, and only the nullplatform layer changes:
 
-1. Copy the example tfvars file and fill in your values:
+| Layer | What | Module |
+|---|---|---|
+| infrastructure (cloud credentials) | On AWS, the permissions role the agent assumes; on Azure, the Front Door profile, the optional WAF policy and the role assignments of the agent identity | [`static-files/specs/requirements/aws`](./static-files/specs/requirements/aws), [`static-files/specs/requirements/azure`](./static-files/specs/requirements/azure) |
+| nullplatform (nullplatform API key) | The installation of the package, the scope type, the NRN settings and the scope-configuration schema | tofu-modules' `scope_package_installation` |
+| bindings | The agent channel, the role under selector `static-files` in your IAM provider, and the scope's settings | tofu-modules' `scope_definition_agent_association`, your providers |
 
-```bash
-cd static-files/specs/install
-cp terraform.tfvars.example terraform.tfvars
-```
-
-2. Edit `terraform.tfvars` with your credentials and tags:
+Pick ONE release of this repository (the latest is on its [releases page](https://github.com/nullplatform/scopes-static-files/releases)) and use its version in every place below: the IAM role is the one the worker of that same release expects.
 
 ```hcl
-nrn        = "organization=<YOUR_ORG_ID>"
-np_api_key = "<YOUR_NULLPLATFORM_API_KEY>"
+# ── infrastructure layer ─────────────────────────────────────────────
+# AWS: the role the worker assumes (its README lists every input).
+module "static_files_requirements" {
+  source = "git::https://github.com/nullplatform/scopes-static-files.git//static-files/specs/requirements/aws?ref=vX.Y.Z"
 
-tags = {
-  "environment" = "<YOUR_ENVIRONMENT>"
+  cluster_name      = "my-cluster" # names the role nullplatform_my-cluster_static_scopes_role
+  agent_role_arn    = module.agent_iam.nullplatform_agent_role_arn
+  assets_bucket_arn = aws_s3_bucket.frontends.arn # emits the OAC bucket policy statement to merge
 }
+
+# The agent role must be allowed to assume it: add it to the assume_role_arns
+# of tofu-modules' infrastructure/aws/iam/agent.
+#   assume_role_arns = [..., module.static_files_requirements.permissions_role_arn]
+#
+# Azure: static-files/specs/requirements/azure instead (Front Door, WAF, role
+# assignments); its outputs feed the scope settings below.
+
+# ── nullplatform layer ───────────────────────────────────────────────
+module "static_files" {
+  source = "git::https://github.com/nullplatform/tofu-modules.git//nullplatform/scope_package_installation?ref=v9.16.0"
+
+  nrn             = var.nrn
+  np_api_key      = var.np_api_key # for the NRN settings patch (np nrn patch)
+  package_slug    = "np-static-files"
+  package_version = "X.Y.Z" # the same release, without the v
+
+  # Yours, created from this repository's templates at the same release:
+  service_spec_name                = "Static files" # the scope type developers pick
+  service_spec_description         = "Allows you to deploy static files applications"
+  service_path                     = "static-files"
+  repository_scope_template        = "https://raw.githubusercontent.com/nullplatform/scopes-static-files/refs/tags"
+  repository_scope_template_branch = "vX.Y.Z" # the same release
+  create_scope_configuration       = true
+  create_agent_channel             = false # the channel lives in your bindings layer, below
+}
+
+# ── bindings layer ───────────────────────────────────────────────────
+# static_files_requirements and static_files come from the other layers (remote state).
+module "static_files_channel" {
+  source = "git::https://github.com/nullplatform/tofu-modules.git//nullplatform/scope_definition_agent_association?ref=v9.16.0"
+
+  nrn                      = var.nrn
+  tags_selectors           = { cluster = "runtime" } # must match the agent's TAGS
+  scope_specification_id   = local.static_files.service_specification_id
+  scope_specification_slug = local.static_files.service_specification_slug
+  service_path             = "static-files"
+
+  # The channel template, from the same tag
+  repository_notification_channel        = "https://raw.githubusercontent.com/nullplatform/scopes-static-files/refs/tags"
+  repository_notification_channel_branch = "vX.Y.Z" # the same release
+
+  worker_orchestrator = true
+  package_slug        = local.static_files.package_slug
+}
+
+# The scope's settings, in a provider of the schema the installation created:
+# one per NRN (typically one per environment or region). cloud_provider picks
+# the layers; the keys of every layer and cloud are in
+# static-files/specs/scope-configuration.json.tpl. AWS shown; on Azure the
+# provider, network and distribution blocks take the azure_* keys and the
+# values come from the requirements/azure outputs.
+resource "nullplatform_provider_config" "static_files_configuration" {
+  nrn  = var.nrn
+  type = local.static_files.scope_configuration_specification_slug
+  attributes = jsonencode({
+    cloud_provider = "aws"
+    provider       = { aws_region = "us-east-1", aws_state_bucket = "my-tofu-state-bucket" }
+    network        = { aws_network = "route53", aws_hosted_public_zone_id = "Z0100000000000000000A" }
+    distribution   = { aws_distribution = "cloudfront" }
+  })
+}
+
+# One aws-iam-configuration per NRN and dimensions: add the entry to the list
+# your IAM provider already has.
+#   { selector = "static-files", arn = local.static_files_requirements.permissions_role_arn }
 ```
 
-The scope definition values (repo, actions, name) are hardcoded as locals in `main.tf` — no need to configure them.
+The scope assumes the role it finds under selector `static-files` in the IAM provider closest to its NRN. To upgrade, move the release in every layer: `ref` of the requirements module, `package_version` and `repository_scope_template_branch` of the installation and `repository_notification_channel_branch` of the channel. See tofu-modules' [`scope_package_installation`](https://github.com/nullplatform/tofu-modules/tree/main/nullplatform/scope_package_installation) for its inputs and outputs.
 
-3. Run:
+Prerequisites: an agent whose `TAGS` match the channel's `tags_selectors`, with `np-static-files` in its `worker_orchestrated_packages` and `public.ecr.aws/nullplatform/*` in `worker.allowedRegistries`, and the cloud resources of the scope README's [Pre-requisites](./static-files/README.md#pre-requisites) (state bucket, hosted zone, certificate, assets bucket).
 
-```bash
-tofu init
-tofu plan
-tofu apply
-```
-
-This registers the scope type, service specification, notification channel, and all action specs in your nullplatform organization.
+Every release publishes the new revision from this repository ([`static-files/publish`](./static-files/publish), a stack on tofu-modules' `scope_package_publish`, applied by the `publish-package` job of the release workflow).
 
 ---
 
